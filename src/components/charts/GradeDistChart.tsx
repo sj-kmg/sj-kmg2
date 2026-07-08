@@ -1,23 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import { GRADES } from '@/lib/risk';
-import type { RiskRow } from '@/lib/types';
+import { gradesOf } from '@/lib/risk';
+import type { RiskRow, GradeSystem } from '@/lib/types';
 
 const W = 560;
 const H = 260;
 const PAD = { top: 24, right: 12, bottom: 44, left: 40 };
 
 /** 위험등급 분포 (현재 위험성 기준) */
-export default function GradeDistChart({ risks }: { risks: RiskRow[] }) {
+export default function GradeDistChart({ risks, system }: { risks: RiskRow[]; system: GradeSystem }) {
   const [hover, setHover] = useState<number | null>(null);
 
-  const counts = GRADES.map((g) => risks.filter((r) => r.grade === g.key).length);
+  const grades = gradesOf(system);
+  const counts = grades.map((g) => risks.filter((r) => r.grade === g.key).length);
   const maxCount = Math.max(...counts, 1);
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
-  const band = plotW / GRADES.length;
-  const barW = Math.min(band * 0.62, 64);
+  const band = plotW / grades.length;
+  const barW = Math.min(band * 0.62, 72);
 
   const ticks = niceTicks(maxCount);
 
@@ -39,7 +40,7 @@ export default function GradeDistChart({ risks }: { risks: RiskRow[] }) {
         {/* 기준선 */}
         <line x1={PAD.left} x2={W - PAD.right} y1={PAD.top + plotH} y2={PAD.top + plotH} stroke="#c3c2b7" strokeWidth={1} />
 
-        {GRADES.map((g, i) => {
+        {grades.map((g, i) => {
           const h = (counts[i] / ticks[ticks.length - 1]) * plotH;
           const x = PAD.left + band * i + (band - barW) / 2;
           const y = PAD.top + plotH - h;
@@ -89,13 +90,13 @@ export default function GradeDistChart({ risks }: { risks: RiskRow[] }) {
         <div
           className="pointer-events-none absolute rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-md"
           style={{
-            left: `${((PAD.left + (plotW / GRADES.length) * (hover + 0.5)) / W) * 100}%`,
+            left: `${((PAD.left + (plotW / grades.length) * (hover + 0.5)) / W) * 100}%`,
             top: 0,
             transform: 'translateX(-50%)',
           }}
         >
           <p className="font-bold text-slate-800">
-            {GRADES[hover].label} (R {GRADES[hover].range})
+            {grades[hover].label} (R {grades[hover].range})
           </p>
           <p className="text-slate-600">
             {counts[hover]}건
@@ -108,7 +109,7 @@ export default function GradeDistChart({ risks }: { risks: RiskRow[] }) {
 }
 
 function niceTicks(max: number): number[] {
-  const step = max <= 5 ? 1 : max <= 20 ? 5 : max <= 60 ? 10 : max <= 150 ? 25 : 50;
+  const step = max <= 5 ? 1 : max <= 20 ? 5 : max <= 60 ? 10 : max <= 150 ? 25 : max <= 400 ? 50 : 100;
   const top = Math.ceil(max / step) * step;
   const ticks: number[] = [];
   for (let t = 0; t <= top; t += step) ticks.push(t);

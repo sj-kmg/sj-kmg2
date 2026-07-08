@@ -1,7 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import type { TaskRow } from '@/lib/types';
+
+export interface RiskAggItem {
+  name: string;
+  count: number;
+  avgR: number | null;
+  maxR: number | null;
+  avgR2: number | null;
+}
 
 const W = 560;
 const ROW_H = 26;
@@ -11,11 +18,11 @@ const R_MAX = 20;
 const AVG_COLOR = '#2a78d6';
 const MAX_COLOR = '#104281';
 
-/** 작업별 평균·최고 위험성 비교 (가로 막대 + 최고값 눈금 마커) */
-export default function TaskRiskChart({ tasks }: { tasks: TaskRow[] }) {
+/** 항목별 평균·최고 위험성 비교 (가로 막대 + 최고값 눈금 마커) */
+export default function TaskRiskChart({ items }: { items: RiskAggItem[] }) {
   const [hover, setHover] = useState<number | null>(null);
 
-  const sorted = [...tasks]
+  const sorted = [...items]
     .filter((t) => t.avgR !== null)
     .sort((a, b) => (b.avgR ?? 0) - (a.avgR ?? 0));
   const H = PAD.top + PAD.bottom + sorted.length * ROW_H;
@@ -34,7 +41,7 @@ export default function TaskRiskChart({ tasks }: { tasks: TaskRow[] }) {
           최고 위험성
         </span>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="작업별 평균 및 최고 위험성 비교">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="항목별 평균 및 최고 위험성 비교">
         {[0, 5, 10, 15, 20].map((t) => (
           <g key={t}>
             <line x1={x(t)} x2={x(t)} y1={PAD.top} y2={H - PAD.bottom} stroke={t === 0 ? '#c3c2b7' : '#e1e0d9'} strokeWidth={1} />
@@ -51,7 +58,7 @@ export default function TaskRiskChart({ tasks }: { tasks: TaskRow[] }) {
           const yc = PAD.top + ROW_H * i + ROW_H / 2;
           const barH = 12;
           return (
-            <g key={t.id} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
+            <g key={`${t.name}-${i}`} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
               <rect x={0} y={PAD.top + ROW_H * i} width={W} height={ROW_H} fill={hover === i ? '#f1f5f9' : 'transparent'} />
               <text x={PAD.left - 8} y={yc + 4} textAnchor="end" fontSize={11} fill="#52514e">
                 {t.name.length > 14 ? `${t.name.slice(0, 13)}…` : t.name}

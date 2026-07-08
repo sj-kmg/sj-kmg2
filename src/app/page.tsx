@@ -9,8 +9,8 @@ import RiskTable from '@/components/RiskTable';
 import TaskCards from '@/components/TaskCards';
 import Ledgers from '@/components/Ledgers';
 
-const TABS = ['대시보드', '위험성평가', '작업목록', '관리대장'] as const;
-type Tab = (typeof TABS)[number];
+const ALL_TABS = ['대시보드', '위험성평가', '작업목록', '관리대장'] as const;
+type Tab = (typeof ALL_TABS)[number];
 
 export default function Page() {
   const [data, setData] = useState<SafetyData | null>(null);
@@ -29,6 +29,14 @@ export default function Page() {
     setReplacing(false);
     setTab('대시보드');
   };
+
+  // 관리대장(교육·점검·아차사고·일정) 데이터가 없는 양식이면 해당 탭을 숨긴다
+  const tabs = ALL_TABS.filter(
+    (t) =>
+      t !== '관리대장' ||
+      !data ||
+      data.edu.length + data.insp.length + data.incidents.length + data.schedule.length > 0,
+  );
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -70,7 +78,7 @@ export default function Page() {
         {data && !replacing && (
           <nav className="mx-auto max-w-7xl px-4">
             <div className="flex gap-1">
-              {TABS.map((t) => (
+              {tabs.map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}

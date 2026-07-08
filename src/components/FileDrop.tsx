@@ -59,7 +59,9 @@ export default function FileDrop({ onLoaded }: { onLoaded: (data: SafetyData) =>
         <p className="mt-3 font-semibold text-slate-800">
           {busy ? '파일을 읽는 중…' : '안전관리 데이터 엑셀 파일을 여기에 끌어다 놓거나 클릭해서 선택'}
         </p>
-        <p className="mt-1 text-sm text-slate-500">safety-data.xlsx (위험성평가·교육·점검·아차사고·일정)</p>
+        <p className="mt-1 text-sm text-slate-500">
+          지원 양식: 표준 데이터 파일(safety-data.xlsx) 또는 통합 위험성평가 관리대장
+        </p>
         <input
           ref={inputRef}
           type="file"

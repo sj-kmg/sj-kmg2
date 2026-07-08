@@ -1,7 +1,13 @@
+export type GradeSystem = 'korean6' | 'letter4';
+
 export interface RiskRow {
   id: string;
   taskId: string;
   taskName: string;
+  /** 회사(발주처) — 통합 관리대장 양식에만 존재 */
+  company: string;
+  /** 설비/공정 — 통합 관리대장 양식에만 존재 */
+  facility: string;
   stage: string;
   group: string;
   sub: string;
@@ -21,12 +27,15 @@ export interface RiskRow {
   due: string;
   done: string;
   note: string;
+  /** 평가일/조치일자 */
+  date: string;
 }
 
 export interface TaskRow {
   id: string;
   name: string;
   desc: string;
+  company: string;
   area: string;
   owner: string;
   lastDate: string;
@@ -96,6 +105,10 @@ export interface SafetyData {
   insp: InspRow[];
   incidents: IncidentRow[];
   schedule: ScheduleRow[];
+  /** 위험등급 체계: korean6(허용불가~무시가능) | letter4(A~D) */
+  gradeSystem: GradeSystem;
+  /** 데이터 양식: standard(safety-data.xlsx) | ledger(통합 관리대장) */
+  format: 'standard' | 'ledger';
   fileName: string;
   loadedAt: string;
 }

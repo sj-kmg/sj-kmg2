@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import type {
-  SafetyData, RiskRow, TaskRow, EduRow, InspRow, IncidentRow, ScheduleRow,
+  SafetyData, RiskRow, TaskRow, EduRow, InspRow, IncidentRow, ScheduleRow, GradeSystem,
 } from './types';
 import { gradeOf } from './risk';
 
@@ -37,17 +37,22 @@ function dateStr(v: Cell): string {
   return String(v).trim();
 }
 
-function sheetRows(wb: XLSX.WorkBook, name: string, required = false): Row[] {
+function avg(xs: number[]): number | null {
+  return xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10 : null;
+}
+
+/* ============================================================
+ * 양식 ① standard — safety-data.xlsx (평가ID/작업ID 열, 1행 헤더)
+ * ============================================================ */
+
+function sheetRows(wb: XLSX.WorkBook, name: string): Row[] {
   const ws = wb.Sheets[name];
-  if (!ws) {
-    if (required) throw new Error(`필수 시트 '${name}'을(를) 찾을 수 없습니다. 파일 양식을 확인해 주세요.`);
-    return [];
-  }
+  if (!ws) return [];
   return XLSX.utils.sheet_to_json<Row>(ws, { defval: null });
 }
 
-function parseRisks(wb: XLSX.WorkBook): RiskRow[] {
-  return sheetRows(wb, '위험성평가', true)
+function parseStandardRisks(wb: XLSX.WorkBook): RiskRow[] {
+  return sheetRows(wb, '위험성평가')
     .filter((r) => str(r['평가ID']) !== '')
     .map((r) => {
       const f = num(r['가능성(F)']);
@@ -61,6 +66,8 @@ function parseRisks(wb: XLSX.WorkBook): RiskRow[] {
         id: str(r['평가ID']),
         taskId: str(r['작업ID']),
         taskName: str(r['작업명']),
+        company: '',
+        facility: '',
         stage: str(r['작업단계']),
         group: str(r['작업절차']),
         sub: str(r['세부작업']),
@@ -68,34 +75,31 @@ function parseRisks(wb: XLSX.WorkBook): RiskRow[] {
         dtype: str(r['재해형태']),
         measure: str(r['현재안전보건조치']),
         f, s, r: rv,
-        grade: str(r['위험등급']) || gradeOf(rv)?.key || '',
+        grade: str(r['위험등급']) || gradeOf(rv, 'korean6')?.key || '',
         improvement: str(r['개선대책']),
         f2, s2, r2,
-        grade2: str(r['개선후위험등급']) || gradeOf(r2)?.key || '',
+        grade2: str(r['개선후위험등급']) || gradeOf(r2, 'korean6')?.key || '',
         status: str(r['개선상태']),
         due: dateStr(r['개선기한']),
         done: dateStr(r['개선완료일']),
         note: str(r['비고']),
+        date: '',
       };
     });
 }
 
-function parseTasks(wb: XLSX.WorkBook, risks: RiskRow[]): TaskRow[] {
-  return sheetRows(wb, '작업목록', true)
+function parseStandardTasks(wb: XLSX.WorkBook, risks: RiskRow[]): TaskRow[] {
+  return sheetRows(wb, '작업목록')
     .filter((r) => str(r['작업ID']) !== '')
     .map((r) => {
       const id = str(r['작업ID']);
-      const mine = risks.filter((k) => k.taskId === id && k.r !== null);
-      const rs = mine.map((k) => k.r as number);
-      const r2s = risks
-        .filter((k) => k.taskId === id && k.r2 !== null)
-        .map((k) => k.r2 as number);
-      const avg = (xs: number[]) =>
-        xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10 : null;
+      const rs = risks.filter((k) => k.taskId === id && k.r !== null).map((k) => k.r as number);
+      const r2s = risks.filter((k) => k.taskId === id && k.r2 !== null).map((k) => k.r2 as number);
       return {
         id,
         name: str(r['작업명']),
         desc: str(r['작업내용']),
+        company: '',
         area: str(r['작업지역(공정)']),
         owner: str(r['담당자']),
         lastDate: dateStr(r['최근평가일']),
@@ -185,22 +189,258 @@ function parseMeta(wb: XLSX.WorkBook): Record<string, string> {
   return meta;
 }
 
-/** 브라우저에서 읽은 엑셀 파일(ArrayBuffer)을 대시보드 데이터로 변환한다. */
-export function parseWorkbook(buffer: ArrayBuffer, fileName: string): SafetyData {
-  const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
-  const risks = parseRisks(wb);
-  if (risks.length === 0) {
-    throw new Error("'위험성평가' 시트에 데이터가 없습니다. 파일을 확인해 주세요.");
-  }
+function parseStandard(wb: XLSX.WorkBook, fileName: string): SafetyData {
+  const risks = parseStandardRisks(wb);
   return {
     meta: parseMeta(wb),
     risks,
-    tasks: parseTasks(wb, risks),
+    tasks: parseStandardTasks(wb, risks),
     edu: parseEdu(wb),
     insp: parseInsp(wb),
     incidents: parseIncidents(wb),
     schedule: parseSchedule(wb),
+    gradeSystem: 'korean6',
+    format: 'standard',
     fileName,
     loadedAt: new Date().toISOString(),
   };
+}
+
+/* ============================================================
+ * 양식 ② ledger — 통합 위험성평가 관리대장
+ *   마스터 표: '회사(발주처)' 헤더가 있는 시트 (2행 헤더, 데이터는 그 아래)
+ *   회사별 뷰 시트(No/작업단계/... + ▣ 구분행)는 마스터의 부분집합이므로
+ *   마스터가 있으면 마스터만 읽는다. 마스터가 없으면 뷰 시트를 읽는다.
+ * ============================================================ */
+
+type Grid = Cell[][];
+
+function grid(ws: XLSX.WorkSheet): Grid {
+  return XLSX.utils.sheet_to_json<Cell[]>(ws, { header: 1, defval: null });
+}
+
+function findLedgerMaster(wb: XLSX.WorkBook): { g: Grid; headerRow: number } | null {
+  for (const name of wb.SheetNames) {
+    const g = grid(wb.Sheets[name]);
+    for (let i = 0; i < Math.min(g.length, 5); i++) {
+      if ((g[i] ?? []).some((c) => str(c) === '회사(발주처)')) {
+        return { g, headerRow: i };
+      }
+    }
+  }
+  return null;
+}
+
+function colIndex(header: Cell[], match: (s: string) => boolean): number {
+  return header.findIndex((c) => c !== null && match(str(c)));
+}
+
+function parseLedgerMaster(g: Grid, headerRow: number): RiskRow[] {
+  const header = g[headerRow].map((c) => str(c));
+  const iCompany = colIndex(g[headerRow], (s) => s === '회사(발주처)');
+  const iFacility = colIndex(g[headerRow], (s) => s.startsWith('설비'));
+  const iWork = colIndex(g[headerRow], (s) => s === '작업명');
+  const iStage = colIndex(g[headerRow], (s) => s === '작업단계');
+  const iHazard = colIndex(g[headerRow], (s) => s.startsWith('유해'));
+  const iDtype = colIndex(g[headerRow], (s) => s === '재해형태');
+  const iMeasure = colIndex(g[headerRow], (s) => s.includes('안전보건조치'));
+  const iPre = colIndex(g[headerRow], (s) => s.startsWith('개선 전') || s.startsWith('개선전'));
+  const iImp = colIndex(g[headerRow], (s) => s.includes('대책'));
+  const iPost = colIndex(g[headerRow], (s) => s.startsWith('개선 후') || s.startsWith('개선후'));
+  const iDate = colIndex(g[headerRow], (s) => s === '평가일' || s === '조치일자' || s === '평가 일자');
+  if (iCompany < 0 || iHazard < 0 || iPre < 0) return [];
+
+  const rows: RiskRow[] = [];
+  // 헤더 2행(빈도/강도/위험성/등급 소제목) 다음부터 데이터
+  for (let i = headerRow + 2; i < g.length; i++) {
+    const row = g[i] ?? [];
+    const company = str(row[iCompany]);
+    const hazard = str(row[iHazard]);
+    const f = num(row[iPre]);
+    if (!company && !hazard && f === null) continue; // 빈 행/구분 행
+    const s = num(row[iPre + 1]);
+    const rv = f !== null && s !== null ? f * s : num(row[iPre + 2]);
+    const f2 = iPost >= 0 ? num(row[iPost]) : null;
+    const s2 = iPost >= 0 ? num(row[iPost + 1]) : null;
+    const r2 = f2 !== null && s2 !== null ? f2 * s2 : iPost >= 0 ? num(row[iPost + 2]) : null;
+    const improvement = iImp >= 0 ? str(row[iImp]) : '';
+    rows.push({
+      id: `L${String(rows.length + 1).padStart(3, '0')}`,
+      taskId: '',
+      taskName: iWork >= 0 ? str(row[iWork]) : '',
+      company,
+      facility: iFacility >= 0 ? str(row[iFacility]) : '',
+      stage: iStage >= 0 ? str(row[iStage]) : '',
+      group: '',
+      sub: '',
+      hazard,
+      dtype: iDtype >= 0 ? str(row[iDtype]) : '',
+      measure: iMeasure >= 0 ? str(row[iMeasure]) : '',
+      f, s, r: rv,
+      grade: str(row[iPre + 3]) || gradeOf(rv, 'letter4')?.key || '',
+      improvement,
+      f2, s2, r2,
+      grade2: (iPost >= 0 ? str(row[iPost + 3]) : '') || gradeOf(r2, 'letter4')?.key || '',
+      status: improvement ? '진행중' : '해당없음',
+      due: '',
+      done: '',
+      note: '',
+      date: iDate >= 0 ? dateStr(row[iDate]) : '',
+    });
+  }
+  void header;
+  return rows;
+}
+
+/** 회사별 뷰 시트: 1행 제목 '위험성평가 — 회사명', 2행 헤더(No/작업단계/...), ▣ 구분행 */
+function parseLedgerViews(wb: XLSX.WorkBook): RiskRow[] {
+  const rows: RiskRow[] = [];
+  for (const name of wb.SheetNames) {
+    const g = grid(wb.Sheets[name]);
+    if (g.length < 3) continue;
+    const h = (g[1] ?? []).map((c) => str(c));
+    if (h[0] !== 'No' || !h.some((s) => s.startsWith('유해'))) continue;
+    const title = str(g[0]?.[0]);
+    const company = title.includes('—') ? title.split('—')[1].trim() : title.replace('위험성평가', '').trim();
+    let facility = '';
+    let work = '';
+    let date = '';
+    for (let i = 2; i < g.length; i++) {
+      const row = g[i] ?? [];
+      const a = str(row[0]);
+      if (a.startsWith('▣')) {
+        const fm = a.match(/설비\/?공정\s*:\s*([^|]+)/);
+        const wm = a.match(/작업\s*:\s*([^|]+)/);
+        const dm = a.match(/평가일\s*:\s*([^|]+)/);
+        facility = fm ? fm[1].trim() : facility;
+        work = wm ? wm[1].trim() : work;
+        date = dm ? dm[1].trim() : date;
+        continue;
+      }
+      const f = num(row[5]);
+      const hazard = str(row[2]);
+      if (!hazard && f === null) continue;
+      const s = num(row[6]);
+      const rv = f !== null && s !== null ? f * s : num(row[7]);
+      const f2 = num(row[10]);
+      const s2 = num(row[11]);
+      const r2 = f2 !== null && s2 !== null ? f2 * s2 : num(row[12]);
+      const improvement = str(row[9]);
+      rows.push({
+        id: `L${String(rows.length + 1).padStart(3, '0')}`,
+        taskId: '',
+        taskName: work,
+        company,
+        facility,
+        stage: str(row[1]),
+        group: '',
+        sub: '',
+        hazard,
+        dtype: str(row[3]),
+        measure: str(row[4]),
+        f, s, r: rv,
+        grade: str(row[8]) || gradeOf(rv, 'letter4')?.key || '',
+        improvement,
+        f2, s2, r2,
+        grade2: str(row[13]) || gradeOf(r2, 'letter4')?.key || '',
+        status: improvement ? '진행중' : '해당없음',
+        due: '',
+        done: '',
+        note: '',
+        date,
+      });
+    }
+  }
+  return rows;
+}
+
+function synthesizeTasks(risks: RiskRow[]): TaskRow[] {
+  const keys: string[] = [];
+  const map = new Map<string, RiskRow[]>();
+  for (const r of risks) {
+    const key = `${r.company}|${r.taskName}`;
+    if (!map.has(key)) {
+      map.set(key, []);
+      keys.push(key);
+    }
+    map.get(key)!.push(r);
+  }
+  return keys.map((key, idx) => {
+    const items = map.get(key)!;
+    const id = `T${String(idx + 1).padStart(2, '0')}`;
+    items.forEach((r) => (r.taskId = id));
+    const rs = items.filter((r) => r.r !== null).map((r) => r.r as number);
+    const r2s = items.filter((r) => r.r2 !== null).map((r) => r.r2 as number);
+    const areas = [...new Set(items.map((r) => r.facility).filter(Boolean))];
+    const dates = items.map((r) => r.date).filter(Boolean).sort();
+    return {
+      id,
+      name: items[0].taskName || '(작업명 없음)',
+      desc: '',
+      company: items[0].company,
+      area: areas.join(', '),
+      owner: '',
+      lastDate: dates[dates.length - 1] ?? '',
+      evaluator: '',
+      checker: '',
+      count: items.length,
+      avgR: avg(rs),
+      maxR: rs.length ? Math.max(...rs) : null,
+      avgR2: avg(r2s),
+    };
+  });
+}
+
+function parseLedger(wb: XLSX.WorkBook, fileName: string): SafetyData | null {
+  const master = findLedgerMaster(wb);
+  const risks = master ? parseLedgerMaster(master.g, master.headerRow) : parseLedgerViews(wb);
+  if (risks.length === 0) return null;
+  const years = [...new Set(risks.map((r) => r.date.slice(0, 4)).filter((y) => /^\d{4}$/.test(y)))].sort();
+  const meta: Record<string, string> = {
+    회사명: '㈜신정개발',
+    문서명: '통합 위험성평가 관리대장',
+  };
+  if (years.length) meta['평가연도'] = years[years.length - 1];
+  return {
+    meta,
+    risks,
+    tasks: synthesizeTasks(risks),
+    edu: [],
+    insp: [],
+    incidents: [],
+    schedule: [],
+    gradeSystem: 'letter4',
+    format: 'ledger',
+    fileName,
+    loadedAt: new Date().toISOString(),
+  };
+}
+
+/* ============================================================ */
+
+function isStandard(wb: XLSX.WorkBook): boolean {
+  const ws = wb.Sheets['위험성평가'];
+  if (!ws) return false;
+  const g = grid(ws);
+  return (g[0] ?? []).some((c) => str(c) === '평가ID');
+}
+
+/** 브라우저에서 읽은 엑셀 파일(ArrayBuffer)을 대시보드 데이터로 변환한다. */
+export function parseWorkbook(buffer: ArrayBuffer, fileName: string): SafetyData {
+  const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
+
+  if (isStandard(wb)) {
+    const data = parseStandard(wb, fileName);
+    if (data.risks.length === 0) {
+      throw new Error("'위험성평가' 시트에 데이터가 없습니다. 파일을 확인해 주세요.");
+    }
+    return data;
+  }
+
+  const ledger = parseLedger(wb, fileName);
+  if (ledger) return ledger;
+
+  throw new Error(
+    '위험성평가 데이터를 찾을 수 없습니다. 지원 양식: ① 표준 데이터 파일(위험성평가 시트에 평가ID 열) ② 통합 관리대장(회사(발주처) 열이 있는 표)',
+  );
 }

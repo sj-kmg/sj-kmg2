@@ -18,7 +18,11 @@ export function loadData(): SafetyData | null {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as SafetyData;
+    const data = JSON.parse(raw) as SafetyData;
+    // 구버전 저장 데이터 호환
+    if (!data.gradeSystem) data.gradeSystem = 'korean6';
+    if (!data.format) data.format = 'standard';
+    return data;
   } catch {
     return null;
   }
