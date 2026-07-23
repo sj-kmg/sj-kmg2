@@ -3,6 +3,8 @@
 import type { SafetyData } from '@/lib/types';
 import GradeDistChart from './charts/GradeDistChart';
 import CalendarPanel from './CalendarPanel';
+import WeatherPanel from './WeatherPanel';
+import NoticesPanel from './NoticesPanel';
 
 /**
  * 메인 화면 — 플랫폼형 카드 그리드.
@@ -16,12 +18,12 @@ export default function MainHome({ data }: { data: SafetyData | null }) {
         <EmptyBox label="공지사항이 표시될 영역입니다" />
       </Panel>
       <Panel title="알림메세지" icon="🔔" className="col-span-12 lg:col-span-6">
-        <EmptyBox label="알림메세지가 표시될 영역입니다" />
+        <NoticesPanel />
       </Panel>
 
       {/* 2행: 날씨 · 프로젝트 · 공종 */}
       <Panel title="오늘의 날씨" icon="⛅" className="col-span-12 md:col-span-6 xl:col-span-4">
-        <EmptyBox label="현장 날씨·기온·풍속 (연동 예정)" />
+        <WeatherPanel />
       </Panel>
       <Panel title="프로젝트" icon="🏗️" className="col-span-12 md:col-span-6 xl:col-span-4">
         <EmptyBox label="프로젝트 현황이 표시될 영역입니다" />
