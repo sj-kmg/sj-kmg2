@@ -425,9 +425,20 @@ function isStandard(wb: XLSX.WorkBook): boolean {
   return (g[0] ?? []).some((c) => str(c) === '평가ID');
 }
 
-/** 브라우저에서 읽은 엑셀 파일(ArrayBuffer)을 대시보드 데이터로 변환한다. */
+/** CSV 바이트를 문자열로 디코딩 — UTF-8 우선, 실패 시 EUC-KR(한국어 엑셀 기본 인코딩) */
+function decodeCsv(buffer: ArrayBuffer): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+  } catch {
+    return new TextDecoder('euc-kr').decode(buffer);
+  }
+}
+
+/** 브라우저에서 읽은 파일(엑셀 xlsx/xls/xlsm/xlsb 또는 CSV)을 대시보드 데이터로 변환한다. */
 export function parseWorkbook(buffer: ArrayBuffer, fileName: string): SafetyData {
-  const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
+  const wb = /\.csv$/i.test(fileName)
+    ? XLSX.read(decodeCsv(buffer), { type: 'string', cellDates: true })
+    : XLSX.read(buffer, { type: 'array', cellDates: true });
 
   if (isStandard(wb)) {
     const data = parseStandard(wb, fileName);

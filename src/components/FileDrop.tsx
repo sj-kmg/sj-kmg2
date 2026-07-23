@@ -13,8 +13,8 @@ export default function FileDrop({ onLoaded }: { onLoaded: (data: SafetyData) =>
   const handleFile = useCallback(
     async (file: File) => {
       setError('');
-      if (!/\.(xlsx|xlsm)$/i.test(file.name)) {
-        setError('엑셀 파일(.xlsx)만 불러올 수 있습니다.');
+      if (!/\.(xlsx|xlsm|xlsb|xls|csv)$/i.test(file.name)) {
+        setError('지원하지 않는 파일 형식입니다. 엑셀(xlsx·xls·xlsm·xlsb) 또는 CSV 파일을 선택해 주세요.');
         return;
       }
       setBusy(true);
@@ -57,15 +57,15 @@ export default function FileDrop({ onLoaded }: { onLoaded: (data: SafetyData) =>
       >
         <div className="text-4xl">📂</div>
         <p className="mt-3 font-semibold text-slate-800">
-          {busy ? '파일을 읽는 중…' : '안전관리 데이터 엑셀 파일을 여기에 끌어다 놓거나 클릭해서 선택'}
+          {busy ? '파일을 읽는 중…' : '안전관리 데이터 파일을 여기에 끌어다 놓거나 클릭해서 선택'}
         </p>
         <p className="mt-1 text-sm text-slate-500">
-          지원 양식: 표준 데이터 파일(safety-data.xlsx) 또는 통합 위험성평가 관리대장
+          지원 형식: 엑셀(xlsx·xls·xlsm·xlsb)·CSV — 표준 데이터 파일 또는 통합 위험성평가 관리대장
         </p>
         <input
           ref={inputRef}
           type="file"
-          accept=".xlsx,.xlsm"
+          accept=".xlsx,.xlsm,.xlsb,.xls,.csv"
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
