@@ -4,19 +4,31 @@ import { useEffect, useMemo, useState } from 'react';
 import type { SafetyData } from '@/lib/types';
 import { useSyncedLog, modeBadge } from '@/lib/useSyncedLog';
 
+/** 인력 1명 = 1행 (구분번호는 행 순서로 자동 부여) */
+interface LaborRow {
+  category: string; // 구분
+  name: string; // 인력이름
+  workType: string; // 작업구분
+  hours: string; // 작업시간
+}
+
 interface WorkforceEntry {
   id: string;
   site: string; // 현장명
   date: string; // 작업일시(날짜)
   manager: string; // 현장소장
   staff: string; // 직원
-  laborNames: string; // 인력 이름
-  laborCount: string; // 인력 인원수
-  workHours: string; // 작업시간
+  laborRows?: LaborRow[]; // 인력 목록
+  laborNames?: string; // (구버전 기록 호환)
+  laborCount?: string; // (구버전 기록 호환)
+  workHours: string; // 작업시간(현장 전체)
   work: string; // 작업내용
   equipment: string; // 장비현황
   createdAt: string;
 }
+
+const LABOR_CATEGORIES = ['공영인력', '개미인력', '여수인력', '여천인력', '당근인력'];
+const EMPTY_ROW: LaborRow = { category: '', name: '', workType: '', hours: '' };
 
 function todayLocal(): string {
   const d = new Date();
@@ -24,13 +36,16 @@ function todayLocal(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+function laborCountOf(e: WorkforceEntry): number {
+  if (e.laborRows && e.laborRows.length > 0) return e.laborRows.length;
+  return Number(e.laborCount) || 0;
+}
+
 const EMPTY = {
   site: '',
   date: '',
   manager: '',
   staff: '',
-  laborNames: '',
-  laborCount: '',
   workHours: '',
   work: '',
   equipment: '',
@@ -39,6 +54,7 @@ const EMPTY = {
 export default function WorkforceLog({ data }: { data: SafetyData | null }) {
   const { entries, mode, add, remove } = useSyncedLog<WorkforceEntry>('workforce', 'sj-workforce:v1');
   const [form, setForm] = useState({ ...EMPTY });
+  const [laborRows, setLaborRows] = useState<LaborRow[]>([{ ...EMPTY_ROW }]);
   const [filterSite, setFilterSite] = useState('');
   const [saved, setSaved] = useState(false);
 
@@ -62,25 +78,28 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
     [entries, filterSite],
   );
 
-  const totalWorkers = useMemo(
-    () => shown.reduce((sum, e) => sum + (Number(e.laborCount) || 0), 0),
-    [shown],
-  );
+  const totalWorkers = useMemo(() => shown.reduce((sum, e) => sum + laborCountOf(e), 0), [shown]);
 
   const set = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  const setRow = (i: number, k: keyof LaborRow, v: string) =>
+    setLaborRows((rows) => rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.site.trim() || !form.date) return;
+    const rows = laborRows.filter((r) => r.category || r.name.trim() || r.workType.trim() || r.hours.trim());
     const entry: WorkforceEntry = {
       id: `WF-${Date.now()}`,
       ...form,
       site: form.site.trim(),
+      laborRows: rows,
       createdAt: new Date().toISOString(),
     };
     if (!(await add(entry))) return;
     setForm({ ...EMPTY, date: form.date, site: form.site });
+    setLaborRows([{ ...EMPTY_ROW }]);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -90,13 +109,22 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
     void remove(id);
   };
 
+  const laborSummary = (e: WorkforceEntry): string => {
+    if (e.laborRows && e.laborRows.length > 0) {
+      return e.laborRows
+        .map((r, i) => `${i + 1}. ${[r.category, r.name, r.workType, r.hours].filter(Boolean).join(' ')}`)
+        .join(' / ');
+    }
+    return [e.laborNames, e.laborCount && `${e.laborCount}명`].filter(Boolean).join(' · ');
+  };
+
   const exportCsv = () => {
-    const head = ['작업일시', '현장명', '현장소장', '직원', '인력명단', '인력인원', '작업시간', '작업내용', '장비현황'];
+    const head = ['작업일시', '현장명', '현장소장', '직원', '작업시간', '작업내용', '장비현황', '인력인원', '인력내역'];
     const esc = (s: string) => `"${(s ?? '').replace(/"/g, '""')}"`;
     const rows = [...entries]
       .sort((a, b) => a.date.localeCompare(b.date))
       .map((e) =>
-        [e.date, e.site, e.manager, e.staff, e.laborNames, e.laborCount, e.workHours, e.work, e.equipment]
+        [e.date, e.site, e.manager, e.staff, e.workHours, e.work, e.equipment, String(laborCountOf(e)), laborSummary(e)]
           .map(esc)
           .join(','),
       );
@@ -112,6 +140,8 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
   const badge = modeBadge(mode);
   const input =
     'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-[#1f3864] focus:outline-none';
+  const rowInput =
+    'w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 focus:border-[#1f3864] focus:outline-none';
   const label = 'mb-1 block text-xs font-semibold text-slate-500';
 
   return (
@@ -148,14 +178,79 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
             <label className={label} htmlFor="wf-staff">직원</label>
             <input id="wf-staff" placeholder="예: 김민규, 박OO (2명)" value={form.staff} onChange={set('staff')} className={input} />
           </div>
-          <div>
-            <label className={label} htmlFor="wf-labor-names">인력 (이름)</label>
-            <input id="wf-labor-names" placeholder="예: 이OO, 최OO 외" value={form.laborNames} onChange={set('laborNames')} className={input} />
+
+          {/* 인력 — 행 추가 방식 */}
+          <div className="col-span-2">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500">인력 ({laborRows.length}명)</span>
+              <button
+                type="button"
+                onClick={() => setLaborRows((rows) => [...rows, { ...EMPTY_ROW }])}
+                className="rounded-lg border border-[#1f3864] px-2.5 py-1 text-xs font-bold text-[#1f3864] hover:bg-[#1f3864] hover:text-white"
+              >
+                ＋ 인력 추가
+              </button>
+            </div>
+            <div className="space-y-1.5">
+              {/* 열 제목 */}
+              <div className="grid grid-cols-[2rem_5.5rem_1fr_1fr_5.5rem_1.5rem] items-center gap-1.5 px-0.5 text-[10px] font-semibold text-slate-400">
+                <span className="text-center">번호</span>
+                <span>구분</span>
+                <span>인력이름</span>
+                <span>작업구분</span>
+                <span>작업시간</span>
+                <span />
+              </div>
+              {laborRows.map((r, i) => (
+                <div key={i} className="grid grid-cols-[2rem_5.5rem_1fr_1fr_5.5rem_1.5rem] items-center gap-1.5">
+                  <span className="text-center text-sm font-semibold text-slate-500">{i + 1}</span>
+                  <select
+                    value={r.category}
+                    onChange={(e) => setRow(i, 'category', e.target.value)}
+                    className={rowInput}
+                    aria-label={`인력 ${i + 1} 구분`}
+                  >
+                    <option value="">선택</option>
+                    {LABOR_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    value={r.name}
+                    onChange={(e) => setRow(i, 'name', e.target.value)}
+                    placeholder="이름"
+                    className={rowInput}
+                    aria-label={`인력 ${i + 1} 이름`}
+                  />
+                  <input
+                    value={r.workType}
+                    onChange={(e) => setRow(i, 'workType', e.target.value)}
+                    placeholder="예: 밀폐감시"
+                    className={rowInput}
+                    aria-label={`인력 ${i + 1} 작업구분`}
+                  />
+                  <input
+                    value={r.hours}
+                    onChange={(e) => setRow(i, 'hours', e.target.value)}
+                    placeholder="8h"
+                    className={rowInput}
+                    aria-label={`인력 ${i + 1} 작업시간`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setLaborRows((rows) => (rows.length > 1 ? rows.filter((_, j) => j !== i) : [{ ...EMPTY_ROW }]))}
+                    className="text-center text-slate-300 hover:text-red-500"
+                    aria-label={`인력 ${i + 1} 행 삭제`}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
-          <div>
-            <label className={label} htmlFor="wf-labor-count">인력 (인원수)</label>
-            <input id="wf-labor-count" type="number" min="0" placeholder="예: 8" value={form.laborCount} onChange={set('laborCount')} className={input} />
-          </div>
+
           <div className="col-span-2">
             <label className={label} htmlFor="wf-work">작업내용</label>
             <textarea id="wf-work" rows={3} placeholder="예: R-301A 촉매 교체 — M/H Open, 질소 치환 확인 후 입조" value={form.work} onChange={set('work')} className={input} />
@@ -218,12 +313,42 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
                 <span className="font-mono text-xs text-slate-500">{e.date}</span>
                 {e.workHours && <span className="text-xs text-slate-500">🕐 {e.workHours}</span>}
                 {e.manager && <span className="text-xs text-slate-500">소장 {e.manager}</span>}
-                {e.laborCount && <span className="text-xs font-semibold text-[#1f3864]">👷 인력 {e.laborCount}명</span>}
+                {laborCountOf(e) > 0 && (
+                  <span className="text-xs font-semibold text-[#1f3864]">👷 인력 {laborCountOf(e)}명</span>
+                )}
                 <button onClick={() => removeEntry(e.id)} className="ml-auto text-xs text-slate-300 hover:text-red-500">
                   삭제
                 </button>
               </div>
               {e.work && <p className="mt-2 whitespace-pre-line text-sm font-medium text-slate-800">{e.work}</p>}
+
+              {e.laborRows && e.laborRows.length > 0 && (
+                <div className="mt-2 overflow-x-auto rounded-lg border border-slate-100">
+                  <table className="w-full min-w-[420px] text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 text-left text-slate-500">
+                        <th className="px-2 py-1.5 text-center font-semibold">번호</th>
+                        <th className="px-2 py-1.5 font-semibold">구분</th>
+                        <th className="px-2 py-1.5 font-semibold">이름</th>
+                        <th className="px-2 py-1.5 font-semibold">작업구분</th>
+                        <th className="px-2 py-1.5 font-semibold">작업시간</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {e.laborRows.map((r, i) => (
+                        <tr key={i} className="border-t border-slate-100 text-slate-700">
+                          <td className="px-2 py-1.5 text-center text-slate-400">{i + 1}</td>
+                          <td className="px-2 py-1.5">{r.category || '-'}</td>
+                          <td className="px-2 py-1.5 font-medium">{r.name || '-'}</td>
+                          <td className="px-2 py-1.5">{r.workType || '-'}</td>
+                          <td className="px-2 py-1.5">{r.hours || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
               <dl className="mt-2 space-y-0.5 text-xs text-slate-600">
                 {e.staff && (
                   <div>
@@ -231,10 +356,10 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
                     <dd className="inline">{e.staff}</dd>
                   </div>
                 )}
-                {e.laborNames && (
+                {!e.laborRows?.length && (e.laborNames || e.laborCount) && (
                   <div>
                     <dt className="inline text-slate-400">인력: </dt>
-                    <dd className="inline">{e.laborNames}</dd>
+                    <dd className="inline">{laborSummary(e)}</dd>
                   </div>
                 )}
                 {e.equipment && (
