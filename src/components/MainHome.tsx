@@ -7,12 +7,19 @@ import WeatherPanel from './WeatherPanel';
 import NoticesPanel from './NoticesPanel';
 import AccidentsPanel from './AccidentsPanel';
 import WorkPlanPanel from './WorkPlanPanel';
+import EducationStatusPanel from './EducationStatusPanel';
 
 /**
  * 메인 화면 — 플랫폼형 카드 그리드.
  * 각 패널의 세부 내용은 추후 확정되는 대로 채운다. (현재는 자리 표시)
  */
-export default function MainHome({ data }: { data: SafetyData | null }) {
+export default function MainHome({
+  data,
+  onOpenEducation,
+}: {
+  data: SafetyData | null;
+  onOpenEducation?: () => void;
+}) {
   return (
     <div className="grid grid-cols-12 gap-4">
       {/* 1행: 공지 · 알림 */}
@@ -34,12 +41,26 @@ export default function MainHome({ data }: { data: SafetyData | null }) {
         <WorkPlanPanel />
       </Panel>
 
-      {/* 3행: 캘린더 · 작업허가 · 출력인원 · 출력장비 */}
+      {/* 3행: 캘린더 · 안전교육 · 출력인원 · 출력장비 */}
       <Panel title="캘린더" icon="📅" className="col-span-12 md:col-span-6 xl:col-span-3">
         <CalendarPanel schedule={data?.schedule ?? []} />
       </Panel>
-      <Panel title="작업허가 현황" icon="✅" className="col-span-12 md:col-span-6 xl:col-span-3">
-        <EmptyBox label="작업허가 현황이 표시될 영역입니다" />
+      <Panel
+        title="안전교육 현황"
+        icon="🎓"
+        className="col-span-12 md:col-span-6 xl:col-span-3"
+        action={
+          onOpenEducation && (
+            <button
+              onClick={onOpenEducation}
+              className="text-[11px] font-medium text-sky-600 hover:underline"
+            >
+              명부 보기 →
+            </button>
+          )
+        }
+      >
+        <EducationStatusPanel />
       </Panel>
       <Panel title="현장출력인원" icon="👷" className="col-span-12 md:col-span-6 xl:col-span-3">
         <EmptyBox label="출력인원 현황이 표시될 영역입니다" />
@@ -48,7 +69,7 @@ export default function MainHome({ data }: { data: SafetyData | null }) {
         <EmptyBox label="출력장비 현황이 표시될 영역입니다" />
       </Panel>
 
-      {/* 4행: 중장비 · 위험등급 · 안전교육 */}
+      {/* 4행: 중장비 · 위험등급 · 작업허가 */}
       <Panel title="중장비 현황" icon="🏋️" className="col-span-12 md:col-span-6 xl:col-span-4">
         <EmptyBox label="중장비 현황이 표시될 영역입니다" />
       </Panel>
@@ -59,8 +80,8 @@ export default function MainHome({ data }: { data: SafetyData | null }) {
           <EmptyBox label="데이터를 불러오면 위험등급 분포가 표시됩니다" />
         )}
       </Panel>
-      <Panel title="안전교육 현황" icon="🎓" className="col-span-12 md:col-span-6 xl:col-span-3">
-        <EmptyBox label="안전교육 현황이 표시될 영역입니다" />
+      <Panel title="작업허가 현황" icon="✅" className="col-span-12 md:col-span-6 xl:col-span-3">
+        <EmptyBox label="작업허가 현황이 표시될 영역입니다" />
       </Panel>
     </div>
   );
@@ -70,11 +91,13 @@ function Panel({
   title,
   icon,
   className = '',
+  action,
   children,
 }: {
   title: string;
   icon?: string;
   className?: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -82,6 +105,7 @@ function Panel({
       <header className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5">
         {icon && <span aria-hidden className="text-sm">{icon}</span>}
         <h3 className="text-sm font-bold text-slate-700">{title}</h3>
+        {action && <span className="ml-auto">{action}</span>}
       </header>
       <div className="flex-1 p-4">{children}</div>
     </section>

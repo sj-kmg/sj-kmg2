@@ -9,6 +9,7 @@ import Ledgers from '@/components/Ledgers';
 import TbmLog from '@/components/TbmLog';
 import NearMissReport from '@/components/NearMissReport';
 import WorkforceLog from '@/components/WorkforceLog';
+import EducationRoster from '@/components/EducationRoster';
 
 type ViewKey =
   | 'main'
@@ -60,7 +61,7 @@ const MENU: MenuItem[] = [
     label: '안전교육',
     icon: '🎓',
     children: [
-      { key: 'edu-supervisor', label: '관리감독자', wip: true },
+      { key: 'edu-supervisor', label: '관리감독자' },
       { key: 'edu-chemical', label: '유해화학물질', wip: true },
       { key: 'edu-yncc', label: 'YNCC출입', wip: true },
     ],
@@ -227,15 +228,15 @@ export default function Page() {
         <main className="flex-1 p-4 lg:p-6">
           {!ready ? null : (
             <>
-              {view === 'main' && <MainHome data={data} />}
+              {view === 'main' && <MainHome data={data} onOpenEducation={() => setView('edu-supervisor')} />}
               {view === 'ledgers' && (data ? <Ledgers data={data} /> : <NeedData onGo={() => setView('data')} />)}
               {view === 'tbm' && <TbmLog data={data} />}
               {view === 'nearmiss' && <NearMissReport />}
               {view === 'people' && <WorkforceLog data={data} />}
+              {view === 'edu-supervisor' && <EducationRoster courseKey="supervisor" />}
               {(view === 'health-general' ||
                 view === 'health-special' ||
                 view === 'health-followup' ||
-                view === 'edu-supervisor' ||
                 view === 'edu-chemical' ||
                 view === 'edu-yncc' ||
                 view === 'notice') && <ComingSoon label={viewLabel(view)} />}
