@@ -1,5 +1,35 @@
 {
-  "updatedAt": "",
+  "updatedAt": "2026-07-24",
   "source": "그룹웨어 일자별 작업계획 (gw.sjdevel.com)",
-  "days": []
+  "days": [
+    {
+      "date": "2026-07-24",
+      "items": [
+        { "company": "LG SAP", "work": "DR-3310 1,2존 하부 cleaning", "manager": "권현철" },
+        { "company": "안전보건공단", "work": "중대재해 예방교육", "manager": "김민규" }
+      ]
+    },
+    { "date": "2026-07-25", "items": [] },
+    { "date": "2026-07-26", "items": [] },
+    {
+      "date": "2026-07-27",
+      "items": [
+        { "company": "(현설)와이엔텍", "work": "폐유 저장탱크 내부 CLEANING", "manager": "김강미(이가희)" }
+      ]
+    },
+    {
+      "date": "2026-07-28",
+      "items": [
+        { "company": "YNCC", "work": "#1 C 보일러 ECONOMIZER 건식 CLEANING 작업", "manager": "조준호" },
+        { "company": "한화토탈", "work": "NCC E1-AD701 OILY POND CLEANING", "manager": "김종호" }
+      ]
+    },
+    {
+      "date": "2026-07-29",
+      "items": [
+        { "company": "YNCC", "work": "#1 C 보일러 ECONOMIZER 건식 CLEANING 작업", "manager": "조준호" },
+        { "company": "한화토탈", "work": "NCC E1-AD701 OILY POND CLEANING", "manager": "김종호" }
+      ]
+    }
+  ]
 }
