@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { SafetyData } from '@/lib/types';
+import { useSyncedLog, modeBadge } from '@/lib/useSyncedLog';
 
 interface TbmEntry {
   id: string;
@@ -15,24 +16,6 @@ interface TbmEntry {
   createdAt: string;
 }
 
-const KEY = 'sj-tbm:v1';
-
-function loadEntries(): TbmEntry[] {
-  try {
-    return JSON.parse(localStorage.getItem(KEY) ?? '[]') as TbmEntry[];
-  } catch {
-    return [];
-  }
-}
-
-function saveEntries(list: TbmEntry[]): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(list));
-  } catch {
-    // 저장 실패 무시
-  }
-}
-
 function nowLocal(): string {
   const d = new Date();
   const p = (n: number) => (n < 10 ? `0${n}` : String(n));
@@ -42,13 +25,12 @@ function nowLocal(): string {
 const EMPTY = { datetime: '', site: '', place: '', work: '', attendees: '', leader: '', content: '' };
 
 export default function TbmLog({ data }: { data: SafetyData | null }) {
-  const [entries, setEntries] = useState<TbmEntry[]>([]);
+  const { entries, mode, add, remove } = useSyncedLog<TbmEntry>('tbm', 'sj-tbm:v1');
   const [form, setForm] = useState({ ...EMPTY });
   const [filterSite, setFilterSite] = useState('');
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    setEntries(loadEntries());
     setForm((f) => ({ ...f, datetime: nowLocal() }));
   }, []);
 
@@ -72,7 +54,7 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
   const set = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.datetime || !form.site.trim() || !form.content.trim()) return;
     const entry: TbmEntry = {
@@ -81,19 +63,15 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
       site: form.site.trim(),
       createdAt: new Date().toISOString(),
     };
-    const next = [entry, ...entries];
-    setEntries(next);
-    saveEntries(next);
+    if (!(await add(entry))) return;
     setForm({ ...EMPTY, datetime: nowLocal(), site: form.site });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const remove = (id: string) => {
+  const removeEntry = (id: string) => {
     if (!confirm('이 TBM 일지를 삭제할까요?')) return;
-    const next = entries.filter((e) => e.id !== id);
-    setEntries(next);
-    saveEntries(next);
+    void remove(id);
   };
 
   const exportCsv = () => {
@@ -113,6 +91,7 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
     URL.revokeObjectURL(url);
   };
 
+  const badge = modeBadge(mode);
   const input =
     'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-[#1f3864] focus:outline-none';
   const label = 'mb-1 block text-xs font-semibold text-slate-500';
@@ -121,7 +100,10 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
     <div className="grid gap-6 xl:grid-cols-5">
       {/* 작성 폼 */}
       <form onSubmit={submit} className="xl:col-span-2 h-fit rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="mb-3 text-sm font-bold text-slate-700">TBM 일지 작성</h3>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h3 className="text-sm font-bold text-slate-700">TBM 일지 작성</h3>
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={label} htmlFor="tbm-dt">일시 *</label>
@@ -172,7 +154,9 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
           {saved && <span className="text-sm font-medium text-green-600">저장되었습니다 ✓</span>}
         </div>
         <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
-          일지는 이 브라우저에만 저장됩니다. 기록 보존이 필요하면 주기적으로 [CSV 내보내기]로 백업하세요.
+          {mode === 'server'
+            ? '기록은 서버에 저장되어 휴대폰·PC 어디서든 함께 보입니다.'
+            : '기록이 이 브라우저에만 저장됩니다. 기록 보존이 필요하면 주기적으로 [CSV 내보내기]로 백업하세요.'}
         </p>
       </form>
 
@@ -204,7 +188,7 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
 
         {shown.length === 0 ? (
           <div className="rounded-xl border-2 border-dashed border-slate-200 py-14 text-center text-sm text-slate-400">
-            작성된 TBM 일지가 없습니다. 왼쪽 양식으로 첫 일지를 작성해 보세요.
+            {mode === 'loading' ? '기록을 불러오는 중…' : '작성된 TBM 일지가 없습니다. 왼쪽 양식으로 첫 일지를 작성해 보세요.'}
           </div>
         ) : (
           shown.map((e) => (
@@ -215,7 +199,7 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
                 {e.place && <span className="text-xs text-slate-500">📍 {e.place}</span>}
                 {e.attendees && <span className="text-xs text-slate-500">👷 {e.attendees}</span>}
                 {e.leader && <span className="text-xs text-slate-500">진행 {e.leader}</span>}
-                <button onClick={() => remove(e.id)} className="ml-auto text-xs text-slate-300 hover:text-red-500">
+                <button onClick={() => removeEntry(e.id)} className="ml-auto text-xs text-slate-300 hover:text-red-500">
                   삭제
                 </button>
               </div>

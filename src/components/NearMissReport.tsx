@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { putPhoto, getPhoto, deletePhoto, fileToResizedDataUrl } from '@/lib/photos';
+import { uploadPhoto } from '@/lib/sync';
+import { useSyncedLog, modeBadge } from '@/lib/useSyncedLog';
 
 interface NearMissEntry {
   id: string;
@@ -10,26 +12,9 @@ interface NearMissEntry {
   finder: string;
   content: string;
   action: string; // 개선대책
-  photoIds: string[];
+  photoIds: string[]; // 로컬(IndexedDB) 저장 사진
+  photoUrls?: string[]; // 서버(Blob) 저장 사진
   createdAt: string;
-}
-
-const KEY = 'sj-nearmiss:v1';
-
-function loadEntries(): NearMissEntry[] {
-  try {
-    return JSON.parse(localStorage.getItem(KEY) ?? '[]') as NearMissEntry[];
-  } catch {
-    return [];
-  }
-}
-
-function saveEntries(list: NearMissEntry[]): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(list));
-  } catch {
-    // 저장 실패 무시
-  }
 }
 
 function nowLocal(): string {
@@ -41,30 +26,57 @@ function nowLocal(): string {
 const EMPTY = { datetime: '', place: '', finder: '', content: '', action: '' };
 
 export default function NearMissReport() {
-  const [entries, setEntries] = useState<NearMissEntry[]>([]);
+  // 로컬 → 서버 이관 시 IndexedDB 사진을 서버로 올리고 URL로 교체
+  const migrateExtra = useMemo(
+    () => async (entry: NearMissEntry): Promise<NearMissEntry> => {
+      if (!entry.photoIds || entry.photoIds.length === 0) return entry;
+      const urls: string[] = [...(entry.photoUrls ?? [])];
+      for (const pid of entry.photoIds) {
+        const dataUrl = await getPhoto(pid).catch(() => null);
+        if (dataUrl) {
+          try {
+            urls.push(await uploadPhoto(dataUrl));
+            await deletePhoto(pid).catch(() => undefined);
+          } catch {
+            // 업로드 실패한 사진은 포기 (기록 자체는 이관)
+          }
+        }
+      }
+      return { ...entry, photoIds: [], photoUrls: urls };
+    },
+    [],
+  );
+
+  const { entries, mode, add, remove } = useSyncedLog<NearMissEntry>('nearmiss', 'sj-nearmiss:v1', {
+    migrateExtra,
+  });
+
   const [form, setForm] = useState({ ...EMPTY });
   const [pendingPhotos, setPendingPhotos] = useState<string[]>([]); // dataURL
-  const [photos, setPhotos] = useState<Record<string, string>>({}); // photoId → dataURL
+  const [localPhotos, setLocalPhotos] = useState<Record<string, string>>({}); // photoId → dataURL
   const [preview, setPreview] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const loadedPhotoIds = useRef(new Set<string>());
 
   useEffect(() => {
-    const list = loadEntries();
-    setEntries(list);
     setForm((f) => ({ ...f, datetime: nowLocal() }));
-    // 목록의 사진을 IndexedDB에서 로드
+  }, []);
+
+  // 로컬 모드 항목의 사진을 IndexedDB에서 로드
+  useEffect(() => {
     (async () => {
-      const map: Record<string, string> = {};
-      for (const e of list) {
-        for (const pid of e.photoIds) {
+      for (const e of entries) {
+        for (const pid of e.photoIds ?? []) {
+          if (loadedPhotoIds.current.has(pid)) continue;
+          loadedPhotoIds.current.add(pid);
           const d = await getPhoto(pid).catch(() => null);
-          if (d) map[pid] = d;
+          if (d) setLocalPhotos((m) => ({ ...m, [pid]: d }));
         }
       }
-      setPhotos(map);
     })();
-  }, []);
+  }, [entries]);
 
   const set = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -86,44 +98,55 @@ export default function NearMissReport() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.datetime || !form.place.trim() || !form.content.trim()) return;
-    const id = `NM-${Date.now()}`;
-    const photoIds: string[] = [];
-    for (let i = 0; i < pendingPhotos.length; i++) {
-      const pid = `${id}-P${i + 1}`;
-      try {
-        await putPhoto(pid, pendingPhotos[i]);
-        photoIds.push(pid);
-        setPhotos((m) => ({ ...m, [pid]: pendingPhotos[i] }));
-      } catch {
-        // 사진 저장 실패 시 해당 사진만 제외
+    if (!form.datetime || !form.place.trim() || !form.content.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      const id = `NM-${Date.now()}`;
+      const photoIds: string[] = [];
+      const photoUrls: string[] = [];
+      for (let i = 0; i < pendingPhotos.length; i++) {
+        if (mode === 'server') {
+          try {
+            photoUrls.push(await uploadPhoto(pendingPhotos[i]));
+            continue;
+          } catch {
+            // 서버 업로드 실패 시 이 사진은 로컬로라도 보관
+          }
+        }
+        const pid = `${id}-P${i + 1}`;
+        try {
+          await putPhoto(pid, pendingPhotos[i]);
+          photoIds.push(pid);
+          setLocalPhotos((m) => ({ ...m, [pid]: pendingPhotos[i] }));
+        } catch {
+          // 사진 저장 실패 시 해당 사진만 제외
+        }
       }
+      const entry: NearMissEntry = {
+        id,
+        ...form,
+        place: form.place.trim(),
+        photoIds,
+        photoUrls,
+        createdAt: new Date().toISOString(),
+      };
+      if (!(await add(entry))) return;
+      setForm({ ...EMPTY, datetime: nowLocal() });
+      setPendingPhotos([]);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally {
+      setSubmitting(false);
     }
-    const entry: NearMissEntry = {
-      id,
-      ...form,
-      place: form.place.trim(),
-      photoIds,
-      createdAt: new Date().toISOString(),
-    };
-    const next = [entry, ...entries];
-    setEntries(next);
-    saveEntries(next);
-    setForm({ ...EMPTY, datetime: nowLocal() });
-    setPendingPhotos([]);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
   };
 
-  const remove = async (id: string) => {
+  const removeEntry = async (id: string) => {
     if (!confirm('이 아차사고 기록을 삭제할까요? 첨부 사진도 함께 삭제됩니다.')) return;
     const target = entries.find((e) => e.id === id);
     for (const pid of target?.photoIds ?? []) {
       await deletePhoto(pid).catch(() => undefined);
     }
-    const next = entries.filter((e) => e.id !== id);
-    setEntries(next);
-    saveEntries(next);
+    await remove(id); // 서버 모드에서는 서버가 사진(Blob)도 함께 삭제
   };
 
   const exportCsv = () => {
@@ -132,7 +155,14 @@ export default function NearMissReport() {
     const rows = [...entries]
       .sort((a, b) => a.datetime.localeCompare(b.datetime))
       .map((e) =>
-        [e.datetime.replace('T', ' '), e.place, e.finder, e.content, e.action, String(e.photoIds.length)]
+        [
+          e.datetime.replace('T', ' '),
+          e.place,
+          e.finder,
+          e.content,
+          e.action,
+          String((e.photoIds?.length ?? 0) + (e.photoUrls?.length ?? 0)),
+        ]
           .map(esc)
           .join(','),
       );
@@ -147,6 +177,12 @@ export default function NearMissReport() {
 
   const shown = useMemo(() => [...entries].sort((a, b) => b.datetime.localeCompare(a.datetime)), [entries]);
 
+  const photoSrcs = (e: NearMissEntry): string[] => [
+    ...(e.photoUrls ?? []),
+    ...(e.photoIds ?? []).map((pid) => localPhotos[pid]).filter(Boolean),
+  ];
+
+  const badge = modeBadge(mode);
   const input =
     'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-[#1f3864] focus:outline-none';
   const label = 'mb-1 block text-xs font-semibold text-slate-500';
@@ -155,7 +191,10 @@ export default function NearMissReport() {
     <div className="grid gap-6 xl:grid-cols-5">
       {/* 작성 폼 */}
       <form onSubmit={submit} className="xl:col-span-2 h-fit rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="mb-3 text-sm font-bold text-slate-700">아차사고 신고</h3>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h3 className="text-sm font-bold text-slate-700">아차사고 신고</h3>
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={label} htmlFor="nm-dt">시간 *</label>
@@ -232,13 +271,19 @@ export default function NearMissReport() {
           </div>
         </div>
         <div className="mt-3 flex items-center gap-3">
-          <button type="submit" className="rounded-lg bg-[#1f3864] px-4 py-2 text-sm font-medium text-white hover:bg-[#2a4a80]">
-            신고 저장
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rounded-lg bg-[#1f3864] px-4 py-2 text-sm font-medium text-white hover:bg-[#2a4a80] disabled:opacity-60"
+          >
+            {submitting ? '저장 중…' : '신고 저장'}
           </button>
           {saved && <span className="text-sm font-medium text-green-600">저장되었습니다 ✓</span>}
         </div>
         <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
-          기록·사진은 이 브라우저에만 저장됩니다. 보존이 필요하면 [CSV 내보내기]로 백업하세요. (사진은 브라우저 안에 보관되며 CSV에는 장수만 표기)
+          {mode === 'server'
+            ? '기록·사진은 서버에 저장되어 휴대폰·PC 어디서든 함께 보입니다.'
+            : '기록·사진이 이 브라우저에만 저장됩니다. 보존이 필요하면 [CSV 내보내기]로 백업하세요. (사진은 브라우저 안에 보관되며 CSV에는 장수만 표기)'}
         </p>
       </form>
 
@@ -257,7 +302,7 @@ export default function NearMissReport() {
 
         {shown.length === 0 ? (
           <div className="rounded-xl border-2 border-dashed border-slate-200 py-14 text-center text-sm text-slate-400">
-            등록된 아차사고가 없습니다. 위험 요인을 발견하면 바로 기록해 주세요.
+            {mode === 'loading' ? '기록을 불러오는 중…' : '등록된 아차사고가 없습니다. 위험 요인을 발견하면 바로 기록해 주세요.'}
           </div>
         ) : (
           shown.map((e) => (
@@ -267,7 +312,7 @@ export default function NearMissReport() {
                 <span className="font-mono text-xs text-slate-500">{e.datetime.replace('T', ' ')}</span>
                 <span className="text-xs text-slate-500">📍 {e.place}</span>
                 {e.finder && <span className="text-xs text-slate-500">발견 {e.finder}</span>}
-                <button onClick={() => void remove(e.id)} className="ml-auto text-xs text-slate-300 hover:text-red-500">
+                <button onClick={() => void removeEntry(e.id)} className="ml-auto text-xs text-slate-300 hover:text-red-500">
                   삭제
                 </button>
               </div>
@@ -277,24 +322,18 @@ export default function NearMissReport() {
                   <b>개선대책:</b> {e.action}
                 </p>
               )}
-              {e.photoIds.length > 0 && (
+              {photoSrcs(e).length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {e.photoIds.map((pid) =>
-                    photos[pid] ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        key={pid}
-                        src={photos[pid]}
-                        alt="아차사고 사진"
-                        className="h-20 w-20 cursor-zoom-in rounded-lg border border-slate-200 object-cover"
-                        onClick={() => setPreview(photos[pid])}
-                      />
-                    ) : (
-                      <div key={pid} className="flex h-20 w-20 items-center justify-center rounded-lg bg-slate-100 text-xs text-slate-400">
-                        사진
-                      </div>
-                    ),
-                  )}
+                  {photoSrcs(e).map((src, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={i}
+                      src={src}
+                      alt="아차사고 사진"
+                      className="h-20 w-20 cursor-zoom-in rounded-lg border border-slate-200 object-cover"
+                      onClick={() => setPreview(src)}
+                    />
+                  ))}
                 </div>
               )}
             </article>
