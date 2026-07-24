@@ -10,6 +10,8 @@ import RiskTable from '@/components/RiskTable';
 import TaskCards from '@/components/TaskCards';
 import Ledgers from '@/components/Ledgers';
 import TbmLog from '@/components/TbmLog';
+import NearMissReport from '@/components/NearMissReport';
+import WorkforceLog from '@/components/WorkforceLog';
 
 type ViewKey =
   | 'main'
@@ -18,6 +20,7 @@ type ViewKey =
   | 'tasks'
   | 'ledgers'
   | 'tbm'
+  | 'nearmiss'
   | 'notice'
   | 'board'
   | 'people'
@@ -40,9 +43,10 @@ const MENU: MenuItem[] = [
   { key: 'tasks', label: '작업목록', icon: '📋', needsData: true },
   { key: 'ledgers', label: '관리대장', icon: '📚', needsData: true },
   { key: 'tbm', label: 'TBM일지', icon: '📣' },
+  { key: 'nearmiss', label: '아차사고', icon: '⚠️' },
+  { key: 'people', label: '작업인원관리', icon: '👷' },
   { key: 'notice', label: '공지사항', icon: '📢', wip: true },
   { key: 'board', label: '작업게시판', icon: '📝', wip: true },
-  { key: 'people', label: '작업인원관리', icon: '👷', wip: true },
   { key: 'data', label: '데이터 관리', icon: '💾' },
 ];
 
@@ -152,7 +156,9 @@ export default function Page() {
               {view === 'tasks' && (data ? <TaskCards data={data} /> : <NeedData onGo={() => setView('data')} />)}
               {view === 'ledgers' && (data ? <Ledgers data={data} /> : <NeedData onGo={() => setView('data')} />)}
               {view === 'tbm' && <TbmLog data={data} />}
-              {(view === 'notice' || view === 'board' || view === 'people') && (
+              {view === 'nearmiss' && <NearMissReport />}
+              {view === 'people' && <WorkforceLog data={data} />}
+              {(view === 'notice' || view === 'board') && (
                 <ComingSoon label={menu.find((m) => m.key === view)?.label ?? ''} />
               )}
               {view === 'data' && (

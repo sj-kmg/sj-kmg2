@@ -5,6 +5,7 @@ import GradeDistChart from './charts/GradeDistChart';
 import CalendarPanel from './CalendarPanel';
 import WeatherPanel from './WeatherPanel';
 import NoticesPanel from './NoticesPanel';
+import AccidentsPanel from './AccidentsPanel';
 
 /**
  * 메인 화면 — 플랫폼형 카드 그리드.
@@ -25,8 +26,8 @@ export default function MainHome({ data }: { data: SafetyData | null }) {
       <Panel title="오늘의 날씨" icon="⛅" className="col-span-12 md:col-span-6 xl:col-span-4">
         <WeatherPanel />
       </Panel>
-      <Panel title="프로젝트" icon="🏗️" className="col-span-12 md:col-span-6 xl:col-span-4">
-        <EmptyBox label="프로젝트 현황이 표시될 영역입니다" />
+      <Panel title="중대재해 발생현황" icon="🚨" className="col-span-12 md:col-span-6 xl:col-span-4">
+        <AccidentsPanel />
       </Panel>
       <Panel title="공종" icon="🔧" className="col-span-12 md:col-span-6 xl:col-span-4">
         <EmptyBox label="공종 현황이 표시될 영역입니다" />
