@@ -6,6 +6,7 @@ import CalendarPanel from './CalendarPanel';
 import WeatherPanel from './WeatherPanel';
 import NoticesPanel from './NoticesPanel';
 import AccidentsPanel from './AccidentsPanel';
+import WorkPlanPanel from './WorkPlanPanel';
 
 /**
  * 메인 화면 — 플랫폼형 카드 그리드.
@@ -29,8 +30,8 @@ export default function MainHome({ data }: { data: SafetyData | null }) {
       <Panel title="중대재해 발생현황" icon="🚨" className="col-span-12 md:col-span-6 xl:col-span-4">
         <AccidentsPanel />
       </Panel>
-      <Panel title="공종" icon="🔧" className="col-span-12 md:col-span-6 xl:col-span-4">
-        <EmptyBox label="공종 현황이 표시될 영역입니다" />
+      <Panel title="작업계획" icon="🗓️" className="col-span-12 md:col-span-6 xl:col-span-4">
+        <WorkPlanPanel />
       </Panel>
 
       {/* 3행: 캘린더 · 작업허가 · 출력인원 · 출력장비 */}
