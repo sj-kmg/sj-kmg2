@@ -1,34 +1,23 @@
 {
   "updatedAt": "2026-07-24",
-  "source": "그룹웨어 일자별 작업계획 (gw.sjdevel.com)",
+  "source": "그룹웨어 업무요청 > 일자별 작업계획 (gw.sjdevel.com)",
   "days": [
     {
       "date": "2026-07-24",
       "items": [
-        { "company": "LG SAP", "work": "DR-3310 1,2존 하부 cleaning", "manager": "권현철" },
-        { "company": "안전보건공단", "work": "중대재해 예방교육", "manager": "김민규" }
+        { "company": "LG CHEM SAP", "work": "전공장 1파트·2파트 청소작업", "manager": "김민철" },
+        { "company": "LG SAP", "work": "DR-3310,20 1,2존 내부 CLEANING", "manager": "권현철" },
+        { "company": "여수시", "work": "웅천 CU 하수관로 준설", "manager": "서태옥" },
+        { "company": "광양 OCI", "work": "U4 DRYER CLEANING", "manager": "김진복" }
       ]
     },
-    { "date": "2026-07-25", "items": [] },
-    { "date": "2026-07-26", "items": [] },
     {
       "date": "2026-07-27",
       "items": [
-        { "company": "(현설)와이엔텍", "work": "폐유 저장탱크 내부 CLEANING", "manager": "김강미(이가희)" }
-      ]
-    },
-    {
-      "date": "2026-07-28",
-      "items": [
-        { "company": "YNCC", "work": "#1 C 보일러 ECONOMIZER 건식 CLEANING 작업", "manager": "조준호" },
-        { "company": "한화토탈", "work": "NCC E1-AD701 OILY POND CLEANING", "manager": "김종호" }
-      ]
-    },
-    {
-      "date": "2026-07-29",
-      "items": [
-        { "company": "YNCC", "work": "#1 C 보일러 ECONOMIZER 건식 CLEANING 작업", "manager": "조준호" },
-        { "company": "한화토탈", "work": "NCC E1-AD701 OILY POND CLEANING", "manager": "김종호" }
+        { "company": "LG CHEM SAP", "work": "전공장 1파트·2파트 청소작업", "manager": "권현철" },
+        { "company": "LG SAP", "work": "HG-2210 주변 CLEANING", "manager": "권현철" },
+        { "company": "여수시", "work": "시내 준설", "manager": "서태옥 김진복" },
+        { "company": "한화토탈 에너지스", "work": "AD-701 OILY POND CLEANING", "manager": "오남택" }
       ]
     }
   ]
