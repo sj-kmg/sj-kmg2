@@ -62,7 +62,7 @@ const MENU: MenuItem[] = [
     icon: '🎓',
     children: [
       { key: 'edu-supervisor', label: '관리감독자' },
-      { key: 'edu-chemical', label: '유해화학물질', wip: true },
+      { key: 'edu-chemical', label: '유해화학물질' },
       { key: 'edu-yncc', label: 'YNCC출입', wip: true },
     ],
   },
@@ -234,10 +234,10 @@ export default function Page() {
               {view === 'nearmiss' && <NearMissReport />}
               {view === 'people' && <WorkforceLog data={data} />}
               {view === 'edu-supervisor' && <EducationRoster courseKey="supervisor" />}
+              {view === 'edu-chemical' && <EducationRoster courseKey="chemical" />}
               {(view === 'health-general' ||
                 view === 'health-special' ||
                 view === 'health-followup' ||
-                view === 'edu-chemical' ||
                 view === 'edu-yncc' ||
                 view === 'notice') && <ComingSoon label={viewLabel(view)} />}
               {view === 'data' && (
