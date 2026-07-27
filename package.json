@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.24",
     "@vercel/blob": "^2.6.1",
     "ai": "^7.0.37",
     "next": "16.2.10",

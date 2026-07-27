@@ -47,6 +47,27 @@ function wmo(code: number): { icon: string; label: string } {
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
+/**
+ * 체감온도 — 기상청 공식 산식 (네이버 날씨와 동일 기준).
+ * 여름철(5~9월): 습구온도(Stull) 기반, 겨울철(10~4월): 바람냉각 (기온 10℃ 이하·풍속 4.8km/h 이상일 때).
+ */
+function feelsLike(t: number, rh: number, windKmh: number, month: number): number {
+  if (month >= 5 && month <= 9) {
+    const tw =
+      t * Math.atan(0.151977 * Math.sqrt(rh + 8.313659)) +
+      Math.atan(t + rh) -
+      Math.atan(rh - 1.67633) +
+      0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh) -
+      4.686035;
+    return -0.2442 + 0.55399 * tw + 0.45535 * t - 0.0022 * tw * tw + 0.00278 * tw * t + 3.0;
+  }
+  if (t <= 10 && windKmh >= 4.8) {
+    const v = Math.pow(windKmh, 0.16);
+    return 13.12 + 0.6215 * t - 11.37 * v + 0.3965 * t * v;
+  }
+  return t;
+}
+
 export default function WeatherPanel() {
   const [data, setData] = useState<WeatherData | null>(null);
   const [error, setError] = useState(false);
@@ -106,6 +127,7 @@ export default function WeatherPanel() {
   const now = new Date();
   const pad = (n: number) => (n < 10 ? `0${n}` : String(n));
   const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} (${DOW[now.getDay()]})`;
+  const feels = feelsLike(c.temperature_2m, c.relative_humidity_2m, c.wind_speed_10m, now.getMonth() + 1);
 
   return (
     <div>
@@ -125,7 +147,7 @@ export default function WeatherPanel() {
         <dl className="ml-auto space-y-1 text-right text-xs text-slate-600">
           <div>
             <dt className="inline text-slate-400">체감 </dt>
-            <dd className="inline font-semibold">{Math.round(c.apparent_temperature)}°C</dd>
+            <dd className="inline font-semibold">{Math.round(feels)}°C</dd>
           </div>
           <div>
             <dt className="inline text-slate-400">습도 </dt>

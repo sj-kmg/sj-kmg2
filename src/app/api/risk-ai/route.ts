@@ -1,16 +1,20 @@
+import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 /**
  * 위험성평가 AI 자동 생성 API — 작업 사진을 보고 평가표 초안(작업단계·유해위험요인·안전조치 등)을 생성한다.
- * Vercel AI Gateway 사용: 배포 환경에서는 OIDC로 자동 인증되어 별도 API 키가 필요 없고,
- * 매달 제공되는 무료 크레딧($5/월)에서 차감된다. 로컬 개발 환경에서는 503을 반환한다.
+ * 우선순위:
+ * 1) GOOGLE_GENERATIVE_AI_API_KEY 설정 시 Google Gemini 무료 등급 사용 (카드 불필요, 과금 없음)
+ * 2) 없으면 Vercel AI Gateway (배포 환경 OIDC 인증 — 단, 사진 분석 모델은 유료 크레딧 필요)
  * 외부 호출 방지를 위해 기록 API와 같은 동기화 암호(x-passcode)를 요구한다.
  */
 export const maxDuration = 300;
 
-const MODEL = process.env.RISK_AI_MODEL ?? 'anthropic/claude-sonnet-5';
+const USE_GEMINI = !!process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+const GEMINI_MODEL = process.env.RISK_AI_MODEL ?? 'gemini-2.5-flash';
+const GATEWAY_MODEL = process.env.RISK_AI_MODEL ?? 'anthropic/claude-sonnet-5';
 
 const MEDIA_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
@@ -49,9 +53,9 @@ function parseDataUrl(dataUrl: string): { mediaType: string; data: string } | nu
 const clamp = (v: number, min: number, max: number) => Math.min(Math.max(Math.round(v), min), max);
 
 export async function POST(req: Request) {
-  // AI Gateway는 Vercel 배포에서 OIDC로 자동 인증 — 로컬(next dev)에서는 사용 불가
+  // Gemini 키가 있으면 어디서든 동작, 없으면 Vercel 배포 환경(AI Gateway OIDC)에서만 동작
   const hasGateway = !!(process.env.VERCEL || process.env.VERCEL_OIDC_TOKEN || process.env.AI_GATEWAY_API_KEY);
-  if (!hasGateway) {
+  if (!USE_GEMINI && !hasGateway) {
     return NextResponse.json({ error: 'ai_not_configured' }, { status: 503 });
   }
   const pass = process.env.SJ_PASSCODE;
@@ -80,7 +84,7 @@ export async function POST(req: Request) {
 
   try {
     const { object } = await generateObject({
-      model: MODEL,
+      model: USE_GEMINI ? google(GEMINI_MODEL) : GATEWAY_MODEL,
       system: SYSTEM,
       maxOutputTokens: 8000,
       schema: OutputSchema,
@@ -118,7 +122,11 @@ export async function POST(req: Request) {
   }
 }
 
-/** 배포 상태 확인용 — 사용 모델만 노출 (AI 호출 없음) */
+/** 배포 상태 확인용 — 사용 엔진·모델만 노출 (AI 호출 없음) */
 export async function GET() {
-  return NextResponse.json({ ok: true, model: MODEL });
+  return NextResponse.json({
+    ok: true,
+    engine: USE_GEMINI ? 'gemini-free' : 'ai-gateway',
+    model: USE_GEMINI ? GEMINI_MODEL : GATEWAY_MODEL,
+  });
 }
