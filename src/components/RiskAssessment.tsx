@@ -242,9 +242,9 @@ export default function RiskAssessment() {
       setAiNote(`✅ ${generated.length}개 항목이 생성되었습니다. 내용을 확인·수정한 후 저장해 주세요.`);
     } catch (e) {
       if (e instanceof SyncError && e.status === 503) {
-        alert('AI 자동 생성 기능이 아직 서버에 설정되지 않았습니다.\n(Vercel 환경변수에 ANTHROPIC_API_KEY 등록 필요)');
+        alert('AI 자동 생성은 배포된 사이트(Vercel)에서 사용할 수 있습니다.\n로컬 개발 환경에서는 동작하지 않습니다.');
       } else {
-        alert('자동 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        alert('자동 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.\n(월 무료 사용량을 다 쓴 경우 다음 달에 다시 시도할 수 있습니다)');
       }
     } finally {
       setAiBusy(false);
