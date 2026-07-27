@@ -10,6 +10,7 @@ import NoticesPanel from './NoticesPanel';
 import AccidentsPanel from './AccidentsPanel';
 import WorkPlanPanel from './WorkPlanPanel';
 import EducationStatusPanel from './EducationStatusPanel';
+import GeneralAffairsPanel from './GeneralAffairsPanel';
 
 /**
  * 메인 화면 — HUD 스탯 보드 + 플랫폼형 카드 그리드.
@@ -47,15 +48,15 @@ export default function MainHome({
         <WorkPlanPanel />
       </Panel>
 
-      {/* 3행: 캘린더 · 안전교육 */}
-      <Panel title="캘린더" icon="📅" code="OPS-06" className="col-span-12 md:col-span-6 xl:col-span-6">
+      {/* 3행: 캘린더 · 안전교육 · 공무관리 */}
+      <Panel title="캘린더" icon="📅" code="OPS-06" className="col-span-12 md:col-span-6 xl:col-span-4">
         <CalendarPanel schedule={data?.schedule ?? []} />
       </Panel>
       <Panel
         title="안전교육 현황"
         icon="🎓"
         code="EDU-07"
-        className="col-span-12 md:col-span-6 xl:col-span-6"
+        className="col-span-12 md:col-span-6 xl:col-span-4"
         action={
           onOpenEducation && (
             <button
@@ -68,6 +69,9 @@ export default function MainHome({
         }
       >
         <EducationStatusPanel />
+      </Panel>
+      <Panel title="공무관리 현황" icon="🗂️" code="GAF-08" className="col-span-12 md:col-span-6 xl:col-span-4">
+        <GeneralAffairsPanel />
       </Panel>
     </div>
   );

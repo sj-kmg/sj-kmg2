@@ -11,78 +11,261 @@ import NearMissReport from '@/components/NearMissReport';
 import WorkforceLog from '@/components/WorkforceLog';
 import EducationRoster from '@/components/EducationRoster';
 import RiskAssessment from '@/components/RiskAssessment';
-import YnccAccess from '@/components/YnccAccess';
 import ChemicalAccess from '@/components/ChemicalAccess';
+import YnccWorkers from '@/components/YnccWorkers';
+import YnccVehicles from '@/components/YnccVehicles';
+import AccessCardSheet from '@/components/AccessCardSheet';
+import SearchResults from '@/components/SearchResults';
 
 type ViewKey =
   | 'main'
   | 'ledgers'
   | 'tbm'
   | 'nearmiss'
-  | 'people'
-  | 'health-general'
-  | 'health-special'
+  | 'health-general-staff'
+  | 'health-general-worker'
+  | 'health-special-staff'
+  | 'health-special-worker'
   | 'health-followup'
   | 'edu-supervisor'
-  | 'edu-chemical'
-  | 'edu-yncc'
+  | 'edu-chemical-staff'
+  | 'edu-chemical-worker'
+  | 'edu-chemical-roster'
+  | 'edu-yncc-staff'
+  | 'edu-yncc-worker'
+  | 'card'
+  | 'yncc-vehicle'
+  | 'gas-meter'
   | 'risk-assess'
+  | 'people'
   | 'notice'
-  | 'data';
+  | 'data'
+  | 'search';
 
-interface MenuChild {
-  key: ViewKey;
-  label: string;
-  /** 추후 구성 예정 메뉴 */
-  wip?: boolean;
-}
-
-interface MenuItem {
+/** 다단계 메뉴 노드 — 대분류(중분류(소분류…)) */
+interface MenuNode {
   key?: ViewKey;
   label: string;
-  icon: string;
-  needsData?: boolean;
+  icon?: string;
   wip?: boolean;
-  children?: MenuChild[];
+  children?: MenuNode[];
 }
 
-const MENU: MenuItem[] = [
+const MENU: MenuNode[] = [
   { key: 'main', label: '메인', icon: '🏠' },
-  { key: 'ledgers', label: '관리대장', icon: '📚', needsData: true },
-  { key: 'tbm', label: 'TBM일지', icon: '📣' },
-  { key: 'nearmiss', label: '아차사고', icon: '⚠️' },
-  { key: 'people', label: '작업인원관리', icon: '👷' },
   {
-    label: '건강검진',
-    icon: '🩺',
+    label: '안전관리',
+    icon: '🛡️',
     children: [
-      { key: 'health-general', label: '일반검진', wip: true },
-      { key: 'health-special', label: '특수검진', wip: true },
-      { key: 'health-followup', label: '유소견자관리', wip: true },
+      { key: 'tbm', label: 'TBM일지' },
+      { key: 'nearmiss', label: '아차사고' },
     ],
   },
   {
-    label: '안전교육',
-    icon: '🎓',
+    label: '공무관리',
+    icon: '🗂️',
     children: [
-      { key: 'edu-supervisor', label: '관리감독자' },
-      { key: 'edu-chemical', label: '유해화학물질' },
-      { key: 'edu-yncc', label: 'YNCC출입' },
+      {
+        label: '건강검진',
+        children: [
+          {
+            label: '일반검진',
+            children: [
+              { key: 'health-general-staff', label: '직원', wip: true },
+              { key: 'health-general-worker', label: '인력', wip: true },
+            ],
+          },
+          {
+            label: '특수검진',
+            children: [
+              { key: 'health-special-staff', label: '직원', wip: true },
+              { key: 'health-special-worker', label: '인력', wip: true },
+            ],
+          },
+          { key: 'health-followup', label: '유소견자 관리', wip: true },
+        ],
+      },
+      {
+        label: '안전교육',
+        children: [
+          { key: 'edu-supervisor', label: '관리감독자' },
+          {
+            label: '유해화학물질',
+            children: [
+              { key: 'edu-chemical-staff', label: '직원' },
+              { key: 'edu-chemical-worker', label: '인력' },
+            ],
+          },
+          {
+            label: 'YNCC출입',
+            children: [
+              { key: 'edu-yncc-staff', label: '직원' },
+              { key: 'edu-yncc-worker', label: '인력' },
+            ],
+          },
+        ],
+      },
+      {
+        label: '신청현황',
+        children: [
+          { key: 'card', label: '상시카드' },
+          { key: 'yncc-vehicle', label: 'YNCC차량' },
+          { key: 'gas-meter', label: '산소&가스측정기', wip: true },
+        ],
+      },
     ],
   },
   { key: 'risk-assess', label: '위험성평가', icon: '📝' },
+  { key: 'people', label: '작업인원관리', icon: '👷' },
   { key: 'notice', label: '공지사항', icon: '📢', wip: true },
-  { key: 'data', label: '데이터 관리', icon: '💾' },
 ];
 
-function viewLabel(view: ViewKey): string {
-  for (const m of MENU) {
-    if (m.key === view) return m.label;
-    for (const c of m.children ?? []) {
-      if (c.key === view) return `${m.label} — ${c.label}`;
+/** 노드(트리)에 해당 뷰가 포함되는가 */
+function hasView(node: MenuNode, view: ViewKey): boolean {
+  if (node.key === view) return true;
+  return (node.children ?? []).some((c) => hasView(c, view));
+}
+
+/** 뷰의 전체 경로 라벨 (예: 공무관리 — 안전교육 — 유해화학물질 — 직원) */
+function findPath(nodes: MenuNode[], view: ViewKey): string[] | null {
+  for (const n of nodes) {
+    if (n.key === view) return [n.label];
+    if (n.children) {
+      const sub = findPath(n.children, view);
+      if (sub) return [n.label, ...sub];
     }
   }
-  return '메인';
+  return null;
+}
+
+/** 모든 말단(leaf) 노드 — 모바일 칩 메뉴용 */
+function leaves(nodes: MenuNode[]): MenuNode[] {
+  return nodes.flatMap((n) => (n.children ? leaves(n.children) : [n]));
+}
+
+/* 메뉴 컴포넌트는 모듈 레벨로 정의 — Page 리렌더(시계 등)에도 펼침 상태가 유지된다 */
+
+/** 드롭다운 내부 노드 (중분류/소분류 아코디언) */
+function DropNode({
+  node,
+  depth,
+  view,
+  go,
+}: {
+  node: MenuNode;
+  depth: number;
+  view: ViewKey;
+  go: (k: ViewKey) => void;
+}) {
+  const containsActive = hasView(node, view);
+  const [open, setOpen] = useState(containsActive);
+  const active = node.key ? view === node.key : false;
+  if (!node.children) {
+    return (
+      <button
+        onClick={() => node.key && go(node.key)}
+        style={{ paddingLeft: `${12 + depth * 14}px` }}
+        className={`flex w-full items-center gap-2 rounded-lg py-2 pr-3 text-left text-sm ${
+          active ? 'bg-cyan-400/10 text-cyan-300' : 'text-[#9db0d4] hover:bg-white/5 hover:text-white'
+        }`}
+      >
+        {node.label}
+        {node.wip && <span className="ml-auto text-[9px] text-cyan-500/60">예정</span>}
+      </button>
+    );
+  }
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{ paddingLeft: `${12 + depth * 14}px` }}
+        className={`flex w-full items-center gap-2 rounded-lg py-2 pr-3 text-left text-sm font-semibold ${
+          containsActive ? 'text-cyan-300' : 'text-[#c3d0ea] hover:bg-white/5 hover:text-white'
+        }`}
+      >
+        {node.label}
+        <span aria-hidden className="ml-auto text-[9px] text-cyan-400/70">
+          {open ? '▾' : '▸'}
+        </span>
+      </button>
+      {open &&
+        node.children.map((c) => <DropNode key={c.key ?? c.label} node={c} depth={depth + 1} view={view} go={go} />)}
+    </div>
+  );
+}
+
+/** 상단 메뉴 항목 (단일) */
+function TopItem({ node, view, go }: { node: MenuNode; view: ViewKey; go: (k: ViewKey) => void }) {
+  const active = node.key ? view === node.key : false;
+  return (
+    <button onClick={() => node.key && go(node.key)} className={`nav-item ${active ? 'nav-item--on' : ''}`}>
+      {node.icon && (
+        <span aria-hidden className="mr-1 text-xs">
+          {node.icon}
+        </span>
+      )}
+      {node.label}
+      {node.wip && <span className="ml-1 align-middle text-[9px] text-cyan-500/70">예정</span>}
+    </button>
+  );
+}
+
+/** 상단 메뉴 그룹(대분류 드롭다운) */
+function TopGroup({
+  node,
+  view,
+  openMenu,
+  setOpenMenu,
+  go,
+}: {
+  node: MenuNode;
+  view: ViewKey;
+  openMenu: string | null;
+  setOpenMenu: (v: string | null) => void;
+  go: (k: ViewKey) => void;
+}) {
+  const open = openMenu === node.label;
+  const activeChild = hasView(node, view);
+  return (
+    <div className="relative shrink-0">
+      <button
+        onClick={() => setOpenMenu(open ? null : node.label)}
+        className={`nav-item ${activeChild ? 'nav-item--on' : open ? 'bg-white/5 text-white' : ''}`}
+      >
+        <span aria-hidden className="mr-1 text-xs">
+          {node.icon}
+        </span>
+        {node.label}
+        <span aria-hidden className="ml-1 text-[9px] text-cyan-400/70">
+          {open ? '▲' : '▼'}
+        </span>
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1.5 max-h-[70vh] min-w-52 overflow-y-auto rounded-xl border border-cyan-400/20 bg-[#0c1730]/95 p-1 shadow-[0_16px_44px_rgba(0,0,0,0.65),0_0_24px_rgba(34,211,238,0.08)] backdrop-blur-md">
+          {(node.children ?? []).map((c) => (
+            <DropNode key={c.key ?? c.label} node={c} depth={0} view={view} go={go} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 모바일 메뉴 칩 */
+function MobileChip({ node, view, go }: { node: MenuNode; view: ViewKey; go: (k: ViewKey) => void }) {
+  const active = node.key ? view === node.key : false;
+  return (
+    <button
+      onClick={() => node.key && go(node.key)}
+      className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium ${
+        active
+          ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-[0_0_14px_rgba(34,211,238,0.35)]'
+          : 'border border-cyan-400/15 bg-white/5 text-[#9db0d4]'
+      }`}
+    >
+      {node.label}
+    </button>
+  );
 }
 
 export default function Page() {
@@ -91,11 +274,22 @@ export default function Page() {
   const [ready, setReady] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [clock, setClock] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [query, setQuery] = useState('');
   const navRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     setData(loadData());
     setReady(true);
+  }, []);
+
+  // 드롭다운 밖 클릭 시 닫기
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) setOpenMenu(null);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
   }, []);
 
   // 헤더 라이브 시계 (HUD)
@@ -110,15 +304,6 @@ export default function Page() {
     return () => clearInterval(iv);
   }, []);
 
-  // 드롭다운 밖 클릭 시 닫기
-  useEffect(() => {
-    const onDown = (e: MouseEvent) => {
-      if (navRef.current && !navRef.current.contains(e.target as Node)) setOpenMenu(null);
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, []);
-
   const onLoaded = (d: SafetyData) => {
     saveData(d);
     setData(d);
@@ -127,90 +312,39 @@ export default function Page() {
 
   const hasLedgers =
     !!data && data.edu.length + data.insp.length + data.incidents.length + data.schedule.length > 0;
-  const menu = MENU.filter((m) => m.key !== 'ledgers' || hasLedgers);
-  const navMenu = menu.filter((m) => m.key !== 'data'); // 데이터 관리는 우측 버튼으로
+  // 관리대장은 데이터가 있을 때만 안전관리 하위에 노출
+  const menu: MenuNode[] = MENU.map((m) =>
+    m.label === '안전관리' && hasLedgers
+      ? { ...m, children: [...(m.children ?? []), { key: 'ledgers' as ViewKey, label: '관리대장' }] }
+      : m,
+  );
 
   const go = (key: ViewKey) => {
     setView(key);
     setOpenMenu(null);
   };
 
-  /** 상단 메뉴 단일 항목 */
-  const TopItem = ({ itemKey, label, icon, wip }: { itemKey: ViewKey; label: string; icon?: string; wip?: boolean }) => {
-    const active = view === itemKey;
-    return (
-      <button onClick={() => go(itemKey)} className={`nav-item ${active ? 'nav-item--on' : ''}`}>
-        {icon && (
-          <span aria-hidden className="mr-1 text-xs">
-            {icon}
-          </span>
-        )}
-        {label}
-        {wip && <span className="ml-1 align-middle text-[9px] text-cyan-500/70">예정</span>}
-      </button>
-    );
+  const submitSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = searchInput.trim();
+    if (!q) return;
+    setQuery(q);
+    setView('search');
+    setOpenMenu(null);
   };
 
-  /** 상단 메뉴 그룹(드롭다운) */
-  const TopGroup = ({ item }: { item: MenuItem }) => {
-    const open = openMenu === item.label;
-    const activeChild = (item.children ?? []).some((c) => c.key === view);
-    return (
-      <div className="relative shrink-0">
-        <button
-          onClick={() => setOpenMenu(open ? null : item.label)}
-          className={`nav-item ${activeChild ? 'nav-item--on' : open ? 'bg-white/5 text-white' : ''}`}
-        >
-          <span aria-hidden className="mr-1 text-xs">
-            {item.icon}
-          </span>
-          {item.label}
-          <span aria-hidden className="ml-1 text-[9px] text-cyan-400/70">
-            {open ? '▲' : '▼'}
-          </span>
-        </button>
-        {open && (
-          <div className="absolute left-0 top-full z-50 mt-1.5 min-w-44 overflow-hidden rounded-xl border border-cyan-400/20 bg-[#0c1730]/95 p-1 shadow-[0_16px_44px_rgba(0,0,0,0.65),0_0_24px_rgba(34,211,238,0.08)] backdrop-blur-md">
-            {(item.children ?? []).map((c) => (
-              <button
-                key={c.key}
-                onClick={() => go(c.key)}
-                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${
-                  view === c.key ? 'bg-cyan-400/10 text-cyan-300' : 'text-[#9db0d4] hover:bg-white/5 hover:text-white'
-                }`}
-              >
-                {c.label}
-                {c.wip && <span className="ml-auto text-[9px] text-cyan-500/60">예정</span>}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  /** 모바일 메뉴 칩 */
-  const MobileChip = ({ itemKey, label }: { itemKey: ViewKey; label: string }) => {
-    const active = view === itemKey;
-    return (
-      <button
-        onClick={() => go(itemKey)}
-        className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium ${
-          active
-            ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-[0_0_14px_rgba(34,211,238,0.35)]'
-            : 'border border-cyan-400/15 bg-white/5 text-[#9db0d4]'
-        }`}
-      >
-        {label}
-      </button>
-    );
+  const viewLabel = (v: ViewKey): string => {
+    if (v === 'data') return '데이터 관리';
+    if (v === 'ledgers') return '안전관리 — 관리대장';
+    if (v === 'search') return `검색`;
+    return findPath(menu, v)?.join(' — ') ?? '메인';
   };
 
   return (
     <div className="flex min-h-screen flex-col">
       {/* 상단 내비게이션 */}
       <header className="topbar sticky top-0 z-40 border-b border-cyan-400/15 bg-[#0a1226]/85 backdrop-blur-md">
-        <div className="flex items-center gap-5 px-4 py-2.5 lg:px-6">
+        <div className="flex items-center gap-4 px-4 py-2.5 lg:px-6">
           {/* 로고 */}
           <button onClick={() => go('main')} className="shrink-0 text-left" aria-label="메인으로">
             <span className="flex items-center gap-2">
@@ -231,11 +365,11 @@ export default function Page() {
 
           {/* 데스크톱 메뉴 */}
           <nav ref={navRef} className="hidden min-w-0 flex-1 flex-wrap items-center gap-0.5 md:flex">
-            {navMenu.map((m) =>
+            {menu.map((m) =>
               m.children ? (
-                <TopGroup key={m.label} item={m} />
+                <TopGroup key={m.label} node={m} view={view} openMenu={openMenu} setOpenMenu={setOpenMenu} go={go} />
               ) : (
-                <TopItem key={m.key} itemKey={m.key!} label={m.label} icon={m.icon} wip={m.wip} />
+                <TopItem key={m.key} node={m} view={view} go={go} />
               ),
             )}
           </nav>
@@ -243,33 +377,57 @@ export default function Page() {
           {clock && (
             <span
               aria-hidden
-              className="ml-auto hidden shrink-0 font-mono text-sm tracking-[0.2em] text-cyan-300/90 [text-shadow:0_0_12px_rgba(34,211,238,0.55)] lg:block"
+              className="ml-auto hidden shrink-0 font-mono text-sm tracking-[0.2em] text-cyan-300/90 [text-shadow:0_0_12px_rgba(34,211,238,0.55)] xl:block"
             >
               {clock}
             </span>
           )}
           <button
             onClick={() => go('data')}
-            className="ml-auto shrink-0 rounded-lg bg-[#1f3864] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a4a80] lg:ml-0"
+            className="ml-auto shrink-0 rounded-lg bg-[#1f3864] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a4a80] xl:ml-0"
           >
-            💾 데이터 관리
+            💾 <span className="hidden lg:inline">데이터 관리</span>
           </button>
+
+          {/* 전역 검색 — 상단 제일 오른쪽 */}
+          <form onSubmit={submitSearch} className="relative hidden shrink-0 md:block">
+            <input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="전체 검색"
+              aria-label="전체 검색"
+              className="w-32 rounded-lg border border-cyan-400/20 bg-white/5 py-1.5 pl-3 pr-8 text-sm text-white placeholder:text-[#5b6d92] focus:border-cyan-400/60 focus:outline-none focus:shadow-[0_0_14px_rgba(34,211,238,0.2)] lg:w-44"
+            />
+            <button type="submit" aria-label="검색" className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8fa3c8] hover:text-cyan-300">
+              🔍
+            </button>
+          </form>
         </div>
 
-        {/* 모바일 메뉴 */}
-        <nav className="flex gap-2 overflow-x-auto px-4 pb-2.5 md:hidden">
-          {navMenu.map((m) =>
-            m.children ? (
-              m.children.map((c) => <MobileChip key={c.key} itemKey={c.key} label={`${m.icon} ${c.label}`} />)
-            ) : (
-              <MobileChip key={m.key} itemKey={m.key!} label={`${m.icon} ${m.label}`} />
-            ),
-          )}
-        </nav>
+        {/* 모바일: 검색 + 메뉴 칩 */}
+        <div className="px-4 pb-2.5 md:hidden">
+          <form onSubmit={submitSearch} className="relative mb-2">
+            <input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="이름·차량번호·키워드 전체 검색"
+              aria-label="전체 검색"
+              className="w-full rounded-lg border border-cyan-400/20 bg-white/5 py-1.5 pl-3 pr-8 text-sm text-white placeholder:text-[#5b6d92] focus:border-cyan-400/60 focus:outline-none"
+            />
+            <button type="submit" aria-label="검색" className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8fa3c8]">
+              🔍
+            </button>
+          </form>
+          <nav className="flex gap-2 overflow-x-auto">
+            {leaves(menu).map((n) => (
+              <MobileChip key={n.key} node={n} view={view} go={go} />
+            ))}
+          </nav>
+        </div>
       </header>
 
       {/* 본문 — 메뉴 전환 시 view-enter 애니메이션 */}
-      <main key={view} className="view-enter flex-1 p-4 lg:p-6">
+      <main key={view === 'search' ? `search-${query}` : view} className="view-enter flex-1 p-4 lg:p-6">
         {/* 페이지 타이틀 */}
         <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1">
           <h1 className="flex items-center gap-2.5 text-lg font-bold tracking-tight text-white md:text-xl">
@@ -277,7 +435,13 @@ export default function Page() {
               aria-hidden
               className="h-5 w-1.5 rounded-full bg-gradient-to-b from-cyan-300 to-blue-600 shadow-[0_0_12px_rgba(34,211,238,0.9)]"
             />
-            {viewLabel(view)}
+            {view === 'search' ? (
+              <>
+                검색 <span className="text-base font-medium text-cyan-300">&ldquo;{query}&rdquo;</span>
+              </>
+            ) : (
+              viewLabel(view)
+            )}
           </h1>
           {data ? (
             <span className="text-xs text-slate-400">
@@ -299,12 +463,21 @@ export default function Page() {
             {view === 'nearmiss' && <NearMissReport />}
             {view === 'people' && <WorkforceLog data={data} />}
             {view === 'edu-supervisor' && <EducationRoster courseKey="supervisor" />}
-            {view === 'edu-chemical' && <ChemicalAccess />}
-            {view === 'edu-yncc' && <YnccAccess />}
+            {view === 'edu-chemical-staff' && <ChemicalAccess initialTab="직원" />}
+            {view === 'edu-chemical-worker' && <ChemicalAccess initialTab="인력" />}
+            {view === 'edu-chemical-roster' && <ChemicalAccess initialTab="수료증 명부" />}
+            {view === 'edu-yncc-staff' && <YnccWorkers group="직원" />}
+            {view === 'edu-yncc-worker' && <YnccWorkers group="인력" />}
+            {view === 'card' && <AccessCardSheet />}
+            {view === 'yncc-vehicle' && <YnccVehicles />}
             {view === 'risk-assess' && <RiskAssessment />}
-            {(view === 'health-general' ||
-              view === 'health-special' ||
+            {view === 'search' && <SearchResults query={query} onNavigate={(v) => go(v as ViewKey)} />}
+            {(view === 'health-general-staff' ||
+              view === 'health-general-worker' ||
+              view === 'health-special-staff' ||
+              view === 'health-special-worker' ||
               view === 'health-followup' ||
+              view === 'gas-meter' ||
               view === 'notice') && <ComingSoon label={viewLabel(view)} />}
             {view === 'data' && (
               <div className="mx-auto max-w-2xl py-6">

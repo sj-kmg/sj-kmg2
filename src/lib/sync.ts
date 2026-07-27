@@ -10,7 +10,8 @@ export type LogType =
   | 'risk'
   | 'yncc-workers'
   | 'yncc-vehicles'
-  | 'chem-workers';
+  | 'chem-workers'
+  | 'cards';
 
 const PASS_KEY = 'sj-sync-passcode';
 
