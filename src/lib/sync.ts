@@ -3,7 +3,14 @@
  * 서버(Vercel Blob) 저장이 설정돼 있으면 기기 간 공유, 아니면 로컬(localStorage) 폴백.
  * 동기화 암호는 이 브라우저에 저장해 두고 요청 헤더로만 전송한다.
  */
-export type LogType = 'tbm' | 'nearmiss' | 'workforce' | 'risk' | 'yncc-workers' | 'yncc-vehicles';
+export type LogType =
+  | 'tbm'
+  | 'nearmiss'
+  | 'workforce'
+  | 'risk'
+  | 'yncc-workers'
+  | 'yncc-vehicles'
+  | 'chem-workers';
 
 const PASS_KEY = 'sj-sync-passcode';
 

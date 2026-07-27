@@ -12,6 +12,7 @@ import WorkforceLog from '@/components/WorkforceLog';
 import EducationRoster from '@/components/EducationRoster';
 import RiskAssessment from '@/components/RiskAssessment';
 import YnccAccess from '@/components/YnccAccess';
+import ChemicalAccess from '@/components/ChemicalAccess';
 
 type ViewKey =
   | 'main'
@@ -89,11 +90,24 @@ export default function Page() {
   const [view, setView] = useState<ViewKey>('main');
   const [ready, setReady] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [clock, setClock] = useState('');
   const navRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     setData(loadData());
     setReady(true);
+  }, []);
+
+  // 헤더 라이브 시계 (HUD)
+  useEffect(() => {
+    const tick = () => {
+      const d = new Date();
+      const p = (n: number) => String(n).padStart(2, '0');
+      setClock(`${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`);
+    };
+    tick();
+    const iv = setInterval(tick, 1000);
+    return () => clearInterval(iv);
   }, []);
 
   // 드롭다운 밖 클릭 시 닫기
@@ -226,9 +240,17 @@ export default function Page() {
             )}
           </nav>
 
+          {clock && (
+            <span
+              aria-hidden
+              className="ml-auto hidden shrink-0 font-mono text-sm tracking-[0.2em] text-cyan-300/90 [text-shadow:0_0_12px_rgba(34,211,238,0.55)] lg:block"
+            >
+              {clock}
+            </span>
+          )}
           <button
             onClick={() => go('data')}
-            className="ml-auto shrink-0 rounded-lg bg-[#1f3864] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a4a80] md:ml-0"
+            className="ml-auto shrink-0 rounded-lg bg-[#1f3864] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a4a80] lg:ml-0"
           >
             💾 데이터 관리
           </button>
@@ -277,7 +299,7 @@ export default function Page() {
             {view === 'nearmiss' && <NearMissReport />}
             {view === 'people' && <WorkforceLog data={data} />}
             {view === 'edu-supervisor' && <EducationRoster courseKey="supervisor" />}
-            {view === 'edu-chemical' && <EducationRoster courseKey="chemical" />}
+            {view === 'edu-chemical' && <ChemicalAccess />}
             {view === 'edu-yncc' && <YnccAccess />}
             {view === 'risk-assess' && <RiskAssessment />}
             {(view === 'health-general' ||

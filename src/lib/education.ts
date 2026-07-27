@@ -176,3 +176,10 @@ export function allRenewals(today = new Date()): RenewalItem[] {
 export function upcomingRenewals(today = new Date()): RenewalItem[] {
   return allRenewals(today).filter((r) => r.level !== null);
 }
+
+/** 유해화학물질 시트 입력분: 집체·온라인 이수일 중 늦은 연도 + 3년의 1월 1일 = 갱신 도래일 (예: 24년 이수 → 27년 1월) */
+export function chemicalRenewalFromDates(offline?: string, online?: string): string | null {
+  const base = [offline, online].filter((d): d is string => !!d).sort().pop();
+  if (!base || base.length < 4) return null;
+  return `${Number(base.slice(0, 4)) + 3}-01-01`;
+}

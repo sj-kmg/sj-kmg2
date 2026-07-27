@@ -2,7 +2,7 @@
 
 /* ====== AI · HUD 퓨처리스틱 테마 v2 ====== */
 :root {
-  --background: #060b18;
+  --background: #04070f;
   --foreground: #dbe6fb;
   --panel-hi: rgba(18, 31, 58, 0.95);
   --panel-lo: rgba(9, 16, 33, 0.97);
@@ -124,47 +124,69 @@ button:not(:disabled):active { transform: scale(0.96); }
   50% { box-shadow: inset 0 -2px 0 0 rgba(103, 232, 249, 1), 0 0 24px rgba(34, 211, 238, 0.3); }
 }
 
-/* ====== HUD 패널 (카드 공통) ====== */
+/* ====== HUD 패널 (카드 공통) — 각진 테크 프레임 ====== */
 .shadow-sm {
   position: relative;
-  background: linear-gradient(165deg, var(--panel-hi), var(--panel-lo)) !important;
+  border-radius: 8px !important;
+  border-top-right-radius: 0 !important;
+  background: linear-gradient(170deg, rgba(13, 24, 46, 0.92), rgba(6, 12, 24, 0.95)) !important;
   box-shadow:
-    0 0 0 1px rgba(56, 189, 248, 0.06),
-    0 12px 34px rgba(1, 5, 15, 0.6) !important;
+    0 0 0 1px rgba(56, 189, 248, 0.05),
+    0 12px 34px rgba(0, 3, 10, 0.65) !important;
   transition: box-shadow 0.3s ease, border-color 0.3s ease;
 }
 .shadow-sm:hover {
   border-color: rgba(103, 232, 249, 0.35) !important;
   box-shadow:
-    0 0 0 1px rgba(56, 189, 248, 0.16),
-    0 16px 44px rgba(1, 5, 15, 0.7),
+    0 0 0 1px rgba(56, 189, 248, 0.14),
+    0 16px 44px rgba(0, 3, 10, 0.75),
     0 0 34px rgba(34, 211, 238, 0.09) !important;
 }
-/* 코너 브래킷 (좌상·우하) */
-.shadow-sm::before,
+/* 좌상 브래킷 */
+.shadow-sm::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  opacity: 0.9;
+  border-top: 2px solid var(--accent-soft);
+  border-left: 2px solid var(--accent-soft);
+  border-top-left-radius: 8px;
+  transition: width 0.3s ease, height 0.3s ease, opacity 0.3s ease;
+}
+/* 우상 사선 노치 (모서리 절단) */
 .shadow-sm::after {
   content: "";
   position: absolute;
+  top: -1px; right: -1px;
   width: 15px;
   height: 15px;
   pointer-events: none;
-  opacity: 0.85;
-  transition: opacity 0.3s ease, width 0.3s ease, height 0.3s ease;
+  background: linear-gradient(
+    to bottom left,
+    var(--background) 0 47%,
+    rgba(103, 232, 249, 0.6) 47% 56%,
+    transparent 56%
+  );
 }
-.shadow-sm::before {
-  top: 0; left: 0;
-  border-top: 2px solid var(--accent-soft);
-  border-left: 2px solid var(--accent-soft);
-  border-top-left-radius: 0.7rem;
+.shadow-sm:hover::before { width: 26px; height: 26px; opacity: 1; }
+
+/* 자리표시(구성 예정) 박스 — 사선 해치 패턴 */
+div.border-dashed {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(56, 189, 248, 0.045) 0 10px,
+    transparent 10px 20px
+  );
 }
-.shadow-sm::after {
-  bottom: 0; right: 0;
-  border-bottom: 2px solid rgba(99, 102, 241, 0.55);
-  border-right: 2px solid rgba(99, 102, 241, 0.55);
-  border-bottom-right-radius: 0.7rem;
+
+/* 발광 스탯 숫자 */
+.hud-num {
+  color: #eafcff;
+  text-shadow: 0 0 18px rgba(34, 211, 238, 0.5), 0 0 3px rgba(34, 211, 238, 0.6);
 }
-.shadow-sm:hover::before,
-.shadow-sm:hover::after { opacity: 1; width: 22px; height: 22px; }
 
 /* ====== 테크 모노 폰트 (숫자·날짜·코드) ====== */
 .font-mono {
