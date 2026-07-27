@@ -8,9 +8,9 @@ import { z } from 'zod';
  * 매달 제공되는 무료 크레딧($5/월)에서 차감된다. 로컬 개발 환경에서는 503을 반환한다.
  * 외부 호출 방지를 위해 기록 API와 같은 동기화 암호(x-passcode)를 요구한다.
  */
-export const maxDuration = 60;
+export const maxDuration = 300;
 
-const MODEL = process.env.RISK_AI_MODEL ?? 'anthropic/claude-sonnet-4.6';
+const MODEL = process.env.RISK_AI_MODEL ?? 'anthropic/claude-sonnet-5';
 
 const MEDIA_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
@@ -109,6 +109,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ rows });
   } catch (e) {
     console.error('risk-ai generation failed:', e);
-    return NextResponse.json({ error: 'generation_failed' }, { status: 502 });
+    const msg = e instanceof Error ? e.message : String(e);
+    let code = 'generation_failed';
+    if (/credit|quota|payment required|402/i.test(msg)) code = 'no_credit';
+    else if (/oidc|authenticat|api key|unauthoriz/i.test(msg)) code = 'gateway_auth';
+    else if (/model/i.test(msg) && /not found|not available|invalid/i.test(msg)) code = 'bad_model';
+    return NextResponse.json({ error: code, detail: msg.slice(0, 300) }, { status: 502 });
   }
+}
+
+/** 배포 상태 확인용 — 사용 모델만 노출 (AI 호출 없음) */
+export async function GET() {
+  return NextResponse.json({ ok: true, model: MODEL });
 }

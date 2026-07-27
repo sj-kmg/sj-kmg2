@@ -78,9 +78,37 @@ export interface AiRiskRow {
   timing: string;
 }
 
-/** 작업 사진으로 위험성평가 초안 생성 (서버에 ANTHROPIC_API_KEY 필요) */
+/** AI 생성 실패 — 서버가 알려준 원인 코드·상세를 담는다 */
+export class RiskAiError extends SyncError {
+  code: string;
+  detail: string;
+  constructor(status: number, code: string, detail: string) {
+    super(status);
+    this.code = code;
+    this.detail = detail;
+  }
+}
+
+/** 작업 사진으로 위험성평가 초안 생성 (Vercel AI Gateway — 배포 환경 전용) */
 export async function generateRiskRows(photos: string[], context: string): Promise<AiRiskRow[]> {
-  const res = await call('/api/risk-ai', { method: 'POST', body: JSON.stringify({ photos, context }) });
+  const pass = getPasscode();
+  const res = await fetch('/api/risk-ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(pass ? { 'x-passcode': pass } : {}) },
+    body: JSON.stringify({ photos, context }),
+  });
+  if (!res.ok) {
+    let code = '';
+    let detail = '';
+    try {
+      const j = (await res.json()) as { error?: string; detail?: string };
+      code = j.error ?? '';
+      detail = j.detail ?? '';
+    } catch {
+      // 본문 없는 오류(504 등)는 상태코드만 전달
+    }
+    throw new RiskAiError(res.status, code, detail);
+  }
   const data = (await res.json()) as { rows: AiRiskRow[] };
   return data.rows ?? [];
 }

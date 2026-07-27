@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { deletePhoto, fileToResizedDataUrl, getPhoto, putPhoto } from '@/lib/photos';
-import { SyncError, generateRiskRows, setPasscode, uploadPhoto } from '@/lib/sync';
+import { RiskAiError, SyncError, generateRiskRows, setPasscode, uploadPhoto } from '@/lib/sync';
 import { modeBadge, useSyncedLog } from '@/lib/useSyncedLog';
 import { gradeByKey, riskLevelKey, riskProduct } from '@/lib/risk';
 import RiskEstimationGuide, { RiskResultSummary } from './RiskGuide';
@@ -243,8 +243,18 @@ export default function RiskAssessment() {
     } catch (e) {
       if (e instanceof SyncError && e.status === 503) {
         alert('AI 자동 생성은 배포된 사이트(Vercel)에서 사용할 수 있습니다.\n로컬 개발 환경에서는 동작하지 않습니다.');
+      } else if (e instanceof RiskAiError && e.code === 'no_credit') {
+        alert('이번 달 무료 AI 사용량이 모두 소진되었습니다.\n다음 달에 자동으로 초기화됩니다.');
+      } else if (e instanceof RiskAiError && e.code === 'gateway_auth') {
+        alert(
+          'AI 게이트웨이 인증에 실패했습니다.\nVercel 프로젝트 Settings에서 OIDC(Secure Backend Access) 설정 확인이 필요합니다.\n\n상세: ' +
+            e.detail,
+        );
+      } else if (e instanceof RiskAiError && e.detail) {
+        alert(`자동 생성에 실패했습니다.\n\n오류 내용: ${e.detail}\n\n이 내용을 관리자(Claude)에게 알려주시면 해결해 드립니다.`);
       } else {
-        alert('자동 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.\n(월 무료 사용량을 다 쓴 경우 다음 달에 다시 시도할 수 있습니다)');
+        const status = e instanceof SyncError ? ` (오류 코드 ${e.status})` : '';
+        alert(`자동 생성에 실패했습니다.${status} 잠시 후 다시 시도해 주세요.`);
       }
     } finally {
       setAiBusy(false);
