@@ -122,8 +122,25 @@ export async function POST(req: Request) {
   }
 }
 
-/** 배포 상태 확인용 — 사용 엔진·모델만 노출 (AI 호출 없음) */
-export async function GET() {
+/** 배포 상태 확인용 — 사용 엔진·모델 노출 (AI 호출 없음). ?models=1 로 이 키에서 쓸 수 있는 Gemini 모델 목록 조회 */
+export async function GET(req: Request) {
+  const wantModels = new URL(req.url).searchParams.get('models');
+  if (wantModels && USE_GEMINI) {
+    try {
+      const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?pageSize=100&key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`,
+      );
+      const data = (await r.json()) as {
+        models?: { name: string; supportedGenerationMethods?: string[] }[];
+      };
+      const models = (data.models ?? [])
+        .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
+        .map((m) => m.name.replace('models/', ''));
+      return NextResponse.json({ models });
+    } catch {
+      return NextResponse.json({ error: 'list_failed' }, { status: 502 });
+    }
+  }
   return NextResponse.json({
     ok: true,
     engine: USE_GEMINI ? 'gemini-free' : 'ai-gateway',
