@@ -4,7 +4,8 @@ import { useMemo, useState } from 'react';
 import { deletePhoto, fileToResizedDataUrl, getPhoto, putPhoto } from '@/lib/photos';
 import { uploadPhoto } from '@/lib/sync';
 import { modeBadge, useSyncedLog } from '@/lib/useSyncedLog';
-import { gradeByKey } from '@/lib/risk';
+import { gradeByKey, riskLevelKey, riskProduct } from '@/lib/risk';
+import RiskEstimationGuide, { RiskResultSummary } from './RiskGuide';
 
 /** 공사업체 선택 목록 */
 const COMPANIES = [
@@ -89,22 +90,6 @@ const EMPTY_ROW: FormRow = {
 const EMPTY_HEAD = {
   company: '', workName: '', workers: '', periodFrom: '', periodTo: '', method: '', assessor: '',
 };
-
-/** 위험성 = 빈도 × 강도 (빈도 1~5 · 강도 1~4) */
-function riskOf(freq: string, sev: string): number | null {
-  const f = Number(freq);
-  const s = Number(sev);
-  if (!f || !s) return null;
-  return f * s;
-}
-
-/** Level: 1~6 A · 7~12 B · 13~15 C · 16~20 D */
-function levelOf(r: number): 'A' | 'B' | 'C' | 'D' {
-  if (r <= 6) return 'A';
-  if (r <= 12) return 'B';
-  if (r <= 15) return 'C';
-  return 'D';
-}
 
 /** 숫자 입력 정리 — 빈 값 허용, 1~max로 제한 */
 function clampNum(v: string, max: number): string {
@@ -551,8 +536,8 @@ export default function RiskAssessment() {
           </div>
         ) : (
           shown.map((e) => {
-            const maxRisk = Math.max(0, ...e.rows.map((r) => riskOf(r.freq1, r.sev1) ?? 0));
-            const level = maxRisk > 0 ? levelOf(maxRisk) : null;
+            const maxRisk = Math.max(0, ...e.rows.map((r) => riskProduct(r.freq1, r.sev1) ?? 0));
+            const level = maxRisk > 0 ? riskLevelKey(maxRisk) : null;
             const meta = level ? gradeByKey(level, 'letter4') : null;
             return (
               <article key={e.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -583,11 +568,16 @@ export default function RiskAssessment() {
                   {e.assessor && `평가자 ${e.assessor} · `}
                   항목 {e.rows.length}건 · 사진 {(e.photoUrls?.length ?? 0) + e.rows.reduce((n, r) => n + (r.photoIds?.length ?? 0), 0)}장
                 </p>
+                {/* 위험성결과표 — 항목에서 자동 집계 */}
+                <RiskResultSummary rows={e.rows} />
               </article>
             );
           })
         )}
       </section>
+
+      {/* 위험성 추정결정표 (참고 기준표) */}
+      <RiskEstimationGuide />
 
       {/* 사진 확대 보기 */}
       {preview && (
@@ -615,8 +605,8 @@ function GradeInput({
   onFreq: (v: string) => void;
   onSev: (v: string) => void;
 }) {
-  const r = riskOf(freq, sev);
-  const level = r === null ? null : levelOf(r);
+  const r = riskProduct(freq, sev);
+  const level = r === null ? null : riskLevelKey(r);
   const meta = level ? gradeByKey(level, 'letter4') : null;
   const num =
     'w-10 rounded-md border border-slate-200 bg-white px-1 py-1.5 text-center text-xs text-slate-800 focus:border-[#1f3864] focus:outline-none';

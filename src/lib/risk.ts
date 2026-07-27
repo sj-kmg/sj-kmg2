@@ -52,3 +52,19 @@ export function gradeByKey(key: string, system: GradeSystem): GradeMeta | null {
 export function highRiskMin(system: GradeSystem): number {
   return system === 'letter4' ? 7 : 9;
 }
+
+/** 위험성평가: 위험성 = 빈도 × 강도 (미입력 시 null) */
+export function riskProduct(freq: string, sev: string): number | null {
+  const f = Number(freq);
+  const s = Number(sev);
+  if (!f || !s) return null;
+  return f * s;
+}
+
+/** 위험성 점수 → Level (1~6 A · 7~12 B · 13~15 C · 16~20 D) */
+export function riskLevelKey(r: number): 'A' | 'B' | 'C' | 'D' {
+  if (r <= 6) return 'A';
+  if (r <= 12) return 'B';
+  if (r <= 15) return 'C';
+  return 'D';
+}
