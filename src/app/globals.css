@@ -1,9 +1,16 @@
 @import "tailwindcss";
 
-/* 업무용 대시보드 — 라이트 고정 테마 */
+/* ====== AI · 퓨처리스틱 다크 테마 ====== */
 :root {
-  --background: #f4f5f7;
-  --foreground: #171717;
+  --background: #070d1d;
+  --foreground: #d7e2f5;
+  --panel: #101b32;
+  --panel-2: #14233f;
+  --panel-3: #1c2d4f;
+  --line-1: rgba(103, 232, 249, 0.1);
+  --line-2: rgba(103, 232, 249, 0.16);
+  --line-3: rgba(103, 232, 249, 0.28);
+  --accent: #22d3ee;
 }
 
 @theme inline {
@@ -13,7 +20,15 @@
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(900px 480px at 15% -10%, rgba(14, 100, 180, 0.22), transparent 60%),
+    radial-gradient(1100px 520px at 85% 0%, rgba(34, 211, 238, 0.1), transparent 55%),
+    radial-gradient(800px 600px at 50% 110%, rgba(37, 99, 235, 0.12), transparent 60%),
+    linear-gradient(rgba(56, 189, 248, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.035) 1px, transparent 1px),
+    var(--background);
+  background-size: auto, auto, auto, 42px 42px, 42px 42px, auto;
+  background-attachment: fixed;
   color: var(--foreground);
   font-family:
     var(--font-geist-sans),
@@ -21,4 +36,85 @@ body {
     "Apple SD Gothic Neo",
     "Noto Sans KR",
     sans-serif;
+}
+
+/* 스크롤바 */
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: #24355c; border-radius: 8px; }
+*::-webkit-scrollbar-thumb:hover { background: #31477a; }
+
+/* date 입력 아이콘을 다크 배경에서 보이게 */
+input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8); }
+
+/* ====== 라이트 유틸리티 → 다크 재매핑 ======
+   기존 컴포넌트의 라이트 톤 클래스를 테마 색으로 일괄 치환한다. */
+
+/* 배경 */
+.bg-white { background-color: var(--panel) !important; }
+.bg-slate-50 { background-color: var(--panel-2) !important; }
+.bg-slate-50\/60 { background-color: rgba(20, 35, 63, 0.6) !important; }
+.bg-slate-100 { background-color: var(--panel-3) !important; }
+.bg-sky-50 { background-color: rgba(34, 211, 238, 0.12) !important; }
+.bg-sky-50\/40 { background-color: rgba(34, 211, 238, 0.07) !important; }
+.bg-sky-50\/50 { background-color: rgba(34, 211, 238, 0.09) !important; }
+.bg-red-50 { background-color: rgba(248, 113, 113, 0.16) !important; }
+.bg-orange-50 { background-color: rgba(251, 146, 60, 0.16) !important; }
+.bg-orange-100 { background-color: rgba(251, 146, 60, 0.22) !important; }
+.bg-amber-50 { background-color: rgba(251, 191, 36, 0.16) !important; }
+.bg-emerald-50 { background-color: rgba(52, 211, 153, 0.14) !important; }
+.hover\:bg-slate-50:hover { background-color: var(--panel-2) !important; }
+.hover\:bg-slate-100:hover { background-color: var(--panel-3) !important; }
+.hover\:bg-sky-50:hover { background-color: rgba(34, 211, 238, 0.12) !important; }
+.hover\:bg-sky-50\/50:hover { background-color: rgba(34, 211, 238, 0.09) !important; }
+.hover\:bg-red-50:hover { background-color: rgba(248, 113, 113, 0.16) !important; }
+
+/* 브랜드 네이비 → 시안·블루 그라데이션 */
+.bg-\[\#1f3864\] {
+  background: linear-gradient(135deg, #0891b2, #2563eb) !important;
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.25);
+}
+.hover\:bg-\[\#2a4a80\]:hover { background: linear-gradient(135deg, #06b6d4, #3b82f6) !important; }
+.text-\[\#1f3864\] { color: #67e8f9 !important; }
+.hover\:border-\[\#1f3864\]:hover { border-color: #38bdf8 !important; }
+.hover\:text-\[\#1f3864\]:hover { color: #67e8f9 !important; }
+.focus\:border-\[\#1f3864\]:focus {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35);
+}
+
+/* 텍스트 */
+.text-slate-800 { color: #eaf1ff !important; }
+.text-slate-700 { color: #d7e2f5 !important; }
+.text-slate-600 { color: #aab9d8 !important; }
+.text-slate-500 { color: #8b9cc0 !important; }
+.text-slate-400 { color: #66779e !important; }
+.text-slate-300 { color: #46567c !important; }
+.text-red-700 { color: #fca5a5 !important; }
+.text-red-600 { color: #f87171 !important; }
+.text-orange-700 { color: #fdba74 !important; }
+.text-orange-800 { color: #fdba74 !important; }
+.text-amber-700 { color: #fcd34d !important; }
+.text-sky-700 { color: #7dd3fc !important; }
+.text-sky-800 { color: #a5e5fc !important; }
+.text-sky-600 { color: #38bdf8 !important; }
+.text-emerald-900 { color: #a7f3d0 !important; }
+.text-green-600 { color: #4ade80 !important; }
+
+/* 테두리·구분선 */
+.border-slate-100 { border-color: var(--line-1) !important; }
+.border-slate-200 { border-color: var(--line-2) !important; }
+.border-slate-300 { border-color: var(--line-3) !important; }
+.border-slate-400 { border-color: rgba(103, 232, 249, 0.38) !important; }
+.border-sky-300 { border-color: rgba(56, 189, 248, 0.45) !important; }
+.border-red-200 { border-color: rgba(248, 113, 113, 0.45) !important; }
+.divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: var(--line-1) !important; }
+.divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-color: var(--line-2) !important; }
+
+/* 패널 글로우 */
+.shadow-sm {
+  box-shadow:
+    0 0 0 1px rgba(56, 189, 248, 0.05),
+    0 10px 30px rgba(1, 6, 18, 0.55),
+    inset 0 1px 0 rgba(148, 197, 255, 0.05) !important;
 }

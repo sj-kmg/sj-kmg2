@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { SafetyData } from '@/lib/types';
 import { loadData, saveData, clearData } from '@/lib/store';
 import FileDrop from '@/components/FileDrop';
@@ -88,14 +88,21 @@ export default function Page() {
   const [data, setData] = useState<SafetyData | null>(null);
   const [view, setView] = useState<ViewKey>('main');
   const [ready, setReady] = useState(false);
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    건강검진: true,
-    안전교육: true,
-  });
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const navRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     setData(loadData());
     setReady(true);
+  }, []);
+
+  // 드롭다운 밖 클릭 시 닫기
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) setOpenMenu(null);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
   }, []);
 
   const onLoaded = (d: SafetyData) => {
@@ -107,187 +114,225 @@ export default function Page() {
   const hasLedgers =
     !!data && data.edu.length + data.insp.length + data.incidents.length + data.schedule.length > 0;
   const menu = MENU.filter((m) => m.key !== 'ledgers' || hasLedgers);
+  const navMenu = menu.filter((m) => m.key !== 'data'); // 데이터 관리는 우측 버튼으로
 
-  const ItemButton = ({
-    itemKey,
-    label,
-    icon,
-    wip,
-    child = false,
-    mobile = false,
-  }: {
-    itemKey: ViewKey;
-    label: string;
-    icon?: string;
-    wip?: boolean;
-    child?: boolean;
-    mobile?: boolean;
-  }) => {
+  const go = (key: ViewKey) => {
+    setView(key);
+    setOpenMenu(null);
+  };
+
+  /** 상단 메뉴 단일 항목 */
+  const TopItem = ({ itemKey, label, icon, wip }: { itemKey: ViewKey; label: string; icon?: string; wip?: boolean }) => {
     const active = view === itemKey;
-    if (mobile) {
-      return (
-        <button
-          onClick={() => setView(itemKey)}
-          className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium ${
-            active ? 'bg-[#1f3864] text-white' : 'border border-slate-200 bg-white text-slate-600'
-          }`}
-        >
-          {icon && <span aria-hidden>{icon} </span>}
-          {label}
-        </button>
-      );
-    }
     return (
       <button
-        onClick={() => setView(itemKey)}
-        className={`flex w-full items-center gap-3 border-l-4 py-2.5 text-left text-sm font-medium transition-colors ${
-          child ? 'pl-11 pr-4' : 'px-4'
-        } ${
+        onClick={() => go(itemKey)}
+        className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
           active
-            ? 'border-sky-300 bg-white/15 text-white'
-            : 'border-transparent text-blue-100 hover:bg-white/10 hover:text-white'
+            ? 'bg-cyan-400/10 text-cyan-300 shadow-[inset_0_-2px_0_0_rgba(34,211,238,0.9),0_0_16px_rgba(34,211,238,0.12)]'
+            : 'text-[#8fa3c8] hover:bg-white/5 hover:text-white'
         }`}
       >
-        {icon && <span aria-hidden>{icon}</span>}
-        <span>{label}</span>
-        {wip && <span className="ml-auto text-[10px] text-blue-300">예정</span>}
+        {icon && (
+          <span aria-hidden className="mr-1 text-xs">
+            {icon}
+          </span>
+        )}
+        {label}
+        {wip && <span className="ml-1 align-middle text-[9px] text-cyan-500/70">예정</span>}
+      </button>
+    );
+  };
+
+  /** 상단 메뉴 그룹(드롭다운) */
+  const TopGroup = ({ item }: { item: MenuItem }) => {
+    const open = openMenu === item.label;
+    const activeChild = (item.children ?? []).some((c) => c.key === view);
+    return (
+      <div className="relative shrink-0">
+        <button
+          onClick={() => setOpenMenu(open ? null : item.label)}
+          className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+            activeChild
+              ? 'bg-cyan-400/10 text-cyan-300 shadow-[inset_0_-2px_0_0_rgba(34,211,238,0.9),0_0_16px_rgba(34,211,238,0.12)]'
+              : open
+                ? 'bg-white/5 text-white'
+                : 'text-[#8fa3c8] hover:bg-white/5 hover:text-white'
+          }`}
+        >
+          <span aria-hidden className="mr-1 text-xs">
+            {item.icon}
+          </span>
+          {item.label}
+          <span aria-hidden className="ml-1 text-[9px] text-cyan-400/70">
+            {open ? '▲' : '▼'}
+          </span>
+        </button>
+        {open && (
+          <div className="absolute left-0 top-full z-50 mt-1.5 min-w-44 overflow-hidden rounded-xl border border-cyan-400/20 bg-[#0c1730]/95 p-1 shadow-[0_16px_44px_rgba(0,0,0,0.65),0_0_24px_rgba(34,211,238,0.08)] backdrop-blur-md">
+            {(item.children ?? []).map((c) => (
+              <button
+                key={c.key}
+                onClick={() => go(c.key)}
+                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${
+                  view === c.key ? 'bg-cyan-400/10 text-cyan-300' : 'text-[#9db0d4] hover:bg-white/5 hover:text-white'
+                }`}
+              >
+                {c.label}
+                {c.wip && <span className="ml-auto text-[9px] text-cyan-500/60">예정</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  /** 모바일 메뉴 칩 */
+  const MobileChip = ({ itemKey, label }: { itemKey: ViewKey; label: string }) => {
+    const active = view === itemKey;
+    return (
+      <button
+        onClick={() => go(itemKey)}
+        className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium ${
+          active
+            ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-[0_0_14px_rgba(34,211,238,0.35)]'
+            : 'border border-cyan-400/15 bg-white/5 text-[#9db0d4]'
+        }`}
+      >
+        {label}
       </button>
     );
   };
 
   return (
-    <div className="flex min-h-screen">
-      {/* 사이드바 (데스크톱) */}
-      <aside className="hidden w-56 shrink-0 flex-col bg-[#1f3864] md:flex">
-        <div className="border-b border-white/10 px-4 py-5">
-          <p className="text-lg font-black leading-tight text-white">㈜신정개발</p>
-          <p className="text-xs font-medium tracking-wide text-sky-300">Smart Safety Platform</p>
-        </div>
-        <nav className="flex-1 overflow-y-auto py-3">
-          {menu.map((m) =>
-            m.children ? (
-              <div key={m.label}>
-                <button
-                  onClick={() => setOpenGroups((g) => ({ ...g, [m.label]: !g[m.label] }))}
-                  className="flex w-full items-center gap-3 border-l-4 border-transparent px-4 py-2.5 text-left text-sm font-semibold text-blue-100 hover:bg-white/10 hover:text-white"
-                >
-                  <span aria-hidden>{m.icon}</span>
-                  <span>{m.label}</span>
-                  <span className="ml-auto text-xs text-blue-300">{openGroups[m.label] ? '▾' : '▸'}</span>
-                </button>
-                {openGroups[m.label] &&
-                  m.children.map((c) => (
-                    <ItemButton key={c.key} itemKey={c.key} label={c.label} wip={c.wip} child />
-                  ))}
-              </div>
-            ) : (
-              <ItemButton key={m.key} itemKey={m.key!} label={m.label} icon={m.icon} wip={m.wip} />
-            ),
-          )}
-        </nav>
-        <p className="px-4 py-4 text-[10px] leading-relaxed text-blue-300/70">
-          데이터는 브라우저에서만 처리되며
-          <br />
-          서버로 전송되지 않습니다.
-        </p>
-      </aside>
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        {/* 상단 헤더 */}
-        <header className="border-b border-slate-200 bg-white">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-            <h1 className="text-base font-bold text-[#1f3864] md:text-lg">{viewLabel(view)}</h1>
-            {data ? (
-              <span className="text-xs text-slate-400">
-                {data.meta['평가연도'] && `${data.meta['평가연도']}년 · `}
-                {data.fileName} · {new Date(data.loadedAt).toLocaleString('ko-KR')} 불러옴
-              </span>
-            ) : (
-              ready && <span className="text-xs text-orange-500">데이터 미연결 — [데이터 관리]에서 파일을 불러와 주세요</span>
-            )}
-            <div className="ml-auto flex items-center gap-2">
-              <button
-                onClick={() => setView('data')}
-                className="rounded-lg bg-[#1f3864] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a4a80]"
+    <div className="flex min-h-screen flex-col">
+      {/* 상단 내비게이션 */}
+      <header className="sticky top-0 z-40 border-b border-cyan-400/15 bg-[#0a1226]/85 backdrop-blur-md">
+        <div className="flex items-center gap-5 px-4 py-2.5 lg:px-6">
+          {/* 로고 */}
+          <button onClick={() => go('main')} className="shrink-0 text-left" aria-label="메인으로">
+            <span className="flex items-center gap-2">
+              <span
+                aria-hidden
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400 to-blue-600 text-base shadow-[0_0_14px_rgba(34,211,238,0.45)]"
               >
-                데이터 관리
-              </button>
-            </div>
-          </div>
-          {/* 모바일 메뉴 */}
-          <nav className="flex gap-2 overflow-x-auto px-4 pb-3 md:hidden">
-            {menu.map((m) =>
+                🛡️
+              </span>
+              <span>
+                <span className="block text-base font-black leading-tight tracking-tight text-white">㈜신정개발</span>
+                <span className="block text-[9px] font-bold tracking-[0.28em] text-cyan-400/90">
+                  SMART SAFETY PLATFORM
+                </span>
+              </span>
+            </span>
+          </button>
+
+          {/* 데스크톱 메뉴 */}
+          <nav ref={navRef} className="hidden min-w-0 flex-1 flex-wrap items-center gap-0.5 md:flex">
+            {navMenu.map((m) =>
               m.children ? (
-                m.children.map((c) => (
-                  <ItemButton key={c.key} itemKey={c.key} label={`${m.icon} ${c.label}`} mobile />
-                ))
+                <TopGroup key={m.label} item={m} />
               ) : (
-                <ItemButton key={m.key} itemKey={m.key!} label={m.label} icon={m.icon} mobile />
+                <TopItem key={m.key} itemKey={m.key!} label={m.label} icon={m.icon} wip={m.wip} />
               ),
             )}
           </nav>
-        </header>
 
-        {/* 본문 */}
-        <main className="flex-1 p-4 lg:p-6">
-          {!ready ? null : (
-            <>
-              {view === 'main' && <MainHome data={data} onOpenEducation={() => setView('edu-supervisor')} />}
-              {view === 'ledgers' && (data ? <Ledgers data={data} /> : <NeedData onGo={() => setView('data')} />)}
-              {view === 'tbm' && <TbmLog data={data} />}
-              {view === 'nearmiss' && <NearMissReport />}
-              {view === 'people' && <WorkforceLog data={data} />}
-              {view === 'edu-supervisor' && <EducationRoster courseKey="supervisor" />}
-              {view === 'edu-chemical' && <EducationRoster courseKey="chemical" />}
-              {view === 'edu-yncc' && <YnccAccess />}
-              {view === 'risk-assess' && <RiskAssessment />}
-              {(view === 'health-general' ||
-                view === 'health-special' ||
-                view === 'health-followup' ||
-                view === 'notice') && <ComingSoon label={viewLabel(view)} />}
-              {view === 'data' && (
-                <div className="mx-auto max-w-2xl py-6">
-                  <h2 className="mb-2 text-xl font-bold text-slate-800">안전관리 데이터 불러오기</h2>
-                  <p className="mb-6 text-sm text-slate-500">
-                    데이터 파일을 선택하면 위험성평가 현황을 한눈에 보여드립니다. 파일을 다시 선택하면 최신
-                    내용으로 교체됩니다.
-                  </p>
-                  <FileDrop onLoaded={onLoaded} />
-                  {data && (
-                    <div className="mt-6 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
-                      <p className="text-sm text-slate-600">
-                        현재 데이터: <b>{data.fileName}</b>
-                        <span className="ml-2 text-xs text-slate-400">
-                          {new Date(data.loadedAt).toLocaleString('ko-KR')} 불러옴 · 위험요인 {data.risks.length}건
-                        </span>
-                      </p>
-                      <button
-                        onClick={() => {
-                          if (
-                            confirm(
-                              '이 브라우저에 저장된 대시보드 데이터를 삭제할까요?\n(원본 파일은 영향을 받지 않습니다)',
-                            )
-                          ) {
-                            clearData();
-                            setData(null);
-                          }
-                        }}
-                        className="shrink-0 rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
-                      >
-                        데이터 삭제
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
+          <button
+            onClick={() => go('data')}
+            className="ml-auto shrink-0 rounded-lg bg-[#1f3864] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a4a80] md:ml-0"
+          >
+            💾 데이터 관리
+          </button>
+        </div>
+
+        {/* 모바일 메뉴 */}
+        <nav className="flex gap-2 overflow-x-auto px-4 pb-2.5 md:hidden">
+          {navMenu.map((m) =>
+            m.children ? (
+              m.children.map((c) => <MobileChip key={c.key} itemKey={c.key} label={`${m.icon} ${c.label}`} />)
+            ) : (
+              <MobileChip key={m.key} itemKey={m.key!} label={`${m.icon} ${m.label}`} />
+            ),
           )}
-        </main>
+        </nav>
+      </header>
 
-        <footer className="border-t border-slate-200 py-3 text-center text-xs text-slate-400">
-          데이터는 이 브라우저에서만 처리·보관되며 서버로 전송되지 않습니다.
-        </footer>
-      </div>
+      {/* 본문 */}
+      <main className="flex-1 p-4 lg:p-6">
+        {/* 페이지 타이틀 */}
+        <div className="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <h1 className="text-lg font-bold tracking-tight text-white md:text-xl">{viewLabel(view)}</h1>
+          {data ? (
+            <span className="text-xs text-slate-400">
+              {data.meta['평가연도'] && `${data.meta['평가연도']}년 · `}
+              {data.fileName} · {new Date(data.loadedAt).toLocaleString('ko-KR')} 불러옴
+            </span>
+          ) : (
+            ready && (
+              <span className="text-xs text-orange-500">데이터 미연결 — [데이터 관리]에서 파일을 불러와 주세요</span>
+            )
+          )}
+        </div>
+
+        {!ready ? null : (
+          <>
+            {view === 'main' && <MainHome data={data} onOpenEducation={() => setView('edu-supervisor')} />}
+            {view === 'ledgers' && (data ? <Ledgers data={data} /> : <NeedData onGo={() => setView('data')} />)}
+            {view === 'tbm' && <TbmLog data={data} />}
+            {view === 'nearmiss' && <NearMissReport />}
+            {view === 'people' && <WorkforceLog data={data} />}
+            {view === 'edu-supervisor' && <EducationRoster courseKey="supervisor" />}
+            {view === 'edu-chemical' && <EducationRoster courseKey="chemical" />}
+            {view === 'edu-yncc' && <YnccAccess />}
+            {view === 'risk-assess' && <RiskAssessment />}
+            {(view === 'health-general' ||
+              view === 'health-special' ||
+              view === 'health-followup' ||
+              view === 'notice') && <ComingSoon label={viewLabel(view)} />}
+            {view === 'data' && (
+              <div className="mx-auto max-w-2xl py-6">
+                <h2 className="mb-2 text-xl font-bold text-slate-800">안전관리 데이터 불러오기</h2>
+                <p className="mb-6 text-sm text-slate-500">
+                  데이터 파일을 선택하면 위험성평가 현황을 한눈에 보여드립니다. 파일을 다시 선택하면 최신 내용으로
+                  교체됩니다.
+                </p>
+                <FileDrop onLoaded={onLoaded} />
+                {data && (
+                  <div className="mt-6 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <p className="text-sm text-slate-600">
+                      현재 데이터: <b>{data.fileName}</b>
+                      <span className="ml-2 text-xs text-slate-400">
+                        {new Date(data.loadedAt).toLocaleString('ko-KR')} 불러옴 · 위험요인 {data.risks.length}건
+                      </span>
+                    </p>
+                    <button
+                      onClick={() => {
+                        if (
+                          confirm(
+                            '이 브라우저에 저장된 대시보드 데이터를 삭제할까요?\n(원본 파일은 영향을 받지 않습니다)',
+                          )
+                        ) {
+                          clearData();
+                          setData(null);
+                        }
+                      }}
+                      className="shrink-0 rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
+                    >
+                      데이터 삭제
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </main>
+
+      <footer className="border-t border-slate-200 py-3 text-center text-xs text-slate-400">
+        데이터는 이 브라우저에서만 처리·보관되며 서버로 전송되지 않습니다.
+      </footer>
     </div>
   );
 }
