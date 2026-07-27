@@ -13,7 +13,8 @@ import { z } from 'zod';
 export const maxDuration = 300;
 
 const USE_GEMINI = !!process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-const GEMINI_MODEL = process.env.RISK_AI_MODEL ?? 'gemini-2.5-flash';
+// gemini-flash-latest: 항상 최신 Flash 모델을 가리키는 별칭 — 구모델 은퇴로 인한 중단을 방지
+const GEMINI_MODEL = process.env.RISK_AI_MODEL ?? 'gemini-flash-latest';
 const GATEWAY_MODEL = process.env.RISK_AI_MODEL ?? 'anthropic/claude-sonnet-5';
 
 const MEDIA_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
