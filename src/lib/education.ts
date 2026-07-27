@@ -66,7 +66,7 @@ const CHEMICAL_RECORDS: EduRecord[] = [
   { name: '조준호', position: '이사', birth: '1977-12-13', completedAt: '2024-02-19', offline: { certNo: '제24-KCMA-04F-004510호', date: '2024-02-19' }, online: { certNo: '제E2024-F-A07204호', date: '2024-01-16' }, certFile: `${CHEMICAL_DIR}/조준호_유해화학물질_2024.pdf` },
   { name: '오남택', position: '부장', birth: '1965-07-26', completedAt: '2024-03-13', offline: { certNo: '제24-KCMA-04F-004530호', date: '2024-03-13' }, online: { certNo: '제E2024-F-A10151호', date: '2024-01-22' }, certFile: `${CHEMICAL_DIR}/오남택_유해화학물질_2024.pdf` },
   { name: '지상민', position: '이사', birth: '1959-01-02', completedAt: '2024-06-10', offline: { certNo: '제24-KCMA-04F-079619호', date: '2024-05-24' }, online: { certNo: '제E2024-F-A70766호', date: '2024-06-10' } },
-  { name: '김선태', position: '사원', birth: '1966-06-14', completedAt: '2024-08-19', offline: { certNo: '제24-KCMA-04F-120234호', date: '2024-08-19' }, online: { certNo: '제E2024-F-A89747호', date: '2024-08-07' } },
+  { name: '김선태', position: '사원', birth: '1966-06-14', completedAt: '2024-08-19', offline: { certNo: '제24-KCMA-04F-120234호', date: '2024-08-19' }, online: { certNo: '제E2024-F-A89747호', date: '2024-08-07' }, certFile: `${CHEMICAL_DIR}/김선태_유해화학물질_2024.pdf` },
   { name: '김민규', position: '대리', birth: '1994-01-06', completedAt: '2024-08-23', offline: { certNo: '제24-KCMA-04F-124172호', date: '2024-08-23' }, online: { certNo: '제E2024-F-A93887호', date: '2024-08-21' }, certFile: `${CHEMICAL_DIR}/김민규_유해화학물질_2024.pdf` },
   { name: '김지우', position: '사원', birth: '1996-02-27', completedAt: '2025-01-24', offline: { certNo: '제25-KCMA-04F-014424호', date: '2025-01-24' }, online: { certNo: '제E2025-F-A11079호', date: '2025-01-21' }, certFile: `${CHEMICAL_DIR}/김지우_유해화학물질_2025.pdf` },
   { name: '김우재', position: '과장', birth: '1992-01-10', completedAt: '2026-01-12', offline: { certNo: '제26-KCMA-04F-001693호', date: '2026-01-12' }, online: { certNo: '제E2026-F-A01084호', date: '2026-01-05' }, certFile: `${CHEMICAL_DIR}/김우재_유해화학물질_2026.pdf` },
@@ -75,8 +75,8 @@ const CHEMICAL_RECORDS: EduRecord[] = [
   { name: '박범동', position: '반장', birth: '1968-12-20', completedAt: '2026-01-13', offline: { certNo: '제26-KCMA-04F-001743호', date: '2026-01-13' }, online: { certNo: '제E2026-F-A05432호', date: '2026-01-12' }, certFile: `${CHEMICAL_DIR}/박범동_유해화학물질_2026.pdf` },
   { name: '권현철', position: '차장', birth: '1975-08-14', completedAt: '2026-01-14', offline: { certNo: '제26-KCMA-04F-002005호', date: '2026-01-14' }, online: { certNo: '제E2026-F-A04027호', date: '2026-01-09' }, certFile: `${CHEMICAL_DIR}/권현철_유해화학물질_2026.pdf` },
   { name: '송석기', position: '이사', birth: '1965-01-19', completedAt: '2024-09-02', offline: { certNo: '제24-KCMA-04F-130260호', date: '2024-09-02' }, online: { certNo: '제E2024-F-A89999호', date: '2024-08-08' } },
-  { name: '문춘종', position: '사원', birth: '1980-11-12', completedAt: '2026-07-02', offline: { certNo: '제26-KCMA-04F-109700호', date: '2026-07-02' }, online: { certNo: '제E2026-F-A94282호', date: '2026-06-26' } },
-  { name: '이철웅', position: '사원', birth: '1995-03-27', completedAt: '2026-07-02', offline: { certNo: '제26-KCMA-04F-109732호', date: '2026-07-02' }, online: { certNo: '제E2026-F-A95882호', date: '2026-06-30' } },
+  { name: '문춘종', position: '사원', birth: '1980-11-12', completedAt: '2026-07-02', offline: { certNo: '제26-KCMA-04F-109700호', date: '2026-07-02' }, online: { certNo: '제E2026-F-A94282호', date: '2026-06-26' }, certFile: `${CHEMICAL_DIR}/문춘종_유해화학물질_2026.pdf` },
+  { name: '이철웅', position: '사원', birth: '1995-03-27', completedAt: '2026-07-02', offline: { certNo: '제26-KCMA-04F-109732호', date: '2026-07-02' }, online: { certNo: '제E2026-F-A95882호', date: '2026-06-30' }, certFile: `${CHEMICAL_DIR}/이철웅_유해화학물질_2026.pdf` },
 ];
 
 export const EDU_COURSES: EduCourse[] = [

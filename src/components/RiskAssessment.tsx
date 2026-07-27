@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { deletePhoto, fileToResizedDataUrl, getPhoto, putPhoto } from '@/lib/photos';
-import { uploadPhoto } from '@/lib/sync';
+import { SyncError, generateRiskRows, setPasscode, uploadPhoto } from '@/lib/sync';
 import { modeBadge, useSyncedLog } from '@/lib/useSyncedLog';
 import { gradeByKey, riskLevelKey, riskProduct } from '@/lib/risk';
 import RiskEstimationGuide, { RiskResultSummary } from './RiskGuide';
@@ -133,6 +133,9 @@ export default function RiskAssessment() {
   const [saved, setSaved] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const [aiPhotos, setAiPhotos] = useState<string[]>([]); // AI 생성용 작업 사진 (dataURL)
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiNote, setAiNote] = useState<string | null>(null);
 
   const setHeadField = (k: keyof typeof EMPTY_HEAD) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -174,6 +177,78 @@ export default function RiskAssessment() {
     setRows([{ ...EMPTY_ROW }]);
     setEditId(null);
     setOrigLocalIds([]);
+    setAiPhotos([]);
+    setAiNote(null);
+  };
+
+  const addAiPhotos = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setPhotoBusy(true);
+    try {
+      for (const file of Array.from(files).slice(0, Math.max(3 - aiPhotos.length, 0))) {
+        const dataUrl = await fileToResizedDataUrl(file);
+        setAiPhotos((p) => [...p, dataUrl]);
+      }
+    } catch {
+      alert('사진을 처리하지 못했습니다. 이미지 파일인지 확인해 주세요.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  /** 작업 사진으로 평가표 초안 자동 생성 — 생성 항목은 기존 표 뒤에 추가되고, 사진은 첫 항목에 첨부된다 */
+  const runAiGenerate = async () => {
+    if (aiPhotos.length === 0 || aiBusy) return;
+    setAiBusy(true);
+    setAiNote(null);
+    const context = [head.company && `공사업체: ${head.company}`, head.workName && `공사명: ${head.workName}`]
+      .filter(Boolean)
+      .join(' · ');
+    const attempt = () => generateRiskRows(aiPhotos, context);
+    try {
+      let generated;
+      try {
+        generated = await attempt();
+      } catch (e) {
+        if (e instanceof SyncError && e.status === 401) {
+          const entered = window.prompt('동기화 암호를 입력하세요. (AI 자동 생성 기능 사용에 필요합니다)');
+          if (!entered?.trim()) return;
+          setPasscode(entered.trim());
+          generated = await attempt();
+        } else {
+          throw e;
+        }
+      }
+      if (generated.length === 0) {
+        setAiNote('사진에서 평가 항목을 만들지 못했습니다. 작업 상황이 잘 보이는 사진으로 다시 시도해 주세요.');
+        return;
+      }
+      const newRows: FormRow[] = generated.map((g, i) => ({
+        step: g.step,
+        hazard: g.hazard,
+        measure: g.measure,
+        freq1: String(g.freq1),
+        sev1: String(g.sev1),
+        action: g.action,
+        freq2: String(g.freq2),
+        sev2: String(g.sev2),
+        timing: TIMINGS.includes(g.timing) ? g.timing : '',
+        photos: i === 0 ? aiPhotos.map((src) => ({ kind: 'pending' as const, src })) : [],
+      }));
+      const isEmptyRow = (r: FormRow) =>
+        !r.step && !r.hazard && !r.measure && !r.freq1 && !r.sev1 && !r.action && !r.freq2 && !r.sev2 && !r.timing && r.photos.length === 0;
+      setRows((prev) => [...prev.filter((r) => !isEmptyRow(r)), ...newRows]);
+      setAiPhotos([]);
+      setAiNote(`✅ ${generated.length}개 항목이 생성되었습니다. 내용을 확인·수정한 후 저장해 주세요.`);
+    } catch (e) {
+      if (e instanceof SyncError && e.status === 503) {
+        alert('AI 자동 생성 기능이 아직 서버에 설정되지 않았습니다.\n(Vercel 환경변수에 ANTHROPIC_API_KEY 등록 필요)');
+      } else {
+        alert('자동 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
+    } finally {
+      setAiBusy(false);
+    }
   };
 
   /** 저장된 평가를 폼으로 불러와 수정 */
@@ -376,6 +451,67 @@ export default function RiskAssessment() {
           </div>
         </div>
 
+        {/* AI 자동 생성 */}
+        <div className="mt-4 rounded-lg border border-dashed border-sky-300 bg-sky-50/50 p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-bold text-sky-800">✨ 작업사진으로 자동 생성</p>
+            <p className="text-[11px] text-slate-500">
+              작업 사진을 첨부하면 AI가 작업단계·유해위험요인·안전조치·위험등급 초안을 만들어 줍니다. 내용을 확인·수정한 뒤 저장하세요.
+            </p>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {aiPhotos.map((src, i) => (
+              <div key={i} className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={src}
+                  alt={`작업 사진 ${i + 1}`}
+                  className="h-14 w-14 cursor-zoom-in rounded-lg border border-slate-200 object-cover"
+                  onClick={() => setPreview(src)}
+                />
+                <button
+                  type="button"
+                  aria-label="사진 제거"
+                  onClick={() => setAiPhotos((list) => list.filter((_, j) => j !== i))}
+                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-[10px] text-white"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            {aiPhotos.length < 3 && (
+              <label
+                htmlFor="ra-ai-photo"
+                className="flex h-14 w-14 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 text-slate-400 hover:border-sky-500 hover:text-sky-600"
+                title="작업 사진 추가 (최대 3장)"
+              >
+                <span className="text-base">📷</span>
+                <span className="text-[9px]">{photoBusy ? '처리중' : '추가'}</span>
+              </label>
+            )}
+            <input
+              id="ra-ai-photo"
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                void addAiPhotos(e.target.files);
+                e.target.value = '';
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => void runAiGenerate()}
+              disabled={aiPhotos.length === 0 || aiBusy}
+              className="ml-auto rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50"
+            >
+              {aiBusy ? '생성 중… (최대 1분)' : '✨ 위험성평가 자동 생성'}
+            </button>
+          </div>
+          {aiNote && <p className="mt-2 text-xs font-medium text-sky-800">{aiNote}</p>}
+        </div>
+
         {/* 평가표 */}
         <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full min-w-[1180px] text-xs">
@@ -523,7 +659,7 @@ export default function RiskAssessment() {
         </div>
         <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
           위험성 = 빈도 × 강도 · Level 1~6 A(안전) / 7~12 B(상당) / 13~15 C(중대) / 16~20 D(허용불가) 자동 산출 ·
-          사진 기반 위험성평가 자동 작성 기능은 추후 도입 예정입니다.
+          AI 자동 생성 결과는 초안이므로 반드시 현장 상황에 맞게 확인·수정 후 저장하세요.
         </p>
       </section>
 

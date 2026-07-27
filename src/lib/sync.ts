@@ -64,3 +64,23 @@ export async function uploadPhoto(dataUrl: string): Promise<string> {
   const data = (await res.json()) as { url: string };
   return data.url;
 }
+
+/** AI가 생성한 위험성평가 항목 */
+export interface AiRiskRow {
+  step: string;
+  hazard: string;
+  measure: string;
+  freq1: number;
+  sev1: number;
+  action: string;
+  freq2: number;
+  sev2: number;
+  timing: string;
+}
+
+/** 작업 사진으로 위험성평가 초안 생성 (서버에 ANTHROPIC_API_KEY 필요) */
+export async function generateRiskRows(photos: string[], context: string): Promise<AiRiskRow[]> {
+  const res = await call('/api/risk-ai', { method: 'POST', body: JSON.stringify({ photos, context }) });
+  const data = (await res.json()) as { rows: AiRiskRow[] };
+  return data.rows ?? [];
+}
