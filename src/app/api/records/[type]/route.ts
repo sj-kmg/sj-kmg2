@@ -2,12 +2,12 @@ import { list, put, del } from '@vercel/blob';
 import { NextResponse } from 'next/server';
 
 /**
- * 현장 기록(TBM일지·아차사고·작업인원) 저장 API — Vercel Blob 기반.
+ * 현장 기록(TBM일지·아차사고·작업인원·위험성평가) 저장 API — Vercel Blob 기반.
  * - 기록 1건 = records/{type}/{id}.json (덮어쓰기 방식이라 동시 작성 충돌 없음)
  * - 모든 요청은 x-passcode 헤더가 환경변수 SJ_PASSCODE와 일치해야 한다.
  * - Blob 저장소나 암호가 설정되지 않았으면 503 → 클라이언트는 로컬 저장으로 폴백.
  */
-const TYPES = new Set(['tbm', 'nearmiss', 'workforce']);
+const TYPES = new Set(['tbm', 'nearmiss', 'workforce', 'risk']);
 
 function gate(req: Request): NextResponse | null {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
@@ -88,7 +88,7 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ type: string
   }
   const { blobs } = await list({ prefix: `records/${type}/${id}.json`, limit: 1 });
   if (blobs[0]) {
-    // 아차사고 기록이면 첨부 사진도 함께 삭제
+    // 첨부 사진(photoUrls)이 있는 기록이면 사진도 함께 삭제
     try {
       const r = await fetch(blobs[0].url, { cache: 'no-store' });
       const entry = (await r.json()) as { photoUrls?: string[] };

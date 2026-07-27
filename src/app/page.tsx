@@ -10,6 +10,7 @@ import TbmLog from '@/components/TbmLog';
 import NearMissReport from '@/components/NearMissReport';
 import WorkforceLog from '@/components/WorkforceLog';
 import EducationRoster from '@/components/EducationRoster';
+import RiskAssessment from '@/components/RiskAssessment';
 
 type ViewKey =
   | 'main'
@@ -23,6 +24,7 @@ type ViewKey =
   | 'edu-supervisor'
   | 'edu-chemical'
   | 'edu-yncc'
+  | 'risk-assess'
   | 'notice'
   | 'data';
 
@@ -66,6 +68,7 @@ const MENU: MenuItem[] = [
       { key: 'edu-yncc', label: 'YNCC출입', wip: true },
     ],
   },
+  { key: 'risk-assess', label: '위험성평가', icon: '📝' },
   { key: 'notice', label: '공지사항', icon: '📢', wip: true },
   { key: 'data', label: '데이터 관리', icon: '💾' },
 ];
@@ -235,6 +238,7 @@ export default function Page() {
               {view === 'people' && <WorkforceLog data={data} />}
               {view === 'edu-supervisor' && <EducationRoster courseKey="supervisor" />}
               {view === 'edu-chemical' && <EducationRoster courseKey="chemical" />}
+              {view === 'risk-assess' && <RiskAssessment />}
               {(view === 'health-general' ||
                 view === 'health-special' ||
                 view === 'health-followup' ||

@@ -103,6 +103,9 @@ export default function WeatherPanel() {
 
   const c = data.current;
   const today = wmo(c.weather_code);
+  const now = new Date();
+  const pad = (n: number) => (n < 10 ? `0${n}` : String(n));
+  const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} (${DOW[now.getDay()]})`;
 
   return (
     <div>
@@ -117,6 +120,7 @@ export default function WeatherPanel() {
         <div>
           <p className="text-3xl font-bold text-slate-800">{Math.round(c.temperature_2m)}°C</p>
           <p className="text-xs text-slate-500">전남 여수시</p>
+          <p className="text-xs font-semibold text-slate-600">{dateStr}</p>
         </div>
         <dl className="ml-auto space-y-1 text-right text-xs text-slate-600">
           <div>

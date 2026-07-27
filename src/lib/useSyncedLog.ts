@@ -131,11 +131,12 @@ export function useSyncedLog<T extends { id: string }>(type: LogType, localKey: 
             return false;
           }
         }
-        setEntries((list) => [entry, ...list]);
+        // 같은 id 재저장(수정)은 기존 항목을 대체한다
+        setEntries((list) => [entry, ...list.filter((e) => e.id !== entry.id)]);
         return true;
       }
       setEntries((list) => {
-        const next = [entry, ...list];
+        const next = [entry, ...list.filter((e) => e.id !== entry.id)];
         saveLocal(localKey, next);
         return next;
       });

@@ -1,7 +1,6 @@
 'use client';
 
 import type { SafetyData } from '@/lib/types';
-import GradeDistChart from './charts/GradeDistChart';
 import CalendarPanel from './CalendarPanel';
 import WeatherPanel from './WeatherPanel';
 import NoticesPanel from './NoticesPanel';
@@ -41,14 +40,14 @@ export default function MainHome({
         <WorkPlanPanel />
       </Panel>
 
-      {/* 3행: 캘린더 · 안전교육 · 출력인원 · 출력장비 */}
-      <Panel title="캘린더" icon="📅" className="col-span-12 md:col-span-6 xl:col-span-3">
+      {/* 3행: 캘린더 · 안전교육 */}
+      <Panel title="캘린더" icon="📅" className="col-span-12 md:col-span-6 xl:col-span-6">
         <CalendarPanel schedule={data?.schedule ?? []} />
       </Panel>
       <Panel
         title="안전교육 현황"
         icon="🎓"
-        className="col-span-12 md:col-span-6 xl:col-span-3"
+        className="col-span-12 md:col-span-6 xl:col-span-6"
         action={
           onOpenEducation && (
             <button
@@ -61,27 +60,6 @@ export default function MainHome({
         }
       >
         <EducationStatusPanel />
-      </Panel>
-      <Panel title="현장출력인원" icon="👷" className="col-span-12 md:col-span-6 xl:col-span-3">
-        <EmptyBox label="출력인원 현황이 표시될 영역입니다" />
-      </Panel>
-      <Panel title="현장출력장비" icon="🚜" className="col-span-12 md:col-span-6 xl:col-span-3">
-        <EmptyBox label="출력장비 현황이 표시될 영역입니다" />
-      </Panel>
-
-      {/* 4행: 중장비 · 위험등급 · 작업허가 */}
-      <Panel title="중장비 현황" icon="🏋️" className="col-span-12 md:col-span-6 xl:col-span-4">
-        <EmptyBox label="중장비 현황이 표시될 영역입니다" />
-      </Panel>
-      <Panel title="위험등급 현황" icon="🚦" className="col-span-12 xl:col-span-5 md:col-span-6">
-        {data ? (
-          <GradeDistChart risks={data.risks} system={data.gradeSystem} />
-        ) : (
-          <EmptyBox label="데이터를 불러오면 위험등급 분포가 표시됩니다" />
-        )}
-      </Panel>
-      <Panel title="작업허가 현황" icon="✅" className="col-span-12 md:col-span-6 xl:col-span-3">
-        <EmptyBox label="작업허가 현황이 표시될 영역입니다" />
       </Panel>
     </div>
   );
