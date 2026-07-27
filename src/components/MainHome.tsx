@@ -81,8 +81,12 @@ function Panel({
   return (
     <section className={`flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}>
       <header className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5">
+        <span
+          aria-hidden
+          className="h-3.5 w-1 shrink-0 rounded-full bg-gradient-to-b from-cyan-300 to-blue-600 shadow-[0_0_8px_rgba(34,211,238,0.8)]"
+        />
         {icon && <span aria-hidden className="text-sm">{icon}</span>}
-        <h3 className="text-sm font-bold text-slate-700">{title}</h3>
+        <h3 className="text-sm font-bold tracking-wide text-slate-700">{title}</h3>
         {action && <span className="ml-auto">{action}</span>}
       </header>
       <div className="flex-1 p-4">{children}</div>

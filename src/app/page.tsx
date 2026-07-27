@@ -125,14 +125,7 @@ export default function Page() {
   const TopItem = ({ itemKey, label, icon, wip }: { itemKey: ViewKey; label: string; icon?: string; wip?: boolean }) => {
     const active = view === itemKey;
     return (
-      <button
-        onClick={() => go(itemKey)}
-        className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-          active
-            ? 'bg-cyan-400/10 text-cyan-300 shadow-[inset_0_-2px_0_0_rgba(34,211,238,0.9),0_0_16px_rgba(34,211,238,0.12)]'
-            : 'text-[#8fa3c8] hover:bg-white/5 hover:text-white'
-        }`}
-      >
+      <button onClick={() => go(itemKey)} className={`nav-item ${active ? 'nav-item--on' : ''}`}>
         {icon && (
           <span aria-hidden className="mr-1 text-xs">
             {icon}
@@ -152,13 +145,7 @@ export default function Page() {
       <div className="relative shrink-0">
         <button
           onClick={() => setOpenMenu(open ? null : item.label)}
-          className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-            activeChild
-              ? 'bg-cyan-400/10 text-cyan-300 shadow-[inset_0_-2px_0_0_rgba(34,211,238,0.9),0_0_16px_rgba(34,211,238,0.12)]'
-              : open
-                ? 'bg-white/5 text-white'
-                : 'text-[#8fa3c8] hover:bg-white/5 hover:text-white'
-          }`}
+          className={`nav-item ${activeChild ? 'nav-item--on' : open ? 'bg-white/5 text-white' : ''}`}
         >
           <span aria-hidden className="mr-1 text-xs">
             {item.icon}
@@ -208,7 +195,7 @@ export default function Page() {
   return (
     <div className="flex min-h-screen flex-col">
       {/* 상단 내비게이션 */}
-      <header className="sticky top-0 z-40 border-b border-cyan-400/15 bg-[#0a1226]/85 backdrop-blur-md">
+      <header className="topbar sticky top-0 z-40 border-b border-cyan-400/15 bg-[#0a1226]/85 backdrop-blur-md">
         <div className="flex items-center gap-5 px-4 py-2.5 lg:px-6">
           {/* 로고 */}
           <button onClick={() => go('main')} className="shrink-0 text-left" aria-label="메인으로">
@@ -259,11 +246,17 @@ export default function Page() {
         </nav>
       </header>
 
-      {/* 본문 */}
-      <main className="flex-1 p-4 lg:p-6">
+      {/* 본문 — 메뉴 전환 시 view-enter 애니메이션 */}
+      <main key={view} className="view-enter flex-1 p-4 lg:p-6">
         {/* 페이지 타이틀 */}
-        <div className="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          <h1 className="text-lg font-bold tracking-tight text-white md:text-xl">{viewLabel(view)}</h1>
+        <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1">
+          <h1 className="flex items-center gap-2.5 text-lg font-bold tracking-tight text-white md:text-xl">
+            <span
+              aria-hidden
+              className="h-5 w-1.5 rounded-full bg-gradient-to-b from-cyan-300 to-blue-600 shadow-[0_0_12px_rgba(34,211,238,0.9)]"
+            />
+            {viewLabel(view)}
+          </h1>
           {data ? (
             <span className="text-xs text-slate-400">
               {data.meta['평가연도'] && `${data.meta['평가연도']}년 · `}

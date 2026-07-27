@@ -1,9 +1,16 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Geist, Share_Tech_Mono } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+/* HUD 느낌의 숫자·코드용 테크 모노 폰트 (D-day·날짜·번호 등에 적용) */
+const techMono = Share_Tech_Mono({
+  variable: "--font-tech-mono",
+  weight: "400",
   subsets: ["latin"],
 });
 
@@ -19,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={`${geistSans.variable} h-full antialiased`}>
+    <html lang="ko" className={`${geistSans.variable} ${techMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
