@@ -11,6 +11,7 @@ import NearMissReport from '@/components/NearMissReport';
 import WorkforceLog from '@/components/WorkforceLog';
 import EducationRoster from '@/components/EducationRoster';
 import RiskAssessment from '@/components/RiskAssessment';
+import YnccAccess from '@/components/YnccAccess';
 
 type ViewKey =
   | 'main'
@@ -65,7 +66,7 @@ const MENU: MenuItem[] = [
     children: [
       { key: 'edu-supervisor', label: '관리감독자' },
       { key: 'edu-chemical', label: '유해화학물질' },
-      { key: 'edu-yncc', label: 'YNCC출입', wip: true },
+      { key: 'edu-yncc', label: 'YNCC출입' },
     ],
   },
   { key: 'risk-assess', label: '위험성평가', icon: '📝' },
@@ -238,11 +239,11 @@ export default function Page() {
               {view === 'people' && <WorkforceLog data={data} />}
               {view === 'edu-supervisor' && <EducationRoster courseKey="supervisor" />}
               {view === 'edu-chemical' && <EducationRoster courseKey="chemical" />}
+              {view === 'edu-yncc' && <YnccAccess />}
               {view === 'risk-assess' && <RiskAssessment />}
               {(view === 'health-general' ||
                 view === 'health-special' ||
                 view === 'health-followup' ||
-                view === 'edu-yncc' ||
                 view === 'notice') && <ComingSoon label={viewLabel(view)} />}
               {view === 'data' && (
                 <div className="mx-auto max-w-2xl py-6">

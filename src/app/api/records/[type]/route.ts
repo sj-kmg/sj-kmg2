@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server';
  * - 모든 요청은 x-passcode 헤더가 환경변수 SJ_PASSCODE와 일치해야 한다.
  * - Blob 저장소나 암호가 설정되지 않았으면 503 → 클라이언트는 로컬 저장으로 폴백.
  */
-const TYPES = new Set(['tbm', 'nearmiss', 'workforce', 'risk']);
+const TYPES = new Set(['tbm', 'nearmiss', 'workforce', 'risk', 'yncc-workers', 'yncc-vehicles']);
 
 function gate(req: Request): NextResponse | null {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {

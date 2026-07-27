@@ -3,7 +3,7 @@
  * 서버(Vercel Blob) 저장이 설정돼 있으면 기기 간 공유, 아니면 로컬(localStorage) 폴백.
  * 동기화 암호는 이 브라우저에 저장해 두고 요청 헤더로만 전송한다.
  */
-export type LogType = 'tbm' | 'nearmiss' | 'workforce' | 'risk';
+export type LogType = 'tbm' | 'nearmiss' | 'workforce' | 'risk' | 'yncc-workers' | 'yncc-vehicles';
 
 const PASS_KEY = 'sj-sync-passcode';
 
@@ -49,6 +49,20 @@ export async function listEntries<T>(type: LogType): Promise<T[]> {
   const res = await call(`/api/records/${type}`);
   const data = (await res.json()) as { entries: T[] };
   return data.entries;
+}
+
+/** 메인 화면용 조용한 조회 — 암호 프롬프트 없이 서버 시도 후 실패하면 로컬 저장분으로 폴백 */
+export async function listEntriesSilently<T>(type: LogType, localKey: string): Promise<T[]> {
+  try {
+    return await listEntries<T>(type);
+  } catch {
+    // 서버 미설정/미인증 → 로컬 폴백
+  }
+  try {
+    return JSON.parse(localStorage.getItem(localKey) ?? '[]') as T[];
+  } catch {
+    return [];
+  }
 }
 
 export async function saveEntryRemote(type: LogType, entry: unknown): Promise<void> {

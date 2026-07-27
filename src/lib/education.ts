@@ -106,10 +106,10 @@ export const EDU_COURSES: EduCourse[] = [
     label: 'YNCC출입',
     courseName: 'YNCC 출입 안전교육',
     renewal: { kind: 'months', months: 12 },
-    noticeDays: 90,
-    renewalNote: '이수일로부터 12개월 후 갱신 도래',
+    noticeDays: 30,
+    renewalNote: '교육유효종료일 30일 전부터 메인 표시 — 명부는 [안전교육 > YNCC출입] 메뉴에서 관리',
     legalBasis: '여수국가산단 출입 규정',
-    records: [],
+    records: [], // YNCC 작업자는 YNCC출입 메뉴(동기화 저장)에서 관리한다
   },
 ];
 
