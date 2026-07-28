@@ -177,6 +177,32 @@ export function upcomingRenewals(today = new Date()): RenewalItem[] {
   return allRenewals(today).filter((r) => r.level !== null);
 }
 
+/** 유해화학물질 정적 명부 → 직원 시트 초기 데이터 (수료증 포함) */
+export function chemicalSeedWorkers(): {
+  id: string;
+  group: '직원';
+  name: string;
+  birth: string;
+  position?: string;
+  offlineDate?: string;
+  onlineDate?: string;
+  certFile?: string;
+  updatedAt: string;
+}[] {
+  const course = EDU_COURSES.find((c) => c.key === 'chemical');
+  return (course?.records ?? []).map((r) => ({
+    id: `CW-seed-${r.name}`,
+    group: '직원' as const,
+    name: r.name,
+    birth: r.birth,
+    position: r.position,
+    offlineDate: r.offline?.date,
+    onlineDate: r.online?.date,
+    certFile: r.certFile,
+    updatedAt: '',
+  }));
+}
+
 /** 유해화학물질 시트 입력분: 집체·온라인 이수일 중 늦은 연도 + 3년의 1월 1일 = 갱신 도래일 (예: 24년 이수 → 27년 1월) */
 export function chemicalRenewalFromDates(offline?: string, online?: string): string | null {
   const base = [offline, online].filter((d): d is string => !!d).sort().pop();

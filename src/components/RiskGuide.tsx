@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { riskProduct } from '@/lib/risk';
 
 /**
@@ -8,12 +9,12 @@ import { riskProduct } from '@/lib/risk';
  * - RiskResultSummary: 위험등급결정 및 개선대책 수립현황 — 저장된 평가별 자동 집계
  */
 
-/** 결과표 등급 구간 (위험등급표 기준) */
+/** 결과표 등급 구간 (위험등급표 기준) — 다크 배경에 맞춘 저채도 톤 */
 const BUCKETS = [
-  { grade: 'ii', range: '16~20', name: '중대위험', min: 16, max: 20, bg: '#ff0000', ink: '#ffffff' },
-  { grade: 'iii', range: '9~15', name: '보통위험', min: 9, max: 15, bg: '#f4b183', ink: '#3b2300' },
-  { grade: 'iv', range: '7~8', name: '수용가능', min: 7, max: 8, bg: '#8db4e2', ink: '#1f3864' },
-  { grade: 'v', range: '1~6', name: '안전수준', min: 1, max: 6, bg: '#deeaf6', ink: '#1f3864' },
+  { grade: 'ii', range: '16~20', name: '중대위험', min: 16, max: 20, bg: 'rgba(220,38,38,0.28)', ink: '#fca5a5' },
+  { grade: 'iii', range: '9~15', name: '보통위험', min: 9, max: 15, bg: 'rgba(234,88,12,0.24)', ink: '#fdba74' },
+  { grade: 'iv', range: '7~8', name: '수용가능', min: 7, max: 8, bg: 'rgba(37,99,235,0.24)', ink: '#93c5fd' },
+  { grade: 'v', range: '1~6', name: '안전수준', min: 1, max: 6, bg: 'rgba(34,211,238,0.14)', ink: '#7dd3fc' },
 ];
 
 const td = 'border border-slate-300 px-2 py-1.5';
@@ -26,8 +27,25 @@ interface SummaryRow {
   action: string;
 }
 
-/** 위험등급결정 및 개선대책 수립현황 — 평가 항목에서 자동 집계 */
+/** 위험등급결정 및 개선대책 수립현황 — 접기/펼치기 (기본 접힘) */
 export function RiskResultSummary({ rows }: { rows: SummaryRow[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-3">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-left text-xs font-bold text-slate-600 hover:border-[#1f3864] hover:text-[#1f3864]"
+      >
+        <span aria-hidden className="text-[10px] text-cyan-400/80">{open ? '▼' : '▶'}</span>
+        위험등급결정 및 개선대책 수립현황
+        <span className="ml-auto text-[10px] font-normal text-slate-400">{open ? '접기' : '펼치기'}</span>
+      </button>
+      {open && <ResultTable rows={rows} />}
+    </div>
+  );
+}
+
+function ResultTable({ rows }: { rows: SummaryRow[] }) {
   const cur = rows.map((r) => riskProduct(r.freq1, r.sev1)).filter((v): v is number => v !== null);
   const post = rows.map((r) => riskProduct(r.freq2, r.sev2)).filter((v): v is number => v !== null);
   const actions = rows.filter((r) => r.action.trim()).length;
@@ -63,9 +81,9 @@ export function RiskResultSummary({ rows }: { rows: SummaryRow[] }) {
             <span style={{ writingMode: 'vertical-rl', letterSpacing: '0.3em' }}>위험등급표</span>
           </th>
           <th className={`${td} font-medium text-slate-600`}>총위험요인수</th>
-          <td className={`${td} font-bold text-slate-800`} style={{ background: '#ffff00' }}>{cur.length}</td>
+          <td className={`${td} font-bold`} style={{ background: 'rgba(34,211,238,0.16)', color: '#67e8f9' }}>{cur.length}</td>
           <th colSpan={2} className={`${td} font-medium text-slate-600`}>개선대책수</th>
-          <td className={`${td} font-bold text-slate-800`} style={{ background: '#ffc000' }}>{actions}</td>
+          <td className={`${td} font-bold`} style={{ background: 'rgba(245,158,11,0.2)', color: '#fcd34d' }}>{actions}</td>
         </tr>
         <tr>
           <td colSpan={5} className={`${td} text-left text-slate-600`}>개선전 위험등급별 요인수</td>
@@ -94,19 +112,23 @@ export function RiskResultSummary({ rows }: { rows: SummaryRow[] }) {
   );
 }
 
-/** 산출표 셀 색 — 첨부 산출표 기준 (20 빨강 · 13~16 파랑 · 7~12 노랑) */
+/** 산출표 셀 색 — 다크 배경에 맞춘 저채도 톤 (17~20 적색 · 13~16 청색 · 7~12 황색) */
 function matrixStyle(v: number): React.CSSProperties {
-  if (v >= 17) return { background: '#ff0000', color: '#ffffff', fontWeight: 700 };
-  if (v >= 13) return { background: '#8db4e2', color: '#1f3864', fontWeight: 700 };
-  if (v >= 7) return { background: '#ffff00', color: '#3b2300', fontWeight: 700 };
+  if (v >= 17) return { background: 'rgba(220,38,38,0.3)', color: '#fca5a5', fontWeight: 700 };
+  if (v >= 13) return { background: 'rgba(37,99,235,0.26)', color: '#93c5fd', fontWeight: 700 };
+  if (v >= 7) return { background: 'rgba(245,158,11,0.2)', color: '#fcd34d', fontWeight: 700 };
   return {};
 }
 
 function SectionBar({ tone, children }: { tone: 'blue' | 'orange'; children: React.ReactNode }) {
   return (
     <p
-      className="mb-1.5 rounded px-2 py-1.5 text-center text-xs font-bold text-slate-800"
-      style={{ background: tone === 'blue' ? '#bdd7ee' : '#ffd966' }}
+      className="mb-1.5 rounded px-2 py-1.5 text-center text-xs font-bold"
+      style={
+        tone === 'blue'
+          ? { background: 'rgba(56,189,248,0.14)', color: '#7dd3fc' }
+          : { background: 'rgba(245,158,11,0.16)', color: '#fcd34d' }
+      }
     >
       {children}
     </p>
@@ -159,8 +181,8 @@ const LEVELS: {
     name: '허용불가 위험',
     standard: '작업 즉시 중단 / 작업을 지속하려면 즉시 시설개선을 실시해야 하는 위험',
     note: { text: '위험작업 불허 (즉시 작업을 중지하여야 함)', span: 1 },
-    bg: '#ff0000',
-    ink: '#ffffff',
+    bg: 'rgba(220,38,38,0.3)',
+    ink: '#fca5a5',
   },
   {
     range: '13~15',
@@ -168,23 +190,23 @@ const LEVELS: {
     name: '중대한 위험',
     standard: '긴급 임시안전대책을 세운 후 작업을 하되 계획된 정기 보수기간에 설비개선 등 안전대책을 세워야 하는 위험',
     note: { text: '조건부 위험 작업수용 (위험이 없으면 작업을 계속하되, 위험감소 활동을 실시해야 함)', span: 3 },
-    bg: '#8db4e2',
-    ink: '#1f3864',
+    bg: 'rgba(37,99,235,0.26)',
+    ink: '#93c5fd',
   },
   {
     range: '9~12',
     level: { text: 'B', span: 2 },
     name: '상당한 위험',
     standard: '계획된 정기 보수기간에 설비개선 등 위험 감소 대책을 세워야 하는 위험',
-    bg: '#ffff00',
-    ink: '#3b2300',
+    bg: 'rgba(245,158,11,0.2)',
+    ink: '#fcd34d',
   },
   {
     range: '7~8',
     name: '경미한 위험',
     standard: '위험의 표지부착·작업절차서 표기를 통한 관리대책이 필요한 위험',
-    bg: '#ffff00',
-    ink: '#3b2300',
+    bg: 'rgba(245,158,11,0.2)',
+    ink: '#fcd34d',
   },
   {
     range: '3~6',
@@ -192,15 +214,15 @@ const LEVELS: {
     name: '미미한 위험',
     standard: '안전정보 및 주기적 표준작업 안전교육의 제공이 필요한 위험',
     note: { text: '위험작업을 수용함 (현상태로 계속 작업가능)', span: 2 },
-    bg: '#ffffff',
-    ink: '#334155',
+    bg: 'transparent',
+    ink: '#aab9d8',
   },
   {
     range: '1~2',
     name: '무시할 수 있는 위험',
     standard: '현재의 안전 대책 유지',
-    bg: '#ffffff',
-    ink: '#334155',
+    bg: 'transparent',
+    ink: '#aab9d8',
   },
 ];
 

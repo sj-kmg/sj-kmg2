@@ -1,9 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import type { SafetyData } from '@/lib/types';
-import { collectEducationStatus } from '@/lib/eduLive';
-import { listEntriesSilently } from '@/lib/sync';
 import CalendarPanel from './CalendarPanel';
 import WeatherPanel from './WeatherPanel';
 import NoticesPanel from './NoticesPanel';
@@ -24,11 +21,6 @@ export default function MainHome({
 }) {
   return (
     <div className="grid grid-cols-12 gap-4">
-      {/* 0행: HUD 스탯 보드 */}
-      <div className="col-span-12">
-        <StatStrip data={data} />
-      </div>
-
       {/* 1행: 공지 · 알림 */}
       <Panel title="공지사항" icon="📢" code="SYS-01" className="col-span-12 lg:col-span-6">
         <EmptyBox label="공지사항이 표시될 영역입니다" />
@@ -73,112 +65,6 @@ export default function MainHome({
       <Panel title="공무관리 현황" icon="🗂️" code="GAF-08" className="col-span-12 md:col-span-6 xl:col-span-4">
         <GeneralAffairsPanel />
       </Panel>
-    </div>
-  );
-}
-
-/* ---------------- HUD 스탯 보드 ---------------- */
-
-function todayStr(): string {
-  const d = new Date();
-  const p = (n: number) => (n < 10 ? `0${n}` : String(n));
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
-
-/** 숫자 카운트업 애니메이션 */
-function useCountUp(target: number | null, duration = 900): number | null {
-  const [val, setVal] = useState<number | null>(null);
-  useEffect(() => {
-    if (target === null) {
-      setVal(null);
-      return;
-    }
-    // 백그라운드 탭에서는 rAF가 멈추므로 애니메이션 없이 최종값 표시
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-      setVal(target);
-      return;
-    }
-    let raf = 0;
-    const t0 = performance.now();
-    const tick = (t: number) => {
-      const p = Math.min((t - t0) / duration, 1);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setVal(Math.round(target * eased));
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    // 어떤 경우에도 최종값은 보장한다
-    const failsafe = setTimeout(() => setVal(target), duration + 300);
-    return () => {
-      cancelAnimationFrame(raf);
-      clearTimeout(failsafe);
-    };
-  }, [target, duration]);
-  return val;
-}
-
-function StatStrip({ data }: { data: SafetyData | null }) {
-  const [planToday, setPlanToday] = useState<number | null>(null);
-  const [eduDue, setEduDue] = useState<number | null>(null);
-  const [nearmiss, setNearmiss] = useState<number | null>(null);
-
-  useEffect(() => {
-    fetch('/workplan.json')
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d: { days?: { date: string; items: unknown[] }[] }) => {
-        const day = (d.days ?? []).find((x) => x.date === todayStr());
-        setPlanToday(day ? day.items.length : 0);
-      })
-      .catch(() => setPlanToday(null));
-    void collectEducationStatus(new Date()).then(({ due }) => setEduDue(due.length));
-    void listEntriesSilently<{ id: string }>('nearmiss', 'sj-nearmiss:v1').then((l) => setNearmiss(l.length));
-  }, []);
-
-  return (
-    <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-      <StatBox label="금일 작업계획" value={planToday} unit="건" icon="🗓️" />
-      <StatBox label="등록 위험요인" value={data ? data.risks.length : null} unit="건" icon="⚠️" />
-      <StatBox label="교육 갱신 도래" value={eduDue} unit="명" icon="🎓" warn={(eduDue ?? 0) > 0} />
-      <StatBox label="아차사고 신고" value={nearmiss} unit="건" icon="📢" />
-    </div>
-  );
-}
-
-function StatBox({
-  label,
-  value,
-  unit,
-  icon,
-  warn = false,
-}: {
-  label: string;
-  value: number | null;
-  unit: string;
-  icon: string;
-  warn?: boolean;
-}) {
-  const n = useCountUp(value);
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-      <div className="flex items-center gap-1.5">
-        <span aria-hidden className="text-xs">{icon}</span>
-        <span className="text-[10px] font-bold tracking-[0.18em] text-slate-400">{label}</span>
-        <span
-          aria-hidden
-          className={`ml-auto h-1.5 w-1.5 animate-pulse rounded-full ${
-            warn ? 'bg-orange-400 shadow-[0_0_8px_#fb923c]' : 'bg-cyan-400 shadow-[0_0_8px_#22d3ee]'
-          }`}
-        />
-      </div>
-      <p className="hud-num mt-1 font-mono text-3xl leading-none">
-        {n === null ? '—' : n.toLocaleString()}
-        <span className="ml-1 text-sm text-slate-500">{unit}</span>
-      </p>
-      <div
-        className={`mt-2.5 h-0.5 rounded-full bg-gradient-to-r ${
-          warn ? 'from-orange-400 via-amber-500/60 to-transparent' : 'from-cyan-400 via-blue-500/60 to-transparent'
-        }`}
-      />
     </div>
   );
 }

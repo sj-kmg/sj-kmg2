@@ -30,7 +30,6 @@ type ViewKey =
   | 'edu-supervisor'
   | 'edu-chemical-staff'
   | 'edu-chemical-worker'
-  | 'edu-chemical-roster'
   | 'edu-yncc-staff'
   | 'edu-yncc-worker'
   | 'card'
@@ -465,7 +464,6 @@ export default function Page() {
             {view === 'edu-supervisor' && <EducationRoster courseKey="supervisor" />}
             {view === 'edu-chemical-staff' && <ChemicalAccess initialTab="직원" />}
             {view === 'edu-chemical-worker' && <ChemicalAccess initialTab="인력" />}
-            {view === 'edu-chemical-roster' && <ChemicalAccess initialTab="수료증 명부" />}
             {view === 'edu-yncc-staff' && <YnccWorkers group="직원" />}
             {view === 'edu-yncc-worker' && <YnccWorkers group="인력" />}
             {view === 'card' && <AccessCardSheet />}

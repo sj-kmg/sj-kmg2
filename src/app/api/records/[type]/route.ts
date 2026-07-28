@@ -16,6 +16,7 @@ const TYPES = new Set([
   'yncc-vehicles',
   'chem-workers',
   'cards',
+  'workplan',
 ]);
 
 function gate(req: Request): NextResponse | null {

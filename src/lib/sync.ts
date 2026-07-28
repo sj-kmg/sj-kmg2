@@ -11,7 +11,8 @@ export type LogType =
   | 'yncc-workers'
   | 'yncc-vehicles'
   | 'chem-workers'
-  | 'cards';
+  | 'cards'
+  | 'workplan';
 
 const PASS_KEY = 'sj-sync-passcode';
 
@@ -83,6 +84,13 @@ export async function removeEntryRemote(type: LogType, id: string): Promise<void
 
 export async function uploadPhoto(dataUrl: string): Promise<string> {
   const res = await call('/api/photos', { method: 'POST', body: JSON.stringify({ dataUrl }) });
+  const data = (await res.json()) as { url: string };
+  return data.url;
+}
+
+/** 교육 수료증(PDF·이미지) 업로드 — 저장된 URL 반환 */
+export async function uploadCert(dataUrl: string, name: string): Promise<string> {
+  const res = await call('/api/certs', { method: 'POST', body: JSON.stringify({ dataUrl, name }) });
   const data = (await res.json()) as { url: string };
   return data.url;
 }

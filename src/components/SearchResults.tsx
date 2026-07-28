@@ -100,7 +100,7 @@ export default function SearchResults({
       for (const course of EDU_COURSES) {
         for (const r of course.records) {
           if (hit(r.name) || hit(r.certNo) || hit(r.offline?.certNo) || hit(r.online?.certNo)) {
-            const view = course.key === 'supervisor' ? 'edu-supervisor' : 'edu-chemical-roster';
+            const view = course.key === 'supervisor' ? 'edu-supervisor' : 'edu-chemical-staff';
             push(`공무관리 › 안전교육 › ${course.label}`, view, {
               title: r.name,
               sub: `이수 ${r.completedAt}${r.position ? ` · ${r.position}` : ''}`,

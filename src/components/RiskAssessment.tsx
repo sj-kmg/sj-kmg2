@@ -30,6 +30,8 @@ const COMPANIES = [
 ];
 
 const TIMINGS = ['작업 전', '작업 중', '작업 후'];
+/** 평가방법 — 고정 */
+const RISK_METHOD = '빈도·강도법';
 const MAX_PHOTOS_PER_ROW = 3;
 
 /** 저장되는 평가 항목(행) */
@@ -88,7 +90,7 @@ const EMPTY_ROW: FormRow = {
 };
 
 const EMPTY_HEAD = {
-  company: '', workName: '', workers: '', periodFrom: '', periodTo: '', method: '', assessor: '',
+  company: '', workName: '', workers: '', periodFrom: '', assessor: '',
 };
 
 /** 숫자 입력 정리 — 빈 값 허용, 1~max로 제한 */
@@ -277,7 +279,7 @@ export default function RiskAssessment() {
     }
     setHead({
       company: e.company, workName: e.workName, workers: e.workers,
-      periodFrom: e.periodFrom, periodTo: e.periodTo, method: e.method, assessor: e.assessor,
+      periodFrom: e.periodFrom, assessor: e.assessor,
     });
     setRows(formRows.length > 0 ? formRows : [{ ...EMPTY_ROW }]);
     setEditId(e.id);
@@ -352,8 +354,8 @@ export default function RiskAssessment() {
         workName: head.workName.trim(),
         workers: head.workers.trim(),
         periodFrom: head.periodFrom,
-        periodTo: head.periodTo,
-        method: head.method.trim(),
+        periodTo: '',
+        method: RISK_METHOD,
         assessor: head.assessor.trim(),
         rows: savedRows,
         photoUrls: savedRows.flatMap((r) => r.photoUrls),
@@ -444,16 +446,14 @@ export default function RiskAssessment() {
             <input id="ra-workers" placeholder="예: 5명" value={head.workers} onChange={setHeadField('workers')} className={input} />
           </div>
           <div>
-            <label className={label} htmlFor="ra-from">평가기간 (시작)</label>
+            <label className={label} htmlFor="ra-from">평가기간</label>
             <input id="ra-from" type="date" value={head.periodFrom} onChange={setHeadField('periodFrom')} className={input} />
           </div>
           <div>
-            <label className={label} htmlFor="ra-to">평가기간 (종료)</label>
-            <input id="ra-to" type="date" value={head.periodTo} onChange={setHeadField('periodTo')} className={input} />
-          </div>
-          <div>
-            <label className={label} htmlFor="ra-method">평가방법</label>
-            <input id="ra-method" placeholder="예: 빈도·강도법" value={head.method} onChange={setHeadField('method')} className={input} />
+            <label className={label}>평가방법</label>
+            <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
+              빈도·강도법
+            </p>
           </div>
           <div className="col-span-2 md:col-span-1">
             <label className={label} htmlFor="ra-assessor">평가자</label>
@@ -708,7 +708,7 @@ export default function RiskAssessment() {
                   </span>
                 </div>
                 <p className="mt-1.5 text-xs text-slate-500">
-                  {e.periodFrom && `평가기간 ${e.periodFrom}${e.periodTo ? ` ~ ${e.periodTo}` : ''} · `}
+                  {e.periodFrom && `평가기간 ${e.periodFrom} · `}
                   {e.workers && `작업인원 ${e.workers} · `}
                   {e.method && `${e.method} · `}
                   {e.assessor && `평가자 ${e.assessor} · `}

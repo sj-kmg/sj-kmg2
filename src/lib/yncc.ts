@@ -11,6 +11,10 @@ export interface EduSheetWorker {
   lastEdu?: string;
   /** 교육유효종료일 (YNCC 전용) — 30일 전부터 메인 표시 */
   eduExpire?: string;
+  /** 수료증 파일 경로 — public/certs 정적 경로 또는 업로드된 Blob URL */
+  certFile?: string;
+  /** 직책 (정적 명부에서 이관된 값) */
+  position?: string;
   updatedAt: string;
 }
 
