@@ -18,6 +18,8 @@ const TYPES = new Set([
   'cards',
   'workplan',
   'annual-plan',
+  'memo',
+  'pass-vehicles',
 ]);
 
 function gate(req: Request): NextResponse | null {

@@ -14,7 +14,7 @@ import RiskAssessment from '@/components/RiskAssessment';
 import ChemicalAccess from '@/components/ChemicalAccess';
 import YnccWorkers from '@/components/YnccWorkers';
 import YnccVehicles from '@/components/YnccVehicles';
-import AccessCardSheet from '@/components/AccessCardSheet';
+import AccessPass from '@/components/AccessPass';
 import AnnualPlan from '@/components/AnnualPlan';
 import SearchResults from '@/components/SearchResults';
 
@@ -96,7 +96,7 @@ const MENU: MenuNode[] = [
       {
         label: '신청현황',
         children: [
-          { key: 'card', label: '상시카드' },
+          { key: 'card', label: '상시카드&차량' },
           { key: 'yncc-vehicle', label: 'YNCC차량' },
           { key: 'gas-meter', label: '산소&가스측정기', wip: true },
         ],
@@ -446,11 +446,7 @@ export default function Page() {
         {!ready ? null : (
           <>
             {view === 'main' && (
-              <MainHome
-                data={data}
-                onOpenEducation={() => setView('edu-supervisor')}
-                onOpenPlan={() => setView('annual-plan')}
-              />
+              <MainHome data={data} onOpenEducation={() => setView('edu-supervisor')} />
             )}
             {view === 'ledgers' && (data ? <Ledgers data={data} /> : <NeedData onGo={() => setView('data')} />)}
             {view === 'tbm' && <TbmLog data={data} />}
@@ -460,7 +456,7 @@ export default function Page() {
             {view === 'edu-chemical' && <ChemicalAccess />}
             {view === 'edu-yncc' && <YnccWorkers />}
             {view === 'annual-plan' && <AnnualPlan />}
-            {view === 'card' && <AccessCardSheet />}
+            {view === 'card' && <AccessPass />}
             {view === 'yncc-vehicle' && <YnccVehicles />}
             {view === 'risk-assess' && <RiskAssessment />}
             {view === 'search' && <SearchResults query={query} onNavigate={(v) => go(v as ViewKey)} />}

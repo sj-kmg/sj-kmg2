@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CARDS_KEY, type AccessCard } from '@/lib/cards';
+import { CARDS_KEY, PASS_VEHICLES_KEY, type AccessCard, type PassVehicle } from '@/lib/cards';
 import { EDU_COURSES } from '@/lib/education';
 import { listEntriesSilently } from '@/lib/sync';
 import {
@@ -52,7 +52,7 @@ const MENU_INDEX: { label: string; path: string; view: string; keywords: string 
   { label: '관리감독자', path: '공무관리 › 안전교육 › 관리감독자', view: 'edu-supervisor', keywords: '교육 수료증' },
   { label: '유해화학물질', path: '공무관리 › 안전교육 › 유해화학물질', view: 'edu-chemical', keywords: '교육 화학' },
   { label: 'YNCC출입', path: '공무관리 › 안전교육 › YNCC출입', view: 'edu-yncc', keywords: '교육 출입' },
-  { label: '상시카드', path: '공무관리 › 신청현황 › 상시카드', view: 'card', keywords: '카드 출입증' },
+  { label: '상시카드&차량', path: '공무관리 › 신청현황 › 상시카드&차량', view: 'card', keywords: '카드 출입증 상시차량' },
   { label: 'YNCC차량', path: '공무관리 › 신청현황 › YNCC차량', view: 'yncc-vehicle', keywords: '차량 등록' },
   { label: '산소&가스측정기', path: '공무관리 › 신청현황 › 산소&가스측정기', view: 'gas-meter', keywords: '측정기 가스' },
   { label: '위험성평가', path: '위험성평가', view: 'risk-assess', keywords: '위험 평가 빈도 강도' },
@@ -137,6 +137,15 @@ export default function SearchResults({
             title: w.name,
             sub: `${w.group}${w.eduExpire ? ` · 유효종료 ${w.eduExpire}` : ''}`,
             view,
+          });
+        }
+      }
+      for (const v of await listEntriesSilently<PassVehicle>('pass-vehicles', PASS_VEHICLES_KEY)) {
+        if (hit(v.plate) || hit(v.driver)) {
+          push('공무관리 › 신청현황 › 상시차량', 'card', {
+            title: v.plate,
+            sub: `${v.kind} · ${v.driver}${v.endDate ? ` · 종료 ${v.endDate}` : ''}`,
+            view: 'card',
           });
         }
       }

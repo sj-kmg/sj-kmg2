@@ -5,7 +5,7 @@ import CalendarPanel from './CalendarPanel';
 import WeatherPanel from './WeatherPanel';
 import NoticesPanel from './NoticesPanel';
 import AccidentsPanel from './AccidentsPanel';
-import AnnualPlanPanel from './AnnualPlanPanel';
+import MemoPanel from './MemoPanel';
 import EducationStatusPanel from './EducationStatusPanel';
 import GeneralAffairsPanel from './GeneralAffairsPanel';
 
@@ -15,11 +15,9 @@ import GeneralAffairsPanel from './GeneralAffairsPanel';
 export default function MainHome({
   data,
   onOpenEducation,
-  onOpenPlan,
 }: {
   data: SafetyData | null;
   onOpenEducation?: () => void;
-  onOpenPlan?: () => void;
 }) {
   return (
     <div className="grid grid-cols-12 gap-4">
@@ -38,8 +36,8 @@ export default function MainHome({
       <Panel title="중대재해 발생현황" icon="🚨" code="ALT-04" className="col-span-12 md:col-span-6 xl:col-span-4">
         <AccidentsPanel />
       </Panel>
-      <Panel title="업무관리" icon="🗓️" code="OPS-05" className="col-span-12 md:col-span-6 xl:col-span-4">
-        <AnnualPlanPanel onOpenPlan={onOpenPlan} />
+      <Panel title="메모장" icon="📝" code="MEM-05" className="col-span-12 md:col-span-6 xl:col-span-4">
+        <MemoPanel />
       </Panel>
 
       {/* 3행: 캘린더 · 안전교육 · 공무관리 */}

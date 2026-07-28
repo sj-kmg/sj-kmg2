@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { CARDS_KEY, CARD_NOTICE_DAYS, cardEndDate, type AccessCard } from '@/lib/cards';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { CARDS_KEY, CARD_NOTICE_DAYS, accessCardSeed, cardEndDate, type AccessCard } from '@/lib/cards';
 import { NOTICE_STYLE, daysUntil, noticeLevel } from '@/lib/education';
 import { modeBadge, useSyncedLog } from '@/lib/useSyncedLog';
 
@@ -11,6 +11,7 @@ import { modeBadge, useSyncedLog } from '@/lib/useSyncedLog';
  */
 export default function AccessCardSheet() {
   const { entries, mode, add, remove } = useSyncedLog<AccessCard>('cards', CARDS_KEY);
+  const seed = useMemo(() => accessCardSeed(), []);
   const [rows, setRows] = useState<AccessCard[]>([]);
   const [removedIds, setRemovedIds] = useState<string[]>([]);
   const [showPw, setShowPw] = useState<Record<string, boolean>>({});
@@ -24,8 +25,10 @@ export default function AccessCardSheet() {
 
   useEffect(() => {
     if (mode === 'loading' || dirty) return;
-    setRows([...entries].sort((a, b) => a.name.localeCompare(b.name, 'ko')));
-  }, [entries, mode, dirty]);
+    const savedIds = new Set(entries.map((e) => e.id));
+    const pending = seed.filter((s) => !savedIds.has(s.id));
+    setRows([...entries, ...pending].sort((a, b) => (a.issueDate || '9999').localeCompare(b.issueDate || '9999')));
+  }, [entries, mode, dirty, seed]);
 
   const setRow = (id: string, patch: Partial<AccessCard>) => {
     setRows((list) => list.map((r) => (r.id === id ? { ...r, ...patch } : r)));
@@ -74,7 +77,8 @@ export default function AccessCardSheet() {
           orig.issueDate !== r.issueDate ||
           orig.endDate !== r.endDate ||
           orig.loginId !== r.loginId ||
-          orig.password !== r.password;
+          orig.password !== r.password ||
+          (orig.note ?? '') !== (r.note ?? '');
         if (changed) {
           await add({ ...r, name: r.name.trim(), updatedAt: new Date().toISOString() });
         }
@@ -92,6 +96,8 @@ export default function AccessCardSheet() {
   const cell =
     'w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-800 focus:border-[#1f3864] focus:outline-none';
 
+  const pendingCount = rows.filter((r) => r.name.trim() && !entries.some((e) => e.id === r.id)).length;
+
   const dday = (r: AccessCard) => {
     if (!r.endDate || !today) return <span className="text-[11px] text-slate-300">—</span>;
     const days = daysUntil(r.endDate, today);
@@ -105,35 +111,39 @@ export default function AccessCardSheet() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div>
+      <div>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-bold text-slate-700">
-            💳 상시카드 관리
+            💳 상시카드 신청현황
             <span className="ml-1.5 font-normal text-slate-400">{rows.length}명</span>
           </h3>
           <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
           {dirty && <span className="text-[11px] font-semibold text-orange-500">● 저장되지 않은 변경</span>}
+          {!dirty && pendingCount > 0 && (
+            <span className="text-[11px] text-slate-400">기존 현황 {pendingCount}명 — [변경사항 저장]을 누르면 등록됩니다</span>
+          )}
         </div>
 
         <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full min-w-[820px] text-xs">
+          <table className="w-full min-w-[880px] text-xs">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
                 <th className="min-w-24 px-2 py-2 font-semibold">성명</th>
                 <th className="w-24 px-2 py-2 font-semibold">신청구분</th>
-                <th className="w-36 px-2 py-2 font-semibold">발급일자</th>
-                <th className="w-36 px-2 py-2 font-semibold">종료일자 (자동)</th>
+                <th className="w-36 px-2 py-2 font-semibold">출입시작일</th>
+                <th className="w-36 px-2 py-2 font-semibold">출입종료일</th>
                 <th className="w-28 px-2 py-2 font-semibold">아이디</th>
                 <th className="w-32 px-2 py-2 font-semibold">비밀번호</th>
                 <th className="w-20 px-2 py-2 text-center font-semibold">D-day</th>
+                <th className="min-w-20 px-2 py-2 font-semibold">비고</th>
                 <th className="w-8 px-1 py-2" aria-label="행 삭제" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-3 py-4 text-center text-slate-300">
+                  <td colSpan={9} className="px-3 py-4 text-center text-slate-300">
                     아래 ＋ 버튼으로 상시카드 대상자를 추가해 주세요
                   </td>
                 </tr>
@@ -156,15 +166,15 @@ export default function AccessCardSheet() {
                   </td>
                   <td className="px-1.5 py-1.5">
                     <input
-                      aria-label="발급일자"
+                      aria-label="출입시작일"
                       type="date"
                       value={r.issueDate}
-                      onChange={(e) => setRow(r.id, { issueDate: e.target.value, endDate: cardEndDate(e.target.value) })}
+                      onChange={(e) => setRow(r.id, { issueDate: e.target.value, endDate: r.endDate || cardEndDate(e.target.value) })}
                       className={cell}
                     />
                   </td>
                   <td className="px-1.5 py-1.5">
-                    <input aria-label="종료일자" type="date" value={r.endDate} onChange={(e) => setRow(r.id, { endDate: e.target.value })} className={cell} />
+                    <input aria-label="출입종료일" type="date" value={r.endDate} onChange={(e) => setRow(r.id, { endDate: e.target.value })} className={cell} />
                   </td>
                   <td className="px-1.5 py-1.5">
                     <input aria-label="아이디" placeholder="ID" value={r.loginId} onChange={(e) => setRow(r.id, { loginId: e.target.value })} className={cell} autoComplete="off" />
@@ -191,6 +201,9 @@ export default function AccessCardSheet() {
                     </div>
                   </td>
                   <td className="px-2 py-1.5 text-center">{dday(r)}</td>
+                  <td className="px-1.5 py-1.5">
+                    <input aria-label="비고" value={r.note ?? ''} onChange={(e) => setRow(r.id, { note: e.target.value })} className={cell} />
+                  </td>
                   <td className="px-1 py-1.5 text-center">
                     <button aria-label="행 삭제" onClick={() => removeRow(r.id, r.name)} className="text-slate-300 hover:text-red-500">
                       ✕
@@ -211,7 +224,7 @@ export default function AccessCardSheet() {
           </button>
           <button
             onClick={() => void save()}
-            disabled={saving || !dirty}
+            disabled={saving || (!dirty && pendingCount === 0)}
             className="rounded-lg bg-[#1f3864] px-5 py-2 text-sm font-medium text-white hover:bg-[#2a4a80] disabled:opacity-50"
           >
             {saving ? '저장 중…' : '변경사항 저장'}
@@ -219,7 +232,7 @@ export default function AccessCardSheet() {
           {saved && <span className="text-sm font-medium text-green-600">저장되었습니다 ✓</span>}
         </div>
         <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
-          발급일자를 입력하면 종료일자(발급일 + 1년 - 1일, 예: 25-09-24 발급 → 26-09-23 종료)가 자동 입력됩니다. 종료
+          출입시작일을 입력하면 종료일(시작일 + 1년 - 1일)이 자동 입력되며, 갱신 시 직접 수정할 수 있습니다. 종료
           {CARD_NOTICE_DAYS}일 전부터 이 화면과 메인 [공무관리 현황]에 D-day가 표시됩니다.
         </p>
       </div>

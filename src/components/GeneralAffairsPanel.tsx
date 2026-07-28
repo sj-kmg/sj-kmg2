@@ -1,7 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CARDS_KEY, CARD_NOTICE_DAYS, type AccessCard } from '@/lib/cards';
+import {
+  CARDS_KEY,
+  CARD_NOTICE_DAYS,
+  PASS_VEHICLES_KEY,
+  VEHICLE_NOTICE_DAYS,
+  accessCardSeed,
+  passVehicleSeed,
+  type AccessCard,
+  type PassVehicle,
+} from '@/lib/cards';
 import { NOTICE_STYLE, daysUntil, noticeLevel, type NoticeLevel } from '@/lib/education';
 import { listEntriesSilently } from '@/lib/sync';
 
@@ -32,24 +41,49 @@ export default function GeneralAffairsPanel() {
   useEffect(() => {
     void (async () => {
       const now = new Date();
-      const cards = await listEntriesSilently<AccessCard>('cards', CARDS_KEY);
-      const items = cards
-        .filter((c) => c.name && c.endDate)
-        .map((c) => {
-          const days = daysUntil(c.endDate, now);
-          return { c, days, level: noticeLevel(days, CARD_NOTICE_DAYS) };
-        });
-      const dueItems: DueItem[] = items
-        .filter((i) => i.level !== null)
-        .map((i) => ({ id: `card-${i.c.id}`, name: i.c.name, kind: '상시카드', date: i.c.endDate, days: i.days, level: i.level! }))
-        .sort((a, b) => a.days - b.days);
-      setDue(dueItems);
-      const upcoming = items
-        .filter((i) => i.level === null && i.days >= 0)
-        .sort((a, b) => a.days - b.days);
+      const [savedCards, savedVehicles] = await Promise.all([
+        listEntriesSilently<AccessCard>('cards', CARDS_KEY),
+        listEntriesSilently<PassVehicle>('pass-vehicles', PASS_VEHICLES_KEY),
+      ]);
+      // 아직 저장 전이면 기존 신청현황(초기 데이터)을 기준으로 표시
+      const cardIds = new Set(savedCards.map((c) => c.id));
+      const cards = [...savedCards, ...accessCardSeed().filter((s) => !cardIds.has(s.id))];
+      const plates = new Set(savedVehicles.map((v) => v.plate.trim()));
+      const vehicles = [...savedVehicles, ...passVehicleSeed().filter((s) => !plates.has(s.plate.trim()))];
+
+      const items = [
+        ...cards
+          .filter((c) => c.name && c.endDate)
+          .map((c) => ({
+            id: `card-${c.id}`,
+            name: c.name,
+            kind: '상시카드',
+            date: c.endDate,
+            days: daysUntil(c.endDate, now),
+            notice: CARD_NOTICE_DAYS,
+          })),
+        ...vehicles
+          .filter((v) => v.plate && v.endDate)
+          .map((v) => ({
+            id: `veh-${v.id}`,
+            name: `${v.plate}${v.driver ? ` (${v.driver})` : ''}`,
+            kind: '상시차량',
+            date: v.endDate,
+            days: daysUntil(v.endDate, now),
+            notice: VEHICLE_NOTICE_DAYS,
+          })),
+      ].map((i) => ({ ...i, level: noticeLevel(i.days, i.notice) }));
+
+      setDue(
+        items
+          .filter((i) => i.level !== null)
+          .map((i) => ({ id: i.id, name: i.name, kind: i.kind, date: i.date, days: i.days, level: i.level! }))
+          .sort((a, b) => a.days - b.days),
+      );
+      const upcoming = items.filter((i) => i.level === null && i.days >= 0).sort((a, b) => a.days - b.days);
       if (upcoming.length > 0) {
         const f = upcoming[0];
-        setNext({ name: f.c.name, kind: '상시카드', date: f.c.endDate, days: f.days });
+        setNext({ name: f.name, kind: f.kind, date: f.date, days: f.days });
       }
     })();
   }, []);
@@ -95,7 +129,7 @@ export default function GeneralAffairsPanel() {
 function Footnote() {
   return (
     <p className="mt-2 border-t border-slate-100 pt-1.5 text-[10px] text-slate-400">
-      상시카드 만료 D-{CARD_NOTICE_DAYS}부터 표시 · [공무관리 › 신청현황]과 연동
+      상시카드 D-{CARD_NOTICE_DAYS} · 상시차량 D-{VEHICLE_NOTICE_DAYS}부터 표시 · [신청현황 › 상시카드&차량] 연동
     </p>
   );
 }
