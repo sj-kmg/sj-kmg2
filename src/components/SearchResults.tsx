@@ -50,8 +50,8 @@ const MENU_INDEX: { label: string; path: string; view: string; keywords: string 
   { label: '특수검진', path: '공무관리 › 건강검진 › 특수검진', view: 'health-special-staff', keywords: '건강검진' },
   { label: '유소견자 관리', path: '공무관리 › 건강검진 › 유소견자 관리', view: 'health-followup', keywords: '건강검진' },
   { label: '관리감독자', path: '공무관리 › 안전교육 › 관리감독자', view: 'edu-supervisor', keywords: '교육 수료증' },
-  { label: '유해화학물질', path: '공무관리 › 안전교육 › 유해화학물질', view: 'edu-chemical-staff', keywords: '교육 화학' },
-  { label: 'YNCC출입', path: '공무관리 › 안전교육 › YNCC출입', view: 'edu-yncc-staff', keywords: '교육 출입' },
+  { label: '유해화학물질', path: '공무관리 › 안전교육 › 유해화학물질', view: 'edu-chemical', keywords: '교육 화학' },
+  { label: 'YNCC출입', path: '공무관리 › 안전교육 › YNCC출입', view: 'edu-yncc', keywords: '교육 출입' },
   { label: '상시카드', path: '공무관리 › 신청현황 › 상시카드', view: 'card', keywords: '카드 출입증' },
   { label: 'YNCC차량', path: '공무관리 › 신청현황 › YNCC차량', view: 'yncc-vehicle', keywords: '차량 등록' },
   { label: '산소&가스측정기', path: '공무관리 › 신청현황 › 산소&가스측정기', view: 'gas-meter', keywords: '측정기 가스' },
@@ -100,7 +100,7 @@ export default function SearchResults({
       for (const course of EDU_COURSES) {
         for (const r of course.records) {
           if (hit(r.name) || hit(r.certNo) || hit(r.offline?.certNo) || hit(r.online?.certNo)) {
-            const view = course.key === 'supervisor' ? 'edu-supervisor' : 'edu-chemical-staff';
+            const view = course.key === 'supervisor' ? 'edu-supervisor' : 'edu-chemical';
             push(`공무관리 › 안전교육 › ${course.label}`, view, {
               title: r.name,
               sub: `이수 ${r.completedAt}${r.position ? ` · ${r.position}` : ''}`,
@@ -122,7 +122,7 @@ export default function SearchResults({
 
       for (const w of chemWs) {
         if (hit(w.name) || hit(w.birth)) {
-          const view = w.group === '직원' ? 'edu-chemical-staff' : 'edu-chemical-worker';
+          const view = w.group === '직원' ? 'edu-chemical' : 'edu-chemical';
           push('공무관리 › 안전교육 › 유해화학물질', view, {
             title: w.name,
             sub: `${w.group}${w.offlineDate ? ` · 집체 ${w.offlineDate}` : ''}${w.onlineDate ? ` · 온라인 ${w.onlineDate}` : ''}`,
@@ -132,7 +132,7 @@ export default function SearchResults({
       }
       for (const w of ynccWs) {
         if (hit(w.name) || hit(w.birth)) {
-          const view = w.group === '직원' ? 'edu-yncc-staff' : 'edu-yncc-worker';
+          const view = w.group === '직원' ? 'edu-yncc' : 'edu-yncc';
           push('공무관리 › 안전교육 › YNCC출입', view, {
             title: w.name,
             sub: `${w.group}${w.eduExpire ? ` · 유효종료 ${w.eduExpire}` : ''}`,

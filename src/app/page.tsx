@@ -15,6 +15,7 @@ import ChemicalAccess from '@/components/ChemicalAccess';
 import YnccWorkers from '@/components/YnccWorkers';
 import YnccVehicles from '@/components/YnccVehicles';
 import AccessCardSheet from '@/components/AccessCardSheet';
+import AnnualPlan from '@/components/AnnualPlan';
 import SearchResults from '@/components/SearchResults';
 
 type ViewKey =
@@ -28,10 +29,9 @@ type ViewKey =
   | 'health-special-worker'
   | 'health-followup'
   | 'edu-supervisor'
-  | 'edu-chemical-staff'
-  | 'edu-chemical-worker'
-  | 'edu-yncc-staff'
-  | 'edu-yncc-worker'
+  | 'edu-chemical'
+  | 'edu-yncc'
+  | 'annual-plan'
   | 'card'
   | 'yncc-vehicle'
   | 'gas-meter'
@@ -88,22 +88,11 @@ const MENU: MenuNode[] = [
         label: '안전교육',
         children: [
           { key: 'edu-supervisor', label: '관리감독자' },
-          {
-            label: '유해화학물질',
-            children: [
-              { key: 'edu-chemical-staff', label: '직원' },
-              { key: 'edu-chemical-worker', label: '인력' },
-            ],
-          },
-          {
-            label: 'YNCC출입',
-            children: [
-              { key: 'edu-yncc-staff', label: '직원' },
-              { key: 'edu-yncc-worker', label: '인력' },
-            ],
-          },
+          { key: 'edu-chemical', label: '유해화학물질' },
+          { key: 'edu-yncc', label: 'YNCC출입' },
         ],
       },
+      { key: 'annual-plan', label: '공무연간계획' },
       {
         label: '신청현황',
         children: [
@@ -456,16 +445,21 @@ export default function Page() {
 
         {!ready ? null : (
           <>
-            {view === 'main' && <MainHome data={data} onOpenEducation={() => setView('edu-supervisor')} />}
+            {view === 'main' && (
+              <MainHome
+                data={data}
+                onOpenEducation={() => setView('edu-supervisor')}
+                onOpenPlan={() => setView('annual-plan')}
+              />
+            )}
             {view === 'ledgers' && (data ? <Ledgers data={data} /> : <NeedData onGo={() => setView('data')} />)}
             {view === 'tbm' && <TbmLog data={data} />}
             {view === 'nearmiss' && <NearMissReport />}
             {view === 'people' && <WorkforceLog data={data} />}
             {view === 'edu-supervisor' && <EducationRoster courseKey="supervisor" />}
-            {view === 'edu-chemical-staff' && <ChemicalAccess initialTab="직원" />}
-            {view === 'edu-chemical-worker' && <ChemicalAccess initialTab="인력" />}
-            {view === 'edu-yncc-staff' && <YnccWorkers group="직원" />}
-            {view === 'edu-yncc-worker' && <YnccWorkers group="인력" />}
+            {view === 'edu-chemical' && <ChemicalAccess />}
+            {view === 'edu-yncc' && <YnccWorkers />}
+            {view === 'annual-plan' && <AnnualPlan />}
             {view === 'card' && <AccessCardSheet />}
             {view === 'yncc-vehicle' && <YnccVehicles />}
             {view === 'risk-assess' && <RiskAssessment />}

@@ -12,7 +12,8 @@ export type LogType =
   | 'yncc-vehicles'
   | 'chem-workers'
   | 'cards'
-  | 'workplan';
+  | 'workplan'
+  | 'annual-plan';
 
 const PASS_KEY = 'sj-sync-passcode';
 
