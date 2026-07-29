@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import {
@@ -71,7 +71,7 @@ export default function AnnualPlanPanel({ onOpenPlan }: { onOpenPlan?: () => voi
     <div className="flex h-full flex-col">
       {/* 헤더 */}
       <div className="mb-2 flex items-center gap-2">
-        <span className="rounded-lg bg-gradient-to-br from-cyan-500/25 to-blue-600/20 px-2.5 py-1 text-xs font-bold text-cyan-200 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.35)]">
+        <span className="rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-600/15 px-2.5 py-1 text-xs font-bold text-cyan-700 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.35)]">
           {MONTH_LABEL[month - 1]}
         </span>
         <span className="rounded px-1.5 py-0.5 text-[10px] font-bold text-slate-400">
@@ -100,7 +100,7 @@ export default function AnnualPlanPanel({ onOpenPlan }: { onOpenPlan?: () => voi
         {groups.map((g) => (
           <div key={g.key}>
             <p className="mb-0.5 flex items-center gap-1.5 px-1">
-              <span className={`text-[10px] font-bold ${g.hot ? 'text-cyan-300' : 'text-slate-400'}`}>{g.label}</span>
+              <span className={`text-[10px] font-bold ${g.hot ? 'text-cyan-700' : 'text-slate-400'}`}>{g.label}</span>
               {g.hot && (
                 <span aria-hidden className="h-1 w-1 animate-pulse rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee]" />
               )}
@@ -116,14 +116,14 @@ export default function AnnualPlanPanel({ onOpenPlan }: { onOpenPlan?: () => voi
                     <button
                       onClick={() => void toggle(t)}
                       disabled={busy === checkId(year, month, t.id)}
-                      className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left hover:bg-white/5 ${
+                      className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left hover:bg-cyan-500/8 ${
                         done ? 'opacity-45' : ''
                       }`}
                     >
                       <span
                         aria-hidden
                         className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border text-[9px] ${
-                          done ? 'border-cyan-400 bg-cyan-400/25 text-cyan-200' : 'border-slate-300 text-transparent'
+                          done ? 'border-cyan-600 bg-cyan-500/20 text-cyan-700' : 'border-slate-300 text-transparent'
                         }`}
                       >
                         ✓

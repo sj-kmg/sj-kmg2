@@ -15,7 +15,9 @@ export type LogType =
   | 'workplan'
   | 'annual-plan'
   | 'memo'
-  | 'pass-vehicles';
+  | 'pass-vehicles'
+  | 'health'
+  | 'supervisor';
 
 const PASS_KEY = 'sj-sync-passcode';
 

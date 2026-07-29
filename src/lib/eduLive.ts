@@ -14,6 +14,7 @@ import {
 import { listEntriesSilently } from './sync';
 import {
   CHEM_WORKERS_KEY,
+  SUPERVISOR_KEY,
   YNCC_NOTICE_DAYS,
   YNCC_WORKERS_KEY,
   type EduSheetWorker,
@@ -44,15 +45,19 @@ export interface EducationStatus {
 }
 
 export async function collectEducationStatus(now: Date): Promise<EducationStatus> {
-  const [ynccWs, chemWs] = await Promise.all([
+  const [ynccWs, chemWs, supWs] = await Promise.all([
     listEntriesSilently<EduSheetWorker>('yncc-workers', YNCC_WORKERS_KEY),
     listEntriesSilently<EduSheetWorker>('chem-workers', CHEM_WORKERS_KEY),
+    listEntriesSilently<EduSheetWorker>('supervisor', SUPERVISOR_KEY),
   ]);
 
-  // 유해화학물질 시트에 입력된 이름은 정적 명부 대신 시트 데이터를 우선한다
+  // 시트에 입력된 이름은 정적 명부 대신 시트 데이터를 우선한다
   const chemSheetNames = new Set(chemWs.filter((w) => w.name).map((w) => w.name.trim()));
+  const supSheetNames = new Set(supWs.filter((w) => w.name).map((w) => w.name.trim()));
   const staticItems = allRenewals(now).filter(
-    (r) => !(r.course.key === 'chemical' && chemSheetNames.has(r.record.name)),
+    (r) =>
+      !(r.course.key === 'chemical' && chemSheetNames.has(r.record.name)) &&
+      !(r.course.key === 'supervisor' && supSheetNames.has(r.record.name)),
   );
 
   const due: LiveDueItem[] = staticItems
@@ -88,6 +93,21 @@ export async function collectEducationStatus(now: Date): Promise<EducationStatus
     const level = noticeLevel(days, 30);
     if (level) due.push({ id: `chem-${w.id}`, name: w.name, course: '유해화학물질', renewAt, days, level });
     else if (days >= 0) upcoming.push({ name: w.name, course: '유해화학물질', renewAt, days });
+  }
+
+  // 관리감독자 시트 — 이수일 + 1년, D-90
+  for (const w of supWs) {
+    if (!w.name || !w.offlineDate) continue;
+    const d = new Date(`${w.offlineDate}T00:00:00`);
+    if (Number.isNaN(d.getTime())) continue;
+    d.setFullYear(d.getFullYear() + 1);
+    const p = (n: number) => (n < 10 ? `0${n}` : String(n));
+    const renewAt = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    const days = daysUntil(renewAt, now);
+    const level = noticeLevel(days, 90);
+    if (level)
+      due.push({ id: `sup-${w.id}`, name: w.name, course: '관리감독자', renewAt, days, level, certFile: w.certFile });
+    else if (days >= 0) upcoming.push({ name: w.name, course: '관리감독자', renewAt, days });
   }
 
   due.sort((a, b) => a.days - b.days);

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Share_Tech_Mono } from "next/font/google";
+import { Geist, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -7,10 +7,10 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-/* HUD 느낌의 숫자·코드용 테크 모노 폰트 (D-day·날짜·번호 등에 적용) */
-const techMono = Share_Tech_Mono({
+/* 숫자·날짜·D-day용 모노 폰트 — 0/O, 1/l 구분이 명확해 가독성이 높다 */
+const techMono = JetBrains_Mono({
   variable: "--font-tech-mono",
-  weight: "400",
+  weight: ["500", "700"],
   subsets: ["latin"],
 });
 

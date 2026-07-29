@@ -10,8 +10,8 @@ interface Props {
   logType: LogType;
   localKey: string;
   group: '직원' | '인력';
-  /** yncc: 교육유효종료일 입력·기준 / chem: 이수년도 기준 갱신일 자동 계산 */
-  variant: 'yncc' | 'chem';
+  /** yncc: 교육유효종료일 입력·기준 / chem: 이수년도 기준 갱신일 / supervisor: 이수일 + 1년 */
+  variant: 'yncc' | 'chem' | 'supervisor';
   /** 저장 이력이 없을 때 표시할 초기 명부 (정적 수료증 명부 이관용) */
   seed?: EduSheetWorker[];
 }
@@ -156,14 +156,27 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
   const cell =
     'w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-800 focus:border-[#1f3864] focus:outline-none';
 
-  const renewOf = (r: EduSheetWorker): string | null =>
-    variant === 'yncc' ? r.eduExpire || null : chemicalRenewalFromDates(r.offlineDate, r.onlineDate);
+  const renewOf = (r: EduSheetWorker): string | null => {
+    if (variant === 'yncc') return r.eduExpire || null;
+    if (variant === 'supervisor') {
+      // 관리감독자 — 이수일 + 1년
+      if (!r.offlineDate) return null;
+      const d = new Date(`${r.offlineDate}T00:00:00`);
+      if (Number.isNaN(d.getTime())) return null;
+      d.setFullYear(d.getFullYear() + 1);
+      const p = (n: number) => (n < 10 ? `0${n}` : String(n));
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    }
+    return chemicalRenewalFromDates(r.offlineDate, r.onlineDate);
+  };
+
+  const noticeDays = variant === 'supervisor' ? 90 : YNCC_NOTICE_DAYS;
 
   const dday = (r: EduSheetWorker) => {
     const renew = renewOf(r);
     if (!renew || !today) return <span className="text-[11px] text-slate-300">—</span>;
     const days = daysUntil(renew, today);
-    const level = noticeLevel(days, YNCC_NOTICE_DAYS);
+    const level = noticeLevel(days, noticeDays);
     if (!level) return <span className="font-mono text-[11px] text-slate-400">D-{days}</span>;
     return (
       <span className={`rounded px-1.5 py-0.5 font-mono text-[11px] font-bold ${NOTICE_STYLE[level].badge}`}>
@@ -194,8 +207,10 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
               <th className="min-w-28 px-2 py-2 font-semibold">작업자명</th>
               <th className="w-36 px-2 py-2 font-semibold">생년월일</th>
-              <th className="w-36 px-2 py-2 font-semibold">집체교육 이수일자</th>
-              <th className="w-36 px-2 py-2 font-semibold">온라인교육 이수일자</th>
+              <th className="w-36 px-2 py-2 font-semibold">
+                {variant === 'supervisor' ? '이수일자' : '집체교육 이수일자'}
+              </th>
+              {variant !== 'supervisor' && <th className="w-36 px-2 py-2 font-semibold">온라인교육 이수일자</th>}
               {variant === 'yncc' ? (
                 <th className="w-36 px-2 py-2 font-semibold">교육유효종료일</th>
               ) : (
@@ -225,18 +240,26 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
                     <input aria-label="생년월일" type="date" value={r.birth} onChange={(e) => setRow(r.id, { birth: e.target.value })} className={cell} />
                   </td>
                   <td className="px-1.5 py-1.5">
-                    <input aria-label="집체교육 이수일자" type="date" value={r.offlineDate ?? ''} onChange={(e) => setRow(r.id, { offlineDate: e.target.value })} className={cell} />
-                  </td>
-                  <td className="px-1.5 py-1.5">
                     <input
-                      aria-label="온라인교육 이수일자"
+                      aria-label={variant === 'supervisor' ? '이수일자' : '집체교육 이수일자'}
                       type="date"
-                      value={r.onlineDate ?? ''}
-                      onChange={(e) => setRow(r.id, { onlineDate: e.target.value })}
-                      className={`${cell} ${sameDate ? 'border-red-200' : ''}`}
-                      title={sameDate ? '집체교육과 이수일자가 같습니다 — 등록 불가' : undefined}
+                      value={r.offlineDate ?? ''}
+                      onChange={(e) => setRow(r.id, { offlineDate: e.target.value })}
+                      className={cell}
                     />
                   </td>
+                  {variant !== 'supervisor' && (
+                    <td className="px-1.5 py-1.5">
+                      <input
+                        aria-label="온라인교육 이수일자"
+                        type="date"
+                        value={r.onlineDate ?? ''}
+                        onChange={(e) => setRow(r.id, { onlineDate: e.target.value })}
+                        className={`${cell} ${sameDate ? 'border-red-200' : ''}`}
+                        title={sameDate ? '집체교육과 이수일자가 같습니다 — 등록 불가' : undefined}
+                      />
+                    </td>
+                  )}
                   {variant === 'yncc' ? (
                     <td className="px-1.5 py-1.5">
                       <input aria-label="교육유효종료일" type="date" value={r.eduExpire ?? ''} onChange={(e) => setRow(r.id, { eduExpire: e.target.value })} className={cell} />

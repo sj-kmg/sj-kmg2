@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import {
@@ -73,12 +73,12 @@ export default function AnnualPlan() {
         <button
           onClick={() => void toggle(m, t)}
           disabled={busy === checkId(year, m, t.id)}
-          className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left hover:bg-white/5 ${done ? 'opacity-50' : ''}`}
+          className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left hover:bg-cyan-500/8 ${done ? 'opacity-50' : ''}`}
         >
           <span
             aria-hidden
             className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border text-[9px] ${
-              done ? 'border-cyan-400 bg-cyan-400/25 text-cyan-200' : 'border-slate-300 text-transparent'
+              done ? 'border-cyan-600 bg-cyan-500/20 text-cyan-700' : 'border-slate-300 text-transparent'
             }`}
           >
             ✓
@@ -145,7 +145,7 @@ export default function AnnualPlan() {
           const done = all.filter((t) => isDone(m, t)).length;
           const current = m === thisMonth;
           return (
-            <section key={m} className={`rounded-xl border bg-white shadow-sm ${current ? 'border-cyan-400/50' : 'border-slate-200'}`}>
+            <section key={m} className={`rounded-xl border bg-white shadow-sm ${current ? 'border-cyan-500/50' : 'border-slate-200'}`}>
               <header className="flex items-center gap-2 px-3 py-2">
                 <span
                   aria-hidden
@@ -153,7 +153,7 @@ export default function AnnualPlan() {
                     current ? 'bg-gradient-to-b from-cyan-300 to-blue-600 shadow-[0_0_8px_rgba(34,211,238,0.8)]' : 'bg-slate-300'
                   }`}
                 />
-                <h4 className={`text-sm font-bold ${current ? 'text-cyan-300' : 'text-slate-700'}`}>{label}</h4>
+                <h4 className={`text-sm font-bold ${current ? 'text-cyan-700' : 'text-slate-700'}`}>{label}</h4>
                 {current && (
                   <span className="rounded bg-sky-50 px-1.5 py-0.5 text-[9px] font-bold text-sky-700">
                     이번 달{phase !== '중순' ? ` · ${phase}` : ''}

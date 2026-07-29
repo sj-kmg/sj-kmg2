@@ -12,6 +12,7 @@ import {
   type PassVehicle,
 } from '@/lib/cards';
 import { NOTICE_STYLE, daysUntil, noticeLevel, type NoticeLevel } from '@/lib/education';
+import { HEALTH_KEY, HEALTH_LABEL, HEALTH_NOTICE_DAYS, healthGeneralSeed, type HealthCheck } from '@/lib/health';
 import { listEntriesSilently } from '@/lib/sync';
 
 interface DueItem {
@@ -41,10 +42,13 @@ export default function GeneralAffairsPanel() {
   useEffect(() => {
     void (async () => {
       const now = new Date();
-      const [savedCards, savedVehicles] = await Promise.all([
+      const [savedCards, savedVehicles, savedHealth] = await Promise.all([
         listEntriesSilently<AccessCard>('cards', CARDS_KEY),
         listEntriesSilently<PassVehicle>('pass-vehicles', PASS_VEHICLES_KEY),
+        listEntriesSilently<HealthCheck>('health', HEALTH_KEY),
       ]);
+      const healthNames = new Set(savedHealth.filter((h) => h.kind === 'general').map((h) => h.name.trim()));
+      const health = [...savedHealth, ...healthGeneralSeed().filter((s) => !healthNames.has(s.name.trim()))];
       // 아직 저장 전이면 기존 신청현황(초기 데이터)을 기준으로 표시
       const cardIds = new Set(savedCards.map((c) => c.id));
       const cards = [...savedCards, ...accessCardSeed().filter((s) => !cardIds.has(s.id))];
@@ -71,6 +75,16 @@ export default function GeneralAffairsPanel() {
             date: v.endDate,
             days: daysUntil(v.endDate, now),
             notice: VEHICLE_NOTICE_DAYS,
+          })),
+        ...health
+          .filter((h) => h.name && h.renewDate)
+          .map((h) => ({
+            id: `health-${h.id}`,
+            name: h.name,
+            kind: HEALTH_LABEL[h.kind],
+            date: h.renewDate,
+            days: daysUntil(h.renewDate, now),
+            notice: HEALTH_NOTICE_DAYS,
           })),
       ].map((i) => ({ ...i, level: noticeLevel(i.days, i.notice) }));
 
@@ -129,7 +143,7 @@ export default function GeneralAffairsPanel() {
 function Footnote() {
   return (
     <p className="mt-2 border-t border-slate-100 pt-1.5 text-[10px] text-slate-400">
-      상시카드 D-{CARD_NOTICE_DAYS} · 상시차량 D-{VEHICLE_NOTICE_DAYS}부터 표시 · [신청현황 › 상시카드&차량] 연동
+      상시카드 D-{CARD_NOTICE_DAYS} · 상시차량/건강검진 D-{VEHICLE_NOTICE_DAYS}부터 표시 · 공무관리 메뉴와 연동
     </p>
   );
 }

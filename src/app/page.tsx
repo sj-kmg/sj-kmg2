@@ -9,13 +9,14 @@ import Ledgers from '@/components/Ledgers';
 import TbmLog from '@/components/TbmLog';
 import NearMissReport from '@/components/NearMissReport';
 import WorkforceLog from '@/components/WorkforceLog';
-import EducationRoster from '@/components/EducationRoster';
+import SupervisorSheet from '@/components/SupervisorSheet';
 import RiskAssessment from '@/components/RiskAssessment';
 import ChemicalAccess from '@/components/ChemicalAccess';
 import YnccWorkers from '@/components/YnccWorkers';
 import YnccVehicles from '@/components/YnccVehicles';
 import AccessPass from '@/components/AccessPass';
 import AnnualPlan from '@/components/AnnualPlan';
+import HealthCheckSheet from '@/components/HealthCheckSheet';
 import SearchResults from '@/components/SearchResults';
 
 type ViewKey =
@@ -23,10 +24,8 @@ type ViewKey =
   | 'ledgers'
   | 'tbm'
   | 'nearmiss'
-  | 'health-general-staff'
-  | 'health-general-worker'
-  | 'health-special-staff'
-  | 'health-special-worker'
+  | 'health-general'
+  | 'health-special'
   | 'health-followup'
   | 'edu-supervisor'
   | 'edu-chemical'
@@ -67,20 +66,8 @@ const MENU: MenuNode[] = [
       {
         label: '건강검진',
         children: [
-          {
-            label: '일반검진',
-            children: [
-              { key: 'health-general-staff', label: '직원', wip: true },
-              { key: 'health-general-worker', label: '인력', wip: true },
-            ],
-          },
-          {
-            label: '특수검진',
-            children: [
-              { key: 'health-special-staff', label: '직원', wip: true },
-              { key: 'health-special-worker', label: '인력', wip: true },
-            ],
-          },
+          { key: 'health-general', label: '일반검진' },
+          { key: 'health-special', label: '특수검진' },
           { key: 'health-followup', label: '유소견자 관리', wip: true },
         ],
       },
@@ -154,11 +141,11 @@ function DropNode({
         onClick={() => node.key && go(node.key)}
         style={{ paddingLeft: `${12 + depth * 14}px` }}
         className={`flex w-full items-center gap-2 rounded-lg py-2 pr-3 text-left text-sm ${
-          active ? 'bg-cyan-400/10 text-cyan-300' : 'text-[#9db0d4] hover:bg-white/5 hover:text-white'
+          active ? 'bg-cyan-500/10 font-semibold text-cyan-700' : 'text-slate-600 hover:bg-cyan-500/8 hover:text-cyan-700'
         }`}
       >
         {node.label}
-        {node.wip && <span className="ml-auto text-[9px] text-cyan-500/60">예정</span>}
+        {node.wip && <span className="ml-auto text-[9px] text-slate-400">예정</span>}
       </button>
     );
   }
@@ -167,12 +154,12 @@ function DropNode({
       <button
         onClick={() => setOpen(!open)}
         style={{ paddingLeft: `${12 + depth * 14}px` }}
-        className={`flex w-full items-center gap-2 rounded-lg py-2 pr-3 text-left text-sm font-semibold ${
-          containsActive ? 'text-cyan-300' : 'text-[#c3d0ea] hover:bg-white/5 hover:text-white'
+        className={`flex w-full items-center gap-2 rounded-lg py-2 pr-3 text-left text-sm font-bold ${
+          containsActive ? 'text-cyan-700' : 'text-slate-700 hover:bg-cyan-500/8 hover:text-cyan-700'
         }`}
       >
         {node.label}
-        <span aria-hidden className="ml-auto text-[9px] text-cyan-400/70">
+        <span aria-hidden className="ml-auto text-[9px] text-cyan-600/70">
           {open ? '▾' : '▸'}
         </span>
       </button>
@@ -193,7 +180,7 @@ function TopItem({ node, view, go }: { node: MenuNode; view: ViewKey; go: (k: Vi
         </span>
       )}
       {node.label}
-      {node.wip && <span className="ml-1 align-middle text-[9px] text-cyan-500/70">예정</span>}
+      {node.wip && <span className="ml-1 align-middle text-[9px] text-slate-400">예정</span>}
     </button>
   );
 }
@@ -218,7 +205,7 @@ function TopGroup({
     <div className="relative shrink-0">
       <button
         onClick={() => setOpenMenu(open ? null : node.label)}
-        className={`nav-item ${activeChild ? 'nav-item--on' : open ? 'bg-white/5 text-white' : ''}`}
+        className={`nav-item ${activeChild ? 'nav-item--on' : open ? 'bg-cyan-500/10 text-cyan-700' : ''}`}
       >
         <span aria-hidden className="mr-1 text-xs">
           {node.icon}
@@ -229,7 +216,7 @@ function TopGroup({
         </span>
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1.5 max-h-[70vh] min-w-52 overflow-y-auto rounded-xl border border-cyan-400/20 bg-[#0c1730]/95 p-1 shadow-[0_16px_44px_rgba(0,0,0,0.65),0_0_24px_rgba(34,211,238,0.08)] backdrop-blur-md">
+        <div className="absolute left-0 top-full z-50 mt-1.5 max-h-[70vh] min-w-52 overflow-y-auto rounded-xl border border-cyan-500/25 bg-white/97 p-1 shadow-[0_16px_40px_rgba(15,30,58,0.16),0_0_22px_rgba(34,211,238,0.12)] backdrop-blur-md">
           {(node.children ?? []).map((c) => (
             <DropNode key={c.key ?? c.label} node={c} depth={0} view={view} go={go} />
           ))}
@@ -248,7 +235,7 @@ function MobileChip({ node, view, go }: { node: MenuNode; view: ViewKey; go: (k:
       className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium ${
         active
           ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-[0_0_14px_rgba(34,211,238,0.35)]'
-          : 'border border-cyan-400/15 bg-white/5 text-[#9db0d4]'
+          : 'border border-cyan-500/20 bg-white/80 text-slate-600'
       }`}
     >
       {node.label}
@@ -331,7 +318,7 @@ export default function Page() {
   return (
     <div className="flex min-h-screen flex-col">
       {/* 상단 내비게이션 */}
-      <header className="topbar sticky top-0 z-40 border-b border-cyan-400/15 bg-[#0a1226]/85 backdrop-blur-md">
+      <header className="topbar sticky top-0 z-40 border-b border-cyan-500/20 bg-white/85 backdrop-blur-md">
         <div className="flex items-center gap-4 px-4 py-2.5 lg:px-6">
           {/* 로고 */}
           <button onClick={() => go('main')} className="shrink-0 text-left" aria-label="메인으로">
@@ -343,8 +330,10 @@ export default function Page() {
                 🛡️
               </span>
               <span>
-                <span className="block text-base font-black leading-tight tracking-tight text-white">㈜신정개발</span>
-                <span className="block text-[9px] font-bold tracking-[0.28em] text-cyan-400/90">
+                <span className="block bg-gradient-to-r from-cyan-700 to-blue-700 bg-clip-text text-base font-black leading-tight tracking-tight text-transparent">
+                  ㈜신정개발
+                </span>
+                <span className="block text-[9px] font-bold tracking-[0.28em] text-cyan-600/90">
                   SMART SAFETY PLATFORM
                 </span>
               </span>
@@ -365,7 +354,7 @@ export default function Page() {
           {clock && (
             <span
               aria-hidden
-              className="ml-auto hidden shrink-0 font-mono text-sm tracking-[0.2em] text-cyan-300/90 [text-shadow:0_0_12px_rgba(34,211,238,0.55)] xl:block"
+              className="ml-auto hidden shrink-0 font-mono text-sm font-bold tracking-[0.12em] text-cyan-700 xl:block"
             >
               {clock}
             </span>
@@ -384,9 +373,9 @@ export default function Page() {
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="전체 검색"
               aria-label="전체 검색"
-              className="w-32 rounded-lg border border-cyan-400/20 bg-white/5 py-1.5 pl-3 pr-8 text-sm text-white placeholder:text-[#5b6d92] focus:border-cyan-400/60 focus:outline-none focus:shadow-[0_0_14px_rgba(34,211,238,0.2)] lg:w-44"
+              className="w-32 rounded-lg border border-cyan-500/25 bg-white/90 py-1.5 pl-3 pr-8 text-sm text-slate-800 placeholder:text-slate-400 focus:border-cyan-500/70 focus:outline-none focus:shadow-[0_0_14px_rgba(34,211,238,0.2)] lg:w-44"
             />
-            <button type="submit" aria-label="검색" className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8fa3c8] hover:text-cyan-300">
+            <button type="submit" aria-label="검색" className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-cyan-600">
               🔍
             </button>
           </form>
@@ -400,9 +389,9 @@ export default function Page() {
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="이름·차량번호·키워드 전체 검색"
               aria-label="전체 검색"
-              className="w-full rounded-lg border border-cyan-400/20 bg-white/5 py-1.5 pl-3 pr-8 text-sm text-white placeholder:text-[#5b6d92] focus:border-cyan-400/60 focus:outline-none"
+              className="w-full rounded-lg border border-cyan-500/25 bg-white/90 py-1.5 pl-3 pr-8 text-sm text-slate-800 placeholder:text-slate-400 focus:border-cyan-500/70 focus:outline-none"
             />
-            <button type="submit" aria-label="검색" className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8fa3c8]">
+            <button type="submit" aria-label="검색" className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400">
               🔍
             </button>
           </form>
@@ -418,7 +407,7 @@ export default function Page() {
       <main key={view === 'search' ? `search-${query}` : view} className="view-enter flex-1 p-4 lg:p-6">
         {/* 페이지 타이틀 */}
         <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1">
-          <h1 className="flex items-center gap-2.5 text-lg font-bold tracking-tight text-white md:text-xl">
+          <h1 className="flex items-center gap-2.5 text-lg font-bold tracking-tight text-slate-900 md:text-xl">
             <span
               aria-hidden
               className="h-5 w-1.5 rounded-full bg-gradient-to-b from-cyan-300 to-blue-600 shadow-[0_0_12px_rgba(34,211,238,0.9)]"
@@ -452,7 +441,7 @@ export default function Page() {
             {view === 'tbm' && <TbmLog data={data} />}
             {view === 'nearmiss' && <NearMissReport />}
             {view === 'people' && <WorkforceLog data={data} />}
-            {view === 'edu-supervisor' && <EducationRoster courseKey="supervisor" />}
+            {view === 'edu-supervisor' && <SupervisorSheet />}
             {view === 'edu-chemical' && <ChemicalAccess />}
             {view === 'edu-yncc' && <YnccWorkers />}
             {view === 'annual-plan' && <AnnualPlan />}
@@ -460,11 +449,9 @@ export default function Page() {
             {view === 'yncc-vehicle' && <YnccVehicles />}
             {view === 'risk-assess' && <RiskAssessment />}
             {view === 'search' && <SearchResults query={query} onNavigate={(v) => go(v as ViewKey)} />}
-            {(view === 'health-general-staff' ||
-              view === 'health-general-worker' ||
-              view === 'health-special-staff' ||
-              view === 'health-special-worker' ||
-              view === 'health-followup' ||
+            {view === 'health-general' && <HealthCheckSheet kind="general" />}
+            {view === 'health-special' && <HealthCheckSheet kind="special" />}
+            {(view === 'health-followup' ||
               view === 'gas-meter' ||
               view === 'notice') && <ComingSoon label={viewLabel(view)} />}
             {view === 'data' && (
