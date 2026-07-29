@@ -9,12 +9,12 @@ import { riskProduct } from '@/lib/risk';
  * - RiskResultSummary: 위험등급결정 및 개선대책 수립현황 — 저장된 평가별 자동 집계
  */
 
-/** 결과표 등급 구간 (위험등급표 기준) — 다크 배경에 맞춘 저채도 톤 */
+/** 결과표 등급 구간 (위험등급표 기준) — 라이트 배경에 맞춘 진한 텍스트 + 연한 배경 톤 */
 const BUCKETS = [
-  { grade: 'ii', range: '16~20', name: '중대위험', min: 16, max: 20, bg: 'rgba(220,38,38,0.28)', ink: '#fca5a5' },
-  { grade: 'iii', range: '9~15', name: '보통위험', min: 9, max: 15, bg: 'rgba(234,88,12,0.24)', ink: '#fdba74' },
-  { grade: 'iv', range: '7~8', name: '수용가능', min: 7, max: 8, bg: 'rgba(37,99,235,0.24)', ink: '#93c5fd' },
-  { grade: 'v', range: '1~6', name: '안전수준', min: 1, max: 6, bg: 'rgba(34,211,238,0.14)', ink: '#7dd3fc' },
+  { grade: 'ii', range: '16~20', name: '중대위험', min: 16, max: 20, bg: 'rgba(220,38,38,0.14)', ink: '#b91c1c' },
+  { grade: 'iii', range: '9~15', name: '보통위험', min: 9, max: 15, bg: 'rgba(234,88,12,0.14)', ink: '#c2410c' },
+  { grade: 'iv', range: '7~8', name: '수용가능', min: 7, max: 8, bg: 'rgba(37,99,235,0.12)', ink: '#1d4ed8' },
+  { grade: 'v', range: '1~6', name: '안전수준', min: 1, max: 6, bg: 'rgba(6,182,212,0.12)', ink: '#0e7490' },
 ];
 
 const td = 'border border-slate-300 px-2 py-1.5';
@@ -81,9 +81,9 @@ function ResultTable({ rows }: { rows: SummaryRow[] }) {
             <span style={{ writingMode: 'vertical-rl', letterSpacing: '0.3em' }}>위험등급표</span>
           </th>
           <th className={`${td} font-medium text-slate-600`}>총위험요인수</th>
-          <td className={`${td} font-bold`} style={{ background: 'rgba(34,211,238,0.16)', color: '#67e8f9' }}>{cur.length}</td>
+          <td className={`${td} font-bold`} style={{ background: 'rgba(6,182,212,0.12)', color: '#0e7490' }}>{cur.length}</td>
           <th colSpan={2} className={`${td} font-medium text-slate-600`}>개선대책수</th>
-          <td className={`${td} font-bold`} style={{ background: 'rgba(245,158,11,0.2)', color: '#fcd34d' }}>{actions}</td>
+          <td className={`${td} font-bold`} style={{ background: 'rgba(245,158,11,0.16)', color: '#b45309' }}>{actions}</td>
         </tr>
         <tr>
           <td colSpan={5} className={`${td} text-left text-slate-600`}>개선전 위험등급별 요인수</td>
@@ -112,11 +112,11 @@ function ResultTable({ rows }: { rows: SummaryRow[] }) {
   );
 }
 
-/** 산출표 셀 색 — 다크 배경에 맞춘 저채도 톤 (17~20 적색 · 13~16 청색 · 7~12 황색) */
+/** 산출표 셀 색 — 라이트 배경에 맞춘 진한 텍스트 톤 (17~20 적색 · 13~16 청색 · 7~12 황색) */
 function matrixStyle(v: number): React.CSSProperties {
-  if (v >= 17) return { background: 'rgba(220,38,38,0.3)', color: '#fca5a5', fontWeight: 700 };
-  if (v >= 13) return { background: 'rgba(37,99,235,0.26)', color: '#93c5fd', fontWeight: 700 };
-  if (v >= 7) return { background: 'rgba(245,158,11,0.2)', color: '#fcd34d', fontWeight: 700 };
+  if (v >= 17) return { background: 'rgba(220,38,38,0.14)', color: '#b91c1c', fontWeight: 700 };
+  if (v >= 13) return { background: 'rgba(37,99,235,0.12)', color: '#1d4ed8', fontWeight: 700 };
+  if (v >= 7) return { background: 'rgba(245,158,11,0.16)', color: '#b45309', fontWeight: 700 };
   return {};
 }
 
@@ -126,8 +126,8 @@ function SectionBar({ tone, children }: { tone: 'blue' | 'orange'; children: Rea
       className="mb-1.5 rounded px-2 py-1.5 text-center text-xs font-bold"
       style={
         tone === 'blue'
-          ? { background: 'rgba(56,189,248,0.14)', color: '#7dd3fc' }
-          : { background: 'rgba(245,158,11,0.16)', color: '#fcd34d' }
+          ? { background: 'rgba(14,116,144,0.1)', color: '#0e7490' }
+          : { background: 'rgba(245,158,11,0.16)', color: '#b45309' }
       }
     >
       {children}
@@ -181,8 +181,8 @@ const LEVELS: {
     name: '허용불가 위험',
     standard: '작업 즉시 중단 / 작업을 지속하려면 즉시 시설개선을 실시해야 하는 위험',
     note: { text: '위험작업 불허 (즉시 작업을 중지하여야 함)', span: 1 },
-    bg: 'rgba(220,38,38,0.3)',
-    ink: '#fca5a5',
+    bg: 'rgba(220,38,38,0.14)',
+    ink: '#b91c1c',
   },
   {
     range: '13~15',
@@ -190,23 +190,23 @@ const LEVELS: {
     name: '중대한 위험',
     standard: '긴급 임시안전대책을 세운 후 작업을 하되 계획된 정기 보수기간에 설비개선 등 안전대책을 세워야 하는 위험',
     note: { text: '조건부 위험 작업수용 (위험이 없으면 작업을 계속하되, 위험감소 활동을 실시해야 함)', span: 3 },
-    bg: 'rgba(37,99,235,0.26)',
-    ink: '#93c5fd',
+    bg: 'rgba(37,99,235,0.12)',
+    ink: '#1d4ed8',
   },
   {
     range: '9~12',
     level: { text: 'B', span: 2 },
     name: '상당한 위험',
     standard: '계획된 정기 보수기간에 설비개선 등 위험 감소 대책을 세워야 하는 위험',
-    bg: 'rgba(245,158,11,0.2)',
-    ink: '#fcd34d',
+    bg: 'rgba(245,158,11,0.16)',
+    ink: '#b45309',
   },
   {
     range: '7~8',
     name: '경미한 위험',
     standard: '위험의 표지부착·작업절차서 표기를 통한 관리대책이 필요한 위험',
-    bg: 'rgba(245,158,11,0.2)',
-    ink: '#fcd34d',
+    bg: 'rgba(245,158,11,0.16)',
+    ink: '#b45309',
   },
   {
     range: '3~6',
@@ -215,14 +215,14 @@ const LEVELS: {
     standard: '안전정보 및 주기적 표준작업 안전교육의 제공이 필요한 위험',
     note: { text: '위험작업을 수용함 (현상태로 계속 작업가능)', span: 2 },
     bg: 'transparent',
-    ink: '#aab9d8',
+    ink: '#475569',
   },
   {
     range: '1~2',
     name: '무시할 수 있는 위험',
     standard: '현재의 안전 대책 유지',
     bg: 'transparent',
-    ink: '#aab9d8',
+    ink: '#475569',
   },
 ];
 

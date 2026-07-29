@@ -135,7 +135,7 @@ export default function AnnualPlan() {
       </div>
 
       {/* 월별 카드 */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         {MONTH_LABEL.map((label, i) => {
           const m = i + 1;
           const special = specialTasksOf(m);

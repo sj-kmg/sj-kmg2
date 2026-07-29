@@ -70,7 +70,7 @@ function Sheet({ kind, group }: { kind: HealthCheck['kind']; group: HealthCheck[
     const saved = entries.filter((e) => e.kind === kind && e.group === group);
     const savedNames = new Set(saved.map((s) => s.name.trim()));
     const pending = seed.filter((s) => s.group === group && !savedNames.has(s.name.trim()));
-    setRows([...saved, ...pending].sort((a, b) => a.checkDate.localeCompare(b.checkDate)));
+    setRows([...saved, ...pending].sort((a, b) => a.name.localeCompare(b.name, 'ko')));
   }, [entries, mode, dirty, kind, group, seed]);
 
   const setRow = (id: string, patch: Partial<HealthCheck>) => {

@@ -62,17 +62,14 @@ export const ANNUAL_TASKS: AnnualTask[] = [
 
   // 월초 (1~10일) — 매월
   { id: 'm1-hq-cost', period: '월초', title: '본사 안전관리비' },
-  { id: 'm1-site-cost', period: '월초', title: '공사·단가 안전관리비' },
   { id: 'm1-extinguisher', period: '월초', title: '소화기 관리' },
   { id: 'm1-followup-log', period: '월초', title: '유소견자 상담일지' },
   { id: 'm1-o2-ledger', period: '월초', title: '산소측정기 대장 최신화' },
-  { id: 'm1-special-chem', period: '월초', title: '특별관리물질 취급일지' },
 
   // 월말 (10일 전~) — 매월
   { id: 'm2-nearmiss', period: '월말', title: '아차사고' },
   { id: 'm2-regular-edu', period: '월말', title: '정기안전교육' },
   { id: 'm2-special-edu', period: '월말', title: '특별안전교육' },
-  { id: 'm2-meeting', period: '월말', title: '월간 안전회의록' },
 
   // 수시
   { id: 'a-plan-doc', period: '수시', title: '안전보건관리계획서' },

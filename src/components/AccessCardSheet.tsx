@@ -30,7 +30,7 @@ export default function AccessCardSheet() {
     if (mode === 'loading' || dirty) return;
     const savedIds = new Set(entries.map((e) => e.id));
     const pending = seed.filter((s) => !savedIds.has(s.id));
-    setRows([...entries, ...pending].sort((a, b) => (a.issueDate || '9999').localeCompare(b.issueDate || '9999')));
+    setRows([...entries, ...pending].sort((a, b) => a.name.localeCompare(b.name, 'ko')));
   }, [entries, mode, dirty, seed]);
 
   const setRow = (id: string, patch: Partial<AccessCard>) => {

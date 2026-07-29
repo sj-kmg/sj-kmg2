@@ -63,6 +63,7 @@ const MENU: MenuNode[] = [
     label: '공무관리',
     icon: '🗂️',
     children: [
+      { key: 'annual-plan', label: '공무연간계획' },
       {
         label: '건강검진',
         children: [
@@ -79,7 +80,6 @@ const MENU: MenuNode[] = [
           { key: 'edu-yncc', label: 'YNCC출입' },
         ],
       },
-      { key: 'annual-plan', label: '공무연간계획' },
       {
         label: '신청현황',
         children: [

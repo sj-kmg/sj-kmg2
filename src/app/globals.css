@@ -2,7 +2,7 @@
 
 /* ====== AI · 퓨처리스틱 라이트 테마 ====== */
 :root {
-  --background: #eef3fb;
+  --background: #d9e3f4;
   --foreground: #0f1e3a;
   --accent: #0891b2;
   --accent-soft: rgba(8, 145, 178, 0.5);
@@ -19,12 +19,12 @@
 
 body {
   background:
-    radial-gradient(900px 460px at 10% -10%, rgba(56, 189, 248, 0.22), transparent 62%),
-    radial-gradient(1000px 520px at 92% -5%, rgba(129, 140, 248, 0.18), transparent 58%),
-    radial-gradient(820px 560px at 50% 112%, rgba(45, 212, 191, 0.14), transparent 60%),
-    linear-gradient(rgba(15, 30, 58, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(15, 30, 58, 0.035) 1px, transparent 1px),
-    linear-gradient(180deg, #f7fbff 0%, var(--background) 100%);
+    radial-gradient(900px 460px at 10% -10%, rgba(56, 189, 248, 0.24), transparent 62%),
+    radial-gradient(1000px 520px at 92% -5%, rgba(129, 140, 248, 0.2), transparent 58%),
+    radial-gradient(820px 560px at 50% 112%, rgba(45, 212, 191, 0.16), transparent 60%),
+    linear-gradient(rgba(15, 30, 58, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 30, 58, 0.05) 1px, transparent 1px),
+    linear-gradient(180deg, #e9f0fa 0%, var(--background) 100%);
   background-size: auto, auto, auto, 44px 44px, 44px 44px, auto;
   background-attachment: fixed;
   color: var(--foreground);
