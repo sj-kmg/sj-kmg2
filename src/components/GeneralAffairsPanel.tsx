@@ -11,6 +11,12 @@ import {
   type AccessCard,
   type PassVehicle,
 } from '@/lib/cards';
+import {
+  DETECTOR_KEY,
+  DETECTOR_NOTICE_DAYS,
+  detectorSeed,
+  type GasDetector,
+} from '@/lib/detector';
 import { NOTICE_STYLE, daysUntil, noticeLevel, type NoticeLevel } from '@/lib/education';
 import { HEALTH_KEY, HEALTH_LABEL, HEALTH_NOTICE_DAYS, healthGeneralSeed, type HealthCheck } from '@/lib/health';
 import { listEntriesSilently } from '@/lib/sync';
@@ -42,13 +48,16 @@ export default function GeneralAffairsPanel() {
   useEffect(() => {
     void (async () => {
       const now = new Date();
-      const [savedCards, savedVehicles, savedHealth] = await Promise.all([
+      const [savedCards, savedVehicles, savedHealth, savedDetectors] = await Promise.all([
         listEntriesSilently<AccessCard>('cards', CARDS_KEY),
         listEntriesSilently<PassVehicle>('pass-vehicles', PASS_VEHICLES_KEY),
         listEntriesSilently<HealthCheck>('health', HEALTH_KEY),
+        listEntriesSilently<GasDetector>('detectors', DETECTOR_KEY),
       ]);
       const healthNames = new Set(savedHealth.filter((h) => h.kind === 'general').map((h) => h.name.trim()));
       const health = [...savedHealth, ...healthGeneralSeed().filter((s) => !healthNames.has(s.name.trim()))];
+      const detectorNos = new Set(savedDetectors.map((d) => d.mgmtNo.trim()));
+      const detectors = [...savedDetectors, ...detectorSeed().filter((s) => !detectorNos.has(s.mgmtNo.trim()))];
       // 아직 저장 전이면 기존 신청현황(초기 데이터)을 기준으로 표시
       const cardIds = new Set(savedCards.map((c) => c.id));
       const cards = [...savedCards, ...accessCardSeed().filter((s) => !cardIds.has(s.id))];
@@ -85,6 +94,17 @@ export default function GeneralAffairsPanel() {
             date: h.renewDate,
             days: daysUntil(h.renewDate, now),
             notice: HEALTH_NOTICE_DAYS,
+          })),
+        // 측정기는 실제 사용 중인 장비만 — 고장·분실·폐기는 교정 대상이 아니다
+        ...detectors
+          .filter((d) => d.status === '사용' && d.mgmtNo && d.nextCalDate)
+          .map((d) => ({
+            id: `det-${d.id}`,
+            name: d.mgmtNo,
+            kind: '측정기 검교정',
+            date: d.nextCalDate,
+            days: daysUntil(d.nextCalDate, now),
+            notice: DETECTOR_NOTICE_DAYS,
           })),
       ].map((i) => ({ ...i, level: noticeLevel(i.days, i.notice) }));
 
@@ -143,7 +163,8 @@ export default function GeneralAffairsPanel() {
 function Footnote() {
   return (
     <p className="mt-2 border-t border-slate-100 pt-1.5 text-[10px] text-slate-400">
-      상시카드 D-{CARD_NOTICE_DAYS} · 상시차량/건강검진 D-{VEHICLE_NOTICE_DAYS}부터 표시 · 공무관리 메뉴와 연동
+      상시카드 D-{CARD_NOTICE_DAYS} · 상시차량/건강검진/측정기 검교정 D-{VEHICLE_NOTICE_DAYS}부터 표시 · 공무관리 메뉴와
+      연동
     </p>
   );
 }

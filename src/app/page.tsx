@@ -17,6 +17,7 @@ import YnccVehicles from '@/components/YnccVehicles';
 import AccessPass from '@/components/AccessPass';
 import AnnualPlan from '@/components/AnnualPlan';
 import HealthCheckSheet from '@/components/HealthCheckSheet';
+import GasDetectorSheet from '@/components/GasDetectorSheet';
 import SearchResults from '@/components/SearchResults';
 
 type ViewKey =
@@ -85,9 +86,9 @@ const MENU: MenuNode[] = [
         children: [
           { key: 'card', label: '상시카드&차량' },
           { key: 'yncc-vehicle', label: 'YNCC차량' },
-          { key: 'gas-meter', label: '산소&가스측정기', wip: true },
         ],
       },
+      { key: 'gas-meter', label: '산소&가스측정기' },
     ],
   },
   { key: 'risk-assess', label: '위험성평가', icon: '📝' },
@@ -451,9 +452,8 @@ export default function Page() {
             {view === 'search' && <SearchResults query={query} onNavigate={(v) => go(v as ViewKey)} />}
             {view === 'health-general' && <HealthCheckSheet kind="general" />}
             {view === 'health-special' && <HealthCheckSheet kind="special" />}
-            {(view === 'health-followup' ||
-              view === 'gas-meter' ||
-              view === 'notice') && <ComingSoon label={viewLabel(view)} />}
+            {view === 'gas-meter' && <GasDetectorSheet />}
+            {(view === 'health-followup' || view === 'notice') && <ComingSoon label={viewLabel(view)} />}
             {view === 'data' && (
               <div className="mx-auto max-w-2xl py-6">
                 <h2 className="mb-2 text-xl font-bold text-slate-800">안전관리 데이터 불러오기</h2>

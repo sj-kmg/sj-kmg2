@@ -17,7 +17,8 @@ export type LogType =
   | 'memo'
   | 'pass-vehicles'
   | 'health'
-  | 'supervisor';
+  | 'supervisor'
+  | 'detectors';
 
 const PASS_KEY = 'sj-sync-passcode';
 

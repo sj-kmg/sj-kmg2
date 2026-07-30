@@ -23,6 +23,7 @@ const TYPES = new Set([
   'pass-vehicles',
   'health',
   'supervisor',
+  'detectors',
 ]);
 
 /** 기록 종류별 컬렉션 — records/{type}/entries/{id} */

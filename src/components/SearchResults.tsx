@@ -54,7 +54,12 @@ const MENU_INDEX: { label: string; path: string; view: string; keywords: string 
   { label: 'YNCC출입', path: '공무관리 › 안전교육 › YNCC출입', view: 'edu-yncc', keywords: '교육 출입' },
   { label: '상시카드&차량', path: '공무관리 › 신청현황 › 상시카드&차량', view: 'card', keywords: '카드 출입증 상시차량' },
   { label: 'YNCC차량', path: '공무관리 › 신청현황 › YNCC차량', view: 'yncc-vehicle', keywords: '차량 등록' },
-  { label: '산소&가스측정기', path: '공무관리 › 신청현황 › 산소&가스측정기', view: 'gas-meter', keywords: '측정기 가스' },
+  {
+    label: '산소&가스측정기',
+    path: '공무관리 › 산소&가스측정기',
+    view: 'gas-meter',
+    keywords: '측정기 가스 산소 검교정 교정 detector O2 LEL KOLAS',
+  },
   { label: '위험성평가', path: '위험성평가', view: 'risk-assess', keywords: '위험 평가 빈도 강도' },
   { label: '작업인원관리', path: '작업인원관리', view: 'people', keywords: '인원 출력' },
   { label: '공지사항', path: '공지사항', view: 'notice', keywords: '공지' },
