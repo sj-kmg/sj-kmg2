@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { PASS_VEHICLES_KEY, VEHICLE_NOTICE_DAYS, passVehicleSeed, type PassVehicle } from '@/lib/cards';
 import { NOTICE_STYLE, daysUntil, noticeLevel } from '@/lib/education';
-import { modeBadge, useSyncedLog } from '@/lib/useSyncedLog';
+import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
+import { modeBadge } from '@/lib/useSyncedLog';
+import { CELL, SheetToolbar, TH } from './SheetUI';
 
 const KINDS: PassVehicle['kind'][] = ['일반차량', '특수차량'];
 
@@ -12,93 +14,44 @@ const KINDS: PassVehicle['kind'][] = ['일반차량', '특수차량'];
  * 일반차량·특수차량을 위아래 별도 표로 구분해 관리하며, 출입일자는 직접 입력한다.
  */
 export default function PassVehicleSheet() {
-  const { entries, mode, add, remove } = useSyncedLog<PassVehicle>('pass-vehicles', PASS_VEHICLES_KEY);
   const seed = useMemo(() => passVehicleSeed(), []);
-  const [rows, setRows] = useState<PassVehicle[]>([]);
-  const [removedIds, setRemovedIds] = useState<string[]>([]);
-  const [dirty, setDirty] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const { rows, mode, status, setRow, addRow, removeRow, undo, canUndo } = useSheetLog<PassVehicle>(
+    'pass-vehicles',
+    PASS_VEHICLES_KEY,
+    {
+      seed,
+      isBlank: (r) => !r.plate.trim(),
+      sort: (a, b) => a.plate.localeCompare(b.plate, 'ko', { numeric: true }),
+    },
+  );
+
   const [today, setToday] = useState<Date | null>(null);
   const seq = useRef(0);
 
   useEffect(() => setToday(new Date()), []);
 
-  useEffect(() => {
-    if (mode === 'loading' || dirty) return;
-    const savedPlates = new Set(entries.map((e) => e.plate.trim()));
-    const pending = seed.filter((s) => !savedPlates.has(s.plate.trim()));
-    setRows([...entries, ...pending].sort((a, b) => a.startDate.localeCompare(b.startDate)));
-  }, [entries, mode, dirty, seed]);
-
-  const setRow = (id: string, patch: Partial<PassVehicle>) => {
-    setRows((list) => list.map((r) => (r.id === id ? { ...r, ...patch } : r)));
-    setDirty(true);
-  };
-
-  const addRow = (kind: PassVehicle['kind']) => {
+  const add = (kind: PassVehicle['kind']) => {
     seq.current += 1;
-    setRows((list) => [
-      ...list,
-      {
-        id: `PV-${Date.now()}-${seq.current}`,
-        kind,
-        plate: '',
-        driver: '',
-        startDate: '',
-        endDate: '',
-        plant: '화치, 용성1/2, 본관',
-        note: '',
-        updatedAt: '',
-      },
-    ]);
-    setDirty(true);
+    addRow({
+      id: `PV-${Date.now()}-${seq.current}`,
+      kind,
+      plate: '',
+      driver: '',
+      startDate: '',
+      endDate: '',
+      plant: '화치, 용성1/2, 본관',
+      note: '',
+      updatedAt: '',
+    });
   };
 
-  const removeRow = (id: string, plate: string) => {
-    if (plate.trim() && !confirm(`[${plate}] 행을 삭제할까요? [변경사항 저장]을 눌러야 반영됩니다.`)) return;
-    setRows((list) => list.filter((r) => r.id !== id));
-    if (entries.some((e) => e.id === id)) setRemovedIds((l) => [...l, id]);
-    setDirty(true);
-  };
-
-  const save = async () => {
-    if (saving) return;
-    setSaving(true);
-    try {
-      for (const id of removedIds) {
-        await remove(id);
-      }
-      for (const r of rows) {
-        if (!r.plate.trim()) continue;
-        const orig = entries.find((e) => e.id === r.id);
-        const changed =
-          !orig ||
-          orig.kind !== r.kind ||
-          orig.plate !== r.plate.trim() ||
-          orig.driver !== r.driver ||
-          orig.startDate !== r.startDate ||
-          orig.endDate !== r.endDate ||
-          (orig.plant ?? '') !== (r.plant ?? '') ||
-          (orig.note ?? '') !== (r.note ?? '');
-        if (changed) {
-          await add({ ...r, plate: r.plate.trim(), updatedAt: new Date().toISOString() });
-        }
-      }
-      setRemovedIds([]);
-      setDirty(false);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } finally {
-      setSaving(false);
-    }
+  const del = (r: PassVehicle) => {
+    if (r.plate.trim() && !confirm(`[${r.plate}] 행을 삭제할까요? 되돌리기로 복구할 수 있습니다.`)) return;
+    void removeRow(r.id);
   };
 
   const badge = modeBadge(mode);
-  const cell =
-    'w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-800 focus:border-[#1f3864] focus:outline-none';
-
-  const pending = rows.filter((r) => r.plate.trim() && !entries.some((e) => e.id === r.id)).length;
+  const save = saveBadge(status, mode);
 
   const dday = (r: PassVehicle) => {
     if (!r.endDate || !today) return <span className="text-[11px] text-slate-300">—</span>;
@@ -120,10 +73,6 @@ export default function PassVehicleSheet() {
           <span className="ml-1.5 font-normal text-slate-400">{rows.length}대</span>
         </h3>
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
-        {dirty && <span className="text-[11px] font-semibold text-orange-500">● 저장되지 않은 변경</span>}
-        {!dirty && pending > 0 && (
-          <span className="text-[11px] text-slate-400">기존 현황 {pending}대 — [변경사항 저장]을 누르면 등록됩니다</span>
-        )}
       </div>
 
       {/* 일반차량 · 특수차량 구분 표 */}
@@ -132,26 +81,23 @@ export default function PassVehicleSheet() {
         return (
           <section key={kind} className="mb-5">
             <p className="mb-1.5 flex items-center gap-1.5">
-              <span
-                aria-hidden
-                className={`h-3 w-1 rounded-full ${kind === '일반차량' ? 'bg-cyan-400' : 'bg-amber-400'}`}
-              />
+              <span aria-hidden className={`h-3 w-1 rounded-full ${kind === '일반차량' ? 'bg-cyan-400' : 'bg-amber-400'}`} />
               <span className="text-xs font-bold text-slate-600">{kind}</span>
               <span className="text-[11px] font-normal text-slate-400">{list.length}대</span>
             </p>
             <div className="overflow-x-auto rounded-lg border border-slate-200">
-              <table className="w-full min-w-[880px] text-xs">
+              <table className="w-full min-w-[1320px] text-xs">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-                    <th className="min-w-28 px-2 py-2 font-semibold">차량번호</th>
-                    <th className="w-24 px-2 py-2 font-semibold">대표 운전자</th>
-                    <th className="w-36 px-2 py-2 font-semibold">출입시작일</th>
-                    <th className="w-36 px-2 py-2 font-semibold">출입종료일</th>
-                    <th className="w-20 px-2 py-2 text-center font-semibold">D-day</th>
-                    <th className="min-w-36 px-2 py-2 font-semibold">단위공장</th>
-                    <th className="min-w-20 px-2 py-2 font-semibold">비고</th>
-                    <th className="w-20 px-1 py-2 text-center font-semibold">구분</th>
-                    <th className="w-8 px-1 py-2" aria-label="행 삭제" />
+                    <th className={`${TH} w-40`}>차량번호</th>
+                    <th className={`${TH} w-32`}>대표 운전자</th>
+                    <th className={`${TH} w-40`}>출입시작일</th>
+                    <th className={`${TH} w-40`}>출입종료일</th>
+                    <th className={`${TH} w-24 text-center`}>D-day</th>
+                    <th className={`${TH} w-56`}>단위공장</th>
+                    <th className={`${TH} w-52`}>비고</th>
+                    <th className={`${TH} w-28 text-center`}>구분</th>
+                    <th className="w-10 px-1 py-2" aria-label="행 삭제" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -165,30 +111,30 @@ export default function PassVehicleSheet() {
                   {list.map((r) => (
                     <tr key={r.id}>
                       <td className="px-1.5 py-1.5">
-                        <input aria-label="차량번호" placeholder="예: 12가 3456" value={r.plate} onChange={(e) => setRow(r.id, { plate: e.target.value })} className={cell} />
+                        <input aria-label="차량번호" placeholder="예: 12가 3456" value={r.plate} onChange={(e) => setRow(r.id, { plate: e.target.value })} className={CELL} />
                       </td>
                       <td className="px-1.5 py-1.5">
-                        <input aria-label="대표 운전자" placeholder="이름" value={r.driver} onChange={(e) => setRow(r.id, { driver: e.target.value })} className={cell} />
+                        <input aria-label="대표 운전자" placeholder="이름" value={r.driver} onChange={(e) => setRow(r.id, { driver: e.target.value })} className={CELL} />
                       </td>
                       <td className="px-1.5 py-1.5">
-                        <input aria-label="출입시작일" type="date" value={r.startDate} onChange={(e) => setRow(r.id, { startDate: e.target.value })} className={cell} />
+                        <input aria-label="출입시작일" type="date" value={r.startDate} onChange={(e) => setRow(r.id, { startDate: e.target.value })} className={CELL} />
                       </td>
                       <td className="px-1.5 py-1.5">
-                        <input aria-label="출입종료일" type="date" value={r.endDate} onChange={(e) => setRow(r.id, { endDate: e.target.value })} className={cell} />
+                        <input aria-label="출입종료일" type="date" value={r.endDate} onChange={(e) => setRow(r.id, { endDate: e.target.value })} className={CELL} />
                       </td>
                       <td className="px-2 py-1.5 text-center">{dday(r)}</td>
                       <td className="px-1.5 py-1.5">
-                        <input aria-label="단위공장" value={r.plant ?? ''} onChange={(e) => setRow(r.id, { plant: e.target.value })} className={cell} />
+                        <input aria-label="단위공장" value={r.plant ?? ''} onChange={(e) => setRow(r.id, { plant: e.target.value })} className={CELL} />
                       </td>
                       <td className="px-1.5 py-1.5">
-                        <input aria-label="비고" value={r.note ?? ''} onChange={(e) => setRow(r.id, { note: e.target.value })} className={cell} />
+                        <input aria-label="비고" value={r.note ?? ''} onChange={(e) => setRow(r.id, { note: e.target.value })} className={CELL} />
                       </td>
                       <td className="px-1 py-1.5">
                         <select
                           aria-label="차량구분"
                           value={r.kind}
                           onChange={(e) => setRow(r.id, { kind: e.target.value as PassVehicle['kind'] })}
-                          className={cell}
+                          className={CELL}
                           title="변경하면 해당 구분 표로 이동합니다"
                         >
                           {KINDS.map((k) => (
@@ -197,7 +143,7 @@ export default function PassVehicleSheet() {
                         </select>
                       </td>
                       <td className="px-1 py-1.5 text-center">
-                        <button aria-label="행 삭제" onClick={() => removeRow(r.id, r.plate)} className="text-slate-300 hover:text-red-500">
+                        <button aria-label="행 삭제" onClick={() => del(r)} className="text-slate-300 hover:text-red-500">
                           ✕
                         </button>
                       </td>
@@ -207,7 +153,7 @@ export default function PassVehicleSheet() {
               </table>
             </div>
             <button
-              onClick={() => addRow(kind)}
+              onClick={() => add(kind)}
               className="mt-2 rounded-lg border border-dashed border-slate-400 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-[#1f3864] hover:text-[#1f3864]"
             >
               ＋ {kind} 추가
@@ -216,15 +162,8 @@ export default function PassVehicleSheet() {
         );
       })}
 
-      <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3">
-        <button
-          onClick={() => void save()}
-          disabled={saving || (!dirty && pending === 0)}
-          className="rounded-lg bg-[#1f3864] px-5 py-2 text-sm font-medium text-white hover:bg-[#2a4a80] disabled:opacity-50"
-        >
-          {saving ? '저장 중…' : '변경사항 저장'}
-        </button>
-        {saved && <span className="text-sm font-medium text-green-600">저장되었습니다 ✓</span>}
+      <div className="border-t border-slate-100 pt-3">
+        <SheetToolbar addLabel="" onUndo={() => void undo()} canUndo={canUndo} save={save} />
       </div>
       <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
         출입시작일·종료일은 직접 입력합니다. 오른쪽 [구분]을 바꾸면 해당 표로 이동하며, 출입종료 {VEHICLE_NOTICE_DAYS}일

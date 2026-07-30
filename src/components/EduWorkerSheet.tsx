@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { NOTICE_STYLE, chemicalRenewalFromDates, daysUntil, noticeLevel } from '@/lib/education';
 import { SyncError, uploadCert, type LogType } from '@/lib/sync';
-import { modeBadge, useSyncedLog } from '@/lib/useSyncedLog';
+import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
+import { modeBadge } from '@/lib/useSyncedLog';
 import { YNCC_NOTICE_DAYS, type EduSheetWorker } from '@/lib/yncc';
+import { CELL, SheetToolbar, TH } from './SheetUI';
 
 interface Props {
   logType: LogType;
@@ -12,11 +14,10 @@ interface Props {
   group: '직원' | '인력';
   /** yncc: 교육유효종료일 입력·기준 / chem: 이수년도 기준 갱신일 / supervisor: 이수일 + 1년 */
   variant: 'yncc' | 'chem' | 'supervisor';
-  /** 저장 이력이 없을 때 표시할 초기 명부 (정적 수료증 명부 이관용) */
+  /** 저장 이력이 없을 때 최초 1회 자동 등록할 정적 명부 */
   seed?: EduSheetWorker[];
 }
 
-/** 파일 → dataURL */
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -28,64 +29,50 @@ function fileToDataUrl(file: File): Promise<string> {
 
 /**
  * 교육 입력 시트(직원·인력 공용) — 작업자명·생년월일·집체/온라인 이수일자·수료증 (+YNCC 교육유효종료일).
- * 집체교육과 온라인교육 이수일자가 같으면 등록(저장)할 수 없다.
+ * 값을 바꾸면 자동 저장되며 [되돌리기]로 직전 상태로 복구할 수 있다.
  */
 export default function EduWorkerSheet({ logType, localKey, group, variant, seed }: Props) {
-  const { entries, mode, add, remove } = useSyncedLog<EduSheetWorker>(logType, localKey);
-  const [rows, setRows] = useState<EduSheetWorker[]>([]);
-  const [removedIds, setRemovedIds] = useState<string[]>([]);
-  const [dirty, setDirty] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const { rows, mode, status, setRow, addRow, removeRow, undo, canUndo } = useSheetLog<EduSheetWorker>(
+    logType,
+    localKey,
+    {
+      seed,
+      isBlank: (r) => !r.name.trim(),
+      sort: (a, b) => a.name.localeCompare(b.name, 'ko'),
+    },
+  );
+
   const [uploading, setUploading] = useState<string | null>(null);
   const [today, setToday] = useState<Date | null>(null);
   const seq = useRef(0);
 
   useEffect(() => setToday(new Date()), []);
 
-  // 저장된 목록(해당 구분만)을 편집본으로 로드 — 편집 중에는 덮어쓰지 않는다
-  useEffect(() => {
-    if (mode === 'loading' || dirty) return;
-    const saved = entries
-      .filter((e) => e.group === group)
-      .map((e) => ({ ...e, offlineDate: e.offlineDate ?? e.lastEdu ?? '' })); // 구버전 최근교육일 → 집체로 이관 표시
-    // 아직 저장되지 않은 정적 명부 인원은 초기 데이터로 함께 보여준다
-    const savedNames = new Set(saved.map((s) => s.name.trim()));
-    const pending = (seed ?? []).filter((s) => s.group === group && !savedNames.has(s.name.trim()));
-    setRows([...saved, ...pending].sort((a, b) => a.name.localeCompare(b.name, 'ko')));
-  }, [entries, mode, dirty, group, seed]);
+  // 구버전 최근교육일(lastEdu)은 집체 이수일자로 보여 준다
+  const shown = rows
+    .filter((r) => r.group === group)
+    .map((r) => ({ ...r, offlineDate: r.offlineDate ?? r.lastEdu ?? '' }));
 
-  const setRow = (id: string, patch: Partial<EduSheetWorker>) => {
-    setRows((list) => list.map((r) => (r.id === id ? { ...r, ...patch } : r)));
-    setDirty(true);
-  };
-
-  const addRow = () => {
+  const add = () => {
     seq.current += 1;
-    setRows((list) => [
-      ...list,
-      {
-        id: `${variant === 'chem' ? 'CW' : 'YW'}-${Date.now()}-${seq.current}`,
-        group,
-        name: '',
-        birth: '',
-        offlineDate: '',
-        onlineDate: '',
-        eduExpire: '',
-        updatedAt: '',
-      },
-    ]);
-    setDirty(true);
+    addRow({
+      id: `${variant === 'chem' ? 'CW' : 'YW'}-${Date.now()}-${seq.current}`,
+      group,
+      name: '',
+      birth: '',
+      offlineDate: '',
+      onlineDate: '',
+      eduExpire: '',
+      updatedAt: '',
+    });
   };
 
-  const removeRow = (id: string, name: string) => {
-    if (name.trim() && !confirm(`[${name}] 행을 삭제할까요? [변경사항 저장]을 눌러야 반영됩니다.`)) return;
-    setRows((list) => list.filter((r) => r.id !== id));
-    if (entries.some((e) => e.id === id)) setRemovedIds((l) => [...l, id]);
-    setDirty(true);
+  const del = (r: EduSheetWorker) => {
+    if (r.name.trim() && !confirm(`[${r.name}] 행을 삭제할까요? 되돌리기로 복구할 수 있습니다.`)) return;
+    void removeRow(r.id);
   };
 
-  /** 수료증 첨부 — 서버(Blob)에 업로드하고 URL을 행에 기록 */
+  /** 수료증 첨부·교체 */
   const attachCert = async (row: EduSheetWorker, file: File | undefined) => {
     if (!file) return;
     if (file.size > 8_000_000) {
@@ -110,56 +97,12 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
     }
   };
 
-  const save = async () => {
-    if (saving) return;
-    // ⚠️ 집체·온라인 이수일자 동일 검증 — 같은 날 두 교육을 모두 이수할 수 없다
-    const conflict = rows.find(
-      (r) => r.name.trim() && r.offlineDate && r.onlineDate && r.offlineDate === r.onlineDate,
-    );
-    if (conflict) {
-      alert(
-        `⚠️ 등록할 수 없습니다.\n\n[${conflict.name.trim()}] 집체교육과 온라인교육의 이수일자가 같습니다 (${conflict.offlineDate}).\n두 교육은 같은 날 이수할 수 없으니 날짜를 확인해 주세요.`,
-      );
-      return;
-    }
-    setSaving(true);
-    try {
-      for (const id of removedIds) {
-        await remove(id);
-      }
-      for (const r of rows) {
-        if (!r.name.trim()) continue;
-        const orig = entries.find((e) => e.id === r.id);
-        const changed =
-          !orig ||
-          orig.name !== r.name.trim() ||
-          orig.birth !== r.birth ||
-          (orig.offlineDate ?? orig.lastEdu ?? '') !== (r.offlineDate ?? '') ||
-          (orig.onlineDate ?? '') !== (r.onlineDate ?? '') ||
-          (orig.eduExpire ?? '') !== (r.eduExpire ?? '') ||
-          (orig.certFile ?? '') !== (r.certFile ?? '');
-        if (changed) {
-          const { lastEdu: _legacy, ...rest } = r;
-          await add({ ...rest, name: r.name.trim(), updatedAt: new Date().toISOString() });
-        }
-      }
-      setRemovedIds([]);
-      setDirty(false);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const badge = modeBadge(mode);
-  const cell =
-    'w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-800 focus:border-[#1f3864] focus:outline-none';
+  const save = saveBadge(status, mode);
 
   const renewOf = (r: EduSheetWorker): string | null => {
     if (variant === 'yncc') return r.eduExpire || null;
     if (variant === 'supervisor') {
-      // 관리감독자 — 이수일 + 1년
       if (!r.offlineDate) return null;
       const d = new Date(`${r.offlineDate}T00:00:00`);
       if (Number.isNaN(d.getTime())) return null;
@@ -185,59 +128,59 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
     );
   };
 
-  const pendingCount = rows.filter((r) => r.name.trim() && !entries.some((e) => e.id === r.id)).length;
+  /** 집체·온라인 이수일자가 같으면 잘못 입력된 것 — 같은 날 두 교육을 이수할 수 없다 */
+  const conflict = shown.find((r) => r.name.trim() && r.offlineDate && r.onlineDate && r.offlineDate === r.onlineDate);
 
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <h3 className="text-sm font-bold text-slate-700">
           {group === '직원' ? '🧑‍💼 직원' : '👷 인력'} 교육 관리
-          <span className="ml-1.5 font-normal text-slate-400">{rows.length}명</span>
+          <span className="ml-1.5 font-normal text-slate-400">{shown.length}명</span>
         </h3>
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
-        {dirty && <span className="text-[11px] font-semibold text-orange-500">● 저장되지 않은 변경</span>}
-        {!dirty && pendingCount > 0 && (
-          <span className="text-[11px] text-slate-400">명부 {pendingCount}명 — [변경사항 저장]을 누르면 등록됩니다</span>
+        {conflict && (
+          <span className="rounded bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-700">
+            ⚠️ {conflict.name.trim()} — 집체·온라인 이수일자가 같습니다 ({conflict.offlineDate})
+          </span>
         )}
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-slate-200">
-        <table className="w-full min-w-[880px] text-xs">
+        <table className={`w-full ${variant === 'supervisor' ? 'min-w-[1080px]' : 'min-w-[1300px]'} text-xs`}>
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-              <th className="min-w-28 px-2 py-2 font-semibold">작업자명</th>
-              <th className="w-36 px-2 py-2 font-semibold">생년월일</th>
-              <th className="w-36 px-2 py-2 font-semibold">
-                {variant === 'supervisor' ? '이수일자' : '집체교육 이수일자'}
-              </th>
-              {variant !== 'supervisor' && <th className="w-36 px-2 py-2 font-semibold">온라인교육 이수일자</th>}
+              <th className={`${TH} w-36`}>작업자명</th>
+              <th className={`${TH} w-40`}>생년월일</th>
+              <th className={`${TH} w-44`}>{variant === 'supervisor' ? '이수일자' : '집체교육 이수일자'}</th>
+              {variant !== 'supervisor' && <th className={`${TH} w-44`}>온라인교육 이수일자</th>}
               {variant === 'yncc' ? (
-                <th className="w-36 px-2 py-2 font-semibold">교육유효종료일</th>
+                <th className={`${TH} w-44`}>교육유효종료일</th>
               ) : (
-                <th className="w-28 px-2 py-2 font-semibold">갱신 도래일</th>
+                <th className={`${TH} w-36`}>갱신 도래일</th>
               )}
-              <th className="w-20 px-2 py-2 text-center font-semibold">D-day</th>
-              <th className="w-28 px-2 py-2 text-center font-semibold">수료증</th>
-              <th className="w-8 px-1 py-2" aria-label="행 삭제" />
+              <th className={`${TH} w-24 text-center`}>D-day</th>
+              <th className={`${TH} w-32 text-center`}>수료증</th>
+              <th className="w-10 px-1 py-2" aria-label="행 삭제" />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {rows.length === 0 && (
+            {shown.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-3 py-4 text-center text-slate-300">
                   아래 ＋ 버튼으로 {group}을 추가해 주세요
                 </td>
               </tr>
             )}
-            {rows.map((r) => {
+            {shown.map((r) => {
               const sameDate = !!(r.offlineDate && r.onlineDate && r.offlineDate === r.onlineDate);
               return (
                 <tr key={r.id} className={sameDate ? 'bg-red-50' : ''}>
                   <td className="px-1.5 py-1.5">
-                    <input aria-label="작업자명" placeholder="이름" value={r.name} onChange={(e) => setRow(r.id, { name: e.target.value })} className={cell} />
+                    <input aria-label="작업자명" placeholder="이름" value={r.name} onChange={(e) => setRow(r.id, { name: e.target.value })} className={CELL} />
                   </td>
                   <td className="px-1.5 py-1.5">
-                    <input aria-label="생년월일" type="date" value={r.birth} onChange={(e) => setRow(r.id, { birth: e.target.value })} className={cell} />
+                    <input aria-label="생년월일" type="date" value={r.birth} onChange={(e) => setRow(r.id, { birth: e.target.value })} className={CELL} />
                   </td>
                   <td className="px-1.5 py-1.5">
                     <input
@@ -245,7 +188,7 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
                       type="date"
                       value={r.offlineDate ?? ''}
                       onChange={(e) => setRow(r.id, { offlineDate: e.target.value })}
-                      className={cell}
+                      className={CELL}
                     />
                   </td>
                   {variant !== 'supervisor' && (
@@ -255,17 +198,17 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
                         type="date"
                         value={r.onlineDate ?? ''}
                         onChange={(e) => setRow(r.id, { onlineDate: e.target.value })}
-                        className={`${cell} ${sameDate ? 'border-red-200' : ''}`}
-                        title={sameDate ? '집체교육과 이수일자가 같습니다 — 등록 불가' : undefined}
+                        className={`${CELL} ${sameDate ? 'border-red-200' : ''}`}
+                        title={sameDate ? '집체교육과 이수일자가 같습니다 — 확인해 주세요' : undefined}
                       />
                     </td>
                   )}
                   {variant === 'yncc' ? (
                     <td className="px-1.5 py-1.5">
-                      <input aria-label="교육유효종료일" type="date" value={r.eduExpire ?? ''} onChange={(e) => setRow(r.id, { eduExpire: e.target.value })} className={cell} />
+                      <input aria-label="교육유효종료일" type="date" value={r.eduExpire ?? ''} onChange={(e) => setRow(r.id, { eduExpire: e.target.value })} className={CELL} />
                     </td>
                   ) : (
-                    <td className="px-2 py-1.5 font-mono text-[11px] font-semibold text-slate-600">
+                    <td className="px-2 py-1.5 font-mono text-[11px] font-semibold whitespace-nowrap text-slate-600">
                       {renewOf(r) ?? '—'}
                     </td>
                   )}
@@ -285,8 +228,8 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
                       )}
                       <label
                         htmlFor={`cert-${r.id}`}
-                        className="cursor-pointer rounded border border-dashed border-slate-300 px-1.5 py-1 text-[11px] text-slate-500 hover:border-[#1f3864] hover:text-[#1f3864]"
-                        title="수료증 첨부 (PDF·이미지)"
+                        className="cursor-pointer rounded border border-dashed border-slate-300 px-1.5 py-1 text-[11px] whitespace-nowrap text-slate-500 hover:border-[#1f3864] hover:text-[#1f3864]"
+                        title="수료증 첨부·교체 (PDF·이미지)"
                       >
                         {uploading === r.id ? '업로드중' : r.certFile ? '교체' : '첨부'}
                       </label>
@@ -303,7 +246,7 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
                     </div>
                   </td>
                   <td className="px-1 py-1.5 text-center">
-                    <button aria-label="행 삭제" onClick={() => removeRow(r.id, r.name)} className="text-slate-300 hover:text-red-500">
+                    <button aria-label="행 삭제" onClick={() => del(r)} className="text-slate-300 hover:text-red-500">
                       ✕
                     </button>
                   </td>
@@ -314,28 +257,15 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
         </table>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-3">
-        <button
-          onClick={addRow}
-          className="rounded-lg border border-dashed border-slate-400 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-[#1f3864] hover:text-[#1f3864]"
-        >
-          ＋ {group} 추가
-        </button>
-        <button
-          onClick={() => void save()}
-          disabled={saving || (!dirty && pendingCount === 0)}
-          className="rounded-lg bg-[#1f3864] px-5 py-2 text-sm font-medium text-white hover:bg-[#2a4a80] disabled:opacity-50"
-        >
-          {saving ? '저장 중…' : '변경사항 저장'}
-        </button>
-        {saved && <span className="text-sm font-medium text-green-600">저장되었습니다 ✓</span>}
-      </div>
+      <SheetToolbar addLabel={`＋ ${group} 추가`} onAdd={add} onUndo={() => void undo()} canUndo={canUndo} save={save} />
+
       <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
         {variant === 'yncc'
           ? `교육유효종료일 ${YNCC_NOTICE_DAYS}일 전부터 메인 [안전교육 현황]에 표시됩니다.`
-          : '이수년도 기준 2년 유효(예: 24년 이수 → 27년 1월 갱신), 갱신년도 1월 1일 30일 전부터 메인에 표시됩니다.'}{' '}
-        수료증은 [첨부]로 PDF·이미지를 올리면 [📄 보기]로 열람할 수 있습니다. 집체교육과 온라인교육의 이수일자가 같으면
-        등록할 수 없습니다.
+          : variant === 'supervisor'
+            ? '이수일 기준 1년 유효, 갱신 90일 전부터 메인 [안전교육 현황]에 표시됩니다.'
+            : '이수년도 기준 2년 유효(예: 24년 이수 → 27년 1월 갱신), 갱신년도 1월 1일 30일 전부터 메인에 표시됩니다.'}{' '}
+        수료증은 [첨부]로 PDF·이미지를 올리면 [📄 보기]로 열람할 수 있습니다.
       </p>
     </div>
   );
