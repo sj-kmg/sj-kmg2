@@ -12,7 +12,7 @@
 
 ## 사용 방법
 
-1. 배포된 대시보드 접속 (Vercel)
+1. 배포된 대시보드 접속 (Firebase App Hosting)
 2. 안전관리 데이터 엑셀 파일을 화면에 끌어다 놓기
 3. 대시보드 / 위험성평가 / 작업목록 / 관리대장 탭에서 현황 확인
 4. 엑셀을 수정한 뒤에는 "데이터 다시 불러오기"로 갱신
@@ -24,14 +24,37 @@
 
 위험성 산식: **R = F(가능성 1~5) × S(중대성 1~4)**, 등급: 허용불가(16~20) / 중대(13~15) / 상당(9~12) / 경미(7~8) / 미미(3~6) / 무시가능(1~2)
 
-## 현장 기록 동기화 (선택)
+## 현장 기록 동기화
 
-TBM일지·아차사고·작업인원 기록은 기본적으로 각 브라우저에 저장된다. 모든 기기(휴대폰·PC)에서 같은 기록을 보려면 Vercel에서 두 가지만 설정하면 된다:
+TBM일지·아차사고·작업인원·건강검진·안전교육 등의 기록은 **Cloud Firestore**에, 수료증·검진결과서·현장 사진은 **Cloud Storage**에 저장된다. 모든 접근은 서버 API가 처리하며 `x-passcode` 헤더(= `SJ_PASSCODE`)가 일치해야 한다.
 
-1. Vercel 프로젝트 → **Storage → Create Database → Blob** 생성 (BLOB_READ_WRITE_TOKEN 자동 연결)
-2. **Settings → Environment Variables**에 `SJ_PASSCODE` = 원하는 동기화 암호 추가 → Redeploy
+각 기기에서 기록 메뉴 첫 진입 시 암호를 한 번 입력하면 서버 동기화 모드(☁️)로 전환되고, 브라우저에 남아 있던 기존 기록은 자동으로 서버로 이관된다. 암호·자격증명이 설정되지 않은 환경(로컬 개발 등)에서는 API가 503을 돌려주고 기존처럼 브라우저 저장(💻)으로 동작한다.
 
-설정 후 각 기기에서 기록 메뉴 첫 진입 시 암호를 한 번 입력하면 서버 동기화 모드(☁️)로 전환되고, 브라우저에 남아 있던 기존 기록은 자동으로 서버로 이관된다. 미설정 시에는 기존처럼 브라우저 저장(💻)으로 동작한다.
+저장 구조:
+
+| 대상 | 위치 |
+| --- | --- |
+| 기록 1건 | Firestore `records/{종류}/entries/{id}` |
+| 수료증·검진결과서 | Storage `certs/…` |
+| 아차사고·위험성평가 사진 | Storage `photos/…` |
+
+Firestore·Storage 보안 규칙은 브라우저에서의 직접 접근을 전면 차단한다(`firestore.rules`, `storage.rules`). 서버는 Admin SDK로 접근하므로 규칙의 영향을 받지 않으며, 첨부 파일은 업로드 시 발급되는 다운로드 토큰이 포함된 URL로만 열람된다.
+
+## 배포 (Firebase App Hosting)
+
+프로젝트: **sj-kmg-deploy2** — API 라우트(SSR)가 있으므로 정적 Hosting이 아닌 App Hosting을 사용한다.
+
+최초 1회 설정:
+
+```bash
+firebase login
+firebase apphosting:secrets:set sj-passcode
+firebase apphosting:secrets:set google-generative-ai-api-key
+firebase deploy --only firestore:rules,storage
+firebase apphosting:backends:create --project sj-kmg-deploy2 --location asia-northeast3
+```
+
+`backends:create`에서 GitHub 저장소(`sj-kmg/sj-kmg2`)와 배포 브랜치(`main`)를 연결하면, 이후에는 **main에 푸시할 때마다 자동으로 빌드·배포**된다. 런타임 설정과 환경변수는 [`apphosting.yaml`](apphosting.yaml)에서 관리한다.
 
 ## 개발
 
@@ -41,4 +64,19 @@ npm run dev    # http://localhost:3000
 npm run build  # 프로덕션 빌드
 ```
 
-스택: Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 · SheetJS(클라이언트 사이드 엑셀 파싱)
+로컬에서 서버 동기화까지 테스트하려면 자격증명과 환경변수가 필요하다:
+
+```bash
+gcloud auth application-default login
+```
+
+`.env.local` (커밋되지 않음):
+
+```
+FIREBASE_PROJECT_ID=sj-kmg-deploy2
+FIREBASE_STORAGE_BUCKET=sj-kmg-deploy2.firebasestorage.app
+SJ_PASSCODE=<동기화 암호>
+GOOGLE_GENERATIVE_AI_API_KEY=<Google AI Studio 키>   # 선택
+```
+
+스택: Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 · Firebase(App Hosting · Firestore · Cloud Storage) · SheetJS(클라이언트 사이드 엑셀 파싱)

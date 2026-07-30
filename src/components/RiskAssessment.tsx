@@ -244,12 +244,12 @@ export default function RiskAssessment() {
       setAiNote(`✅ ${generated.length}개 항목이 생성되었습니다. 내용을 확인·수정한 후 저장해 주세요.`);
     } catch (e) {
       if (e instanceof SyncError && e.status === 503) {
-        alert('AI 자동 생성은 배포된 사이트(Vercel)에서 사용할 수 있습니다.\n로컬 개발 환경에서는 동작하지 않습니다.');
+        alert('AI 자동 생성은 배포된 사이트에서 사용할 수 있습니다.\n로컬 개발 환경에서는 동작하지 않습니다.');
       } else if (e instanceof RiskAiError && e.code === 'no_credit') {
         alert('이번 달 무료 AI 사용량이 모두 소진되었습니다.\n다음 달에 자동으로 초기화됩니다.');
       } else if (e instanceof RiskAiError && e.code === 'gateway_auth') {
         alert(
-          'AI 게이트웨이 인증에 실패했습니다.\nVercel 프로젝트 Settings에서 OIDC(Secure Backend Access) 설정 확인이 필요합니다.\n\n상세: ' +
+          'AI 인증에 실패했습니다.\nGOOGLE_GENERATIVE_AI_API_KEY(Google AI Studio 키) 설정 확인이 필요합니다.\n\n상세: ' +
             e.detail,
         );
       } else if (e instanceof RiskAiError && e.detail) {

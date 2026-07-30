@@ -1,11 +1,12 @@
-import { list, put, del } from '@vercel/blob';
 import { NextResponse } from 'next/server';
+import { db, firebaseReady } from '@/lib/firebaseAdmin';
+import { deleteFiles } from '@/lib/fileStore';
 
 /**
- * 현장 기록(TBM일지·아차사고·작업인원·위험성평가) 저장 API — Vercel Blob 기반.
- * - 기록 1건 = records/{type}/{id}.json (덮어쓰기 방식이라 동시 작성 충돌 없음)
+ * 현장 기록(TBM일지·아차사고·작업인원·위험성평가 등) 저장 API — Cloud Firestore 기반.
+ * - 기록 1건 = records/{type}/entries/{id} 문서 (같은 id로 덮어쓰므로 동시 작성 충돌 없음)
  * - 모든 요청은 x-passcode 헤더가 환경변수 SJ_PASSCODE와 일치해야 한다.
- * - Blob 저장소나 암호가 설정되지 않았으면 503 → 클라이언트는 로컬 저장으로 폴백.
+ * - Firebase 자격증명이나 암호가 설정되지 않았으면 503 → 클라이언트는 로컬 저장으로 폴백.
  */
 const TYPES = new Set([
   'tbm',
@@ -24,8 +25,13 @@ const TYPES = new Set([
   'supervisor',
 ]);
 
+/** 기록 종류별 컬렉션 — records/{type}/entries/{id} */
+function entriesOf(type: string) {
+  return db().collection('records').doc(type).collection('entries');
+}
+
 function gate(req: Request): NextResponse | null {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+  if (!firebaseReady()) {
     return NextResponse.json({ error: 'storage_not_configured' }, { status: 503 });
   }
   const pass = process.env.SJ_PASSCODE;
@@ -42,24 +48,24 @@ function badType(): NextResponse {
   return NextResponse.json({ error: 'bad_type' }, { status: 400 });
 }
 
+/** 자격증명 오류 등 저장소 접근 실패 — 클라이언트가 로컬로 폴백하도록 503 */
+function unavailable(e: unknown): NextResponse {
+  console.error('firestore access failed:', e);
+  return NextResponse.json({ error: 'storage_unavailable' }, { status: 503 });
+}
+
 export async function GET(req: Request, ctx: { params: Promise<{ type: string }> }) {
   const { type } = await ctx.params;
   if (!TYPES.has(type)) return badType();
   const denied = gate(req);
   if (denied) return denied;
 
-  const { blobs } = await list({ prefix: `records/${type}/`, limit: 1000 });
-  const entries = await Promise.all(
-    blobs.map(async (b) => {
-      try {
-        const r = await fetch(b.url, { cache: 'no-store' });
-        return (await r.json()) as Record<string, unknown>;
-      } catch {
-        return null;
-      }
-    }),
-  );
-  return NextResponse.json({ entries: entries.filter(Boolean) });
+  try {
+    const snap = await entriesOf(type).get();
+    return NextResponse.json({ entries: snap.docs.map((d) => d.data()) });
+  } catch (e) {
+    return unavailable(e);
+  }
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ type: string }> }) {
@@ -78,16 +84,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ type: string }
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) {
     return NextResponse.json({ error: 'bad_id' }, { status: 400 });
   }
-  const body = JSON.stringify(entry);
-  if (body.length > 200_000) {
+  if (JSON.stringify(entry).length > 200_000) {
     return NextResponse.json({ error: 'too_large' }, { status: 413 });
   }
-  await put(`records/${type}/${id}.json`, body, {
-    access: 'public',
-    contentType: 'application/json',
-    addRandomSuffix: false,
-    allowOverwrite: true,
-  });
+  try {
+    await entriesOf(type).doc(id).set(entry);
+  } catch (e) {
+    return unavailable(e);
+  }
   return NextResponse.json({ ok: true });
 }
 
@@ -101,19 +105,19 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ type: string
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) {
     return NextResponse.json({ error: 'bad_id' }, { status: 400 });
   }
-  const { blobs } = await list({ prefix: `records/${type}/${id}.json`, limit: 1 });
-  if (blobs[0]) {
-    // 첨부 사진(photoUrls)이 있는 기록이면 사진도 함께 삭제
-    try {
-      const r = await fetch(blobs[0].url, { cache: 'no-store' });
-      const entry = (await r.json()) as { photoUrls?: string[] };
-      if (Array.isArray(entry.photoUrls) && entry.photoUrls.length > 0) {
-        await del(entry.photoUrls.filter((u) => typeof u === 'string'));
+  try {
+    const ref = entriesOf(type).doc(id);
+    const snap = await ref.get();
+    if (snap.exists) {
+      // 첨부 사진(photoUrls)이 있는 기록이면 사진도 함께 삭제
+      const urls = (snap.data() as { photoUrls?: unknown }).photoUrls;
+      if (Array.isArray(urls)) {
+        await deleteFiles(urls.filter((u): u is string => typeof u === 'string'));
       }
-    } catch {
-      // 사진 삭제 실패는 무시하고 기록만 삭제
+      await ref.delete();
     }
-    await del(blobs[0].url);
+  } catch (e) {
+    return unavailable(e);
   }
   return NextResponse.json({ ok: true });
 }

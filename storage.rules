@@ -1,0 +1,12 @@
+rules_version = '2';
+
+// 업로드·삭제는 서버 API(Admin SDK)만 수행하므로 클라이언트 직접 접근은 차단한다.
+// 수료증·사진 열람은 업로드 시 발급되는 다운로드 토큰이 포함된 URL로 이뤄지며,
+// 이 URL은 보안 규칙과 무관하게 동작한다(링크를 아는 사람만 열람 — 기존 Vercel Blob 공개 URL과 같은 모델).
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

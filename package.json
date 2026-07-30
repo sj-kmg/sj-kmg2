@@ -10,8 +10,8 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.24",
-    "@vercel/blob": "^2.6.1",
     "ai": "^7.0.37",
+    "firebase-admin": "^14.2.0",
     "next": "16.2.10",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -31,6 +31,8 @@
   },
   "allowScripts": {
     "sharp@0.34.5": true,
-    "unrs-resolver@1.12.2": true
+    "unrs-resolver@1.12.2": true,
+    "@firebase/util@1.15.1": true,
+    "protobufjs@7.6.5": true
   }
 }

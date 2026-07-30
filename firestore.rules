@@ -1,0 +1,12 @@
+rules_version = '2';
+
+// 이 앱은 Firebase 클라이언트 SDK를 쓰지 않는다.
+// 모든 읽기·쓰기는 동기화 암호(x-passcode)로 보호되는 서버 API가 Admin SDK로 처리하며,
+// Admin SDK는 이 규칙의 적용을 받지 않는다. 따라서 브라우저에서의 직접 접근은 전면 차단한다.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

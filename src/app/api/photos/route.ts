@@ -1,9 +1,10 @@
-import { put } from '@vercel/blob';
 import { NextResponse } from 'next/server';
+import { firebaseReady } from '@/lib/firebaseAdmin';
+import { saveFile } from '@/lib/fileStore';
 
-/** 아차사고 첨부 사진 업로드 — 클라이언트에서 축소된 JPEG dataURL을 받아 Blob에 저장 */
+/** 아차사고 첨부 사진 업로드 — 클라이언트에서 축소된 JPEG dataURL을 받아 Cloud Storage에 저장 */
 export async function POST(req: Request) {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+  if (!firebaseReady()) {
     return NextResponse.json({ error: 'storage_not_configured' }, { status: 503 });
   }
   const pass = process.env.SJ_PASSCODE;
@@ -30,9 +31,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'too_large' }, { status: 413 });
   }
   const id = `photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const blob = await put(`photos/${id}.jpg`, buffer, {
-    access: 'public',
-    contentType: `image/${m[1]}`,
-  });
-  return NextResponse.json({ url: blob.url });
+  try {
+    const url = await saveFile(`photos/${id}.jpg`, buffer, `image/${m[1]}`);
+    return NextResponse.json({ url });
+  } catch (e) {
+    console.error('photo upload failed:', e);
+    return NextResponse.json({ error: 'storage_unavailable' }, { status: 503 });
+  }
 }

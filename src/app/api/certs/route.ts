@@ -1,7 +1,8 @@
-import { put } from '@vercel/blob';
 import { NextResponse } from 'next/server';
+import { firebaseReady } from '@/lib/firebaseAdmin';
+import { saveFile } from '@/lib/fileStore';
 
-/** 교육 수료증 업로드 — PDF·이미지 dataURL을 받아 Blob에 저장 (최대 8MB) */
+/** 교육 수료증 업로드 — PDF·이미지 dataURL을 받아 Cloud Storage에 저장 (최대 8MB) */
 const TYPES: Record<string, string> = {
   'application/pdf': 'pdf',
   'image/jpeg': 'jpg',
@@ -10,7 +11,7 @@ const TYPES: Record<string, string> = {
 };
 
 export async function POST(req: Request) {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+  if (!firebaseReady()) {
     return NextResponse.json({ error: 'storage_not_configured' }, { status: 503 });
   }
   const pass = process.env.SJ_PASSCODE;
@@ -39,9 +40,11 @@ export async function POST(req: Request) {
   if (buffer.byteLength > 8_000_000) {
     return NextResponse.json({ error: 'too_large' }, { status: 413 });
   }
-  const blob = await put(`certs/${Date.now()}-${name}.${ext}`, buffer, {
-    access: 'public',
-    contentType: m[1],
-  });
-  return NextResponse.json({ url: blob.url });
+  try {
+    const url = await saveFile(`certs/${Date.now()}-${name}.${ext}`, buffer, m[1]);
+    return NextResponse.json({ url });
+  } catch (e) {
+    console.error('cert upload failed:', e);
+    return NextResponse.json({ error: 'storage_unavailable' }, { status: 503 });
+  }
 }

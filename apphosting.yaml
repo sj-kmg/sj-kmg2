@@ -1,0 +1,32 @@
+# Firebase App Hosting 런타임 설정 (Next.js SSR + API 라우트)
+# 문서: https://firebase.google.com/docs/app-hosting/configure
+
+runConfig:
+  # 사내 인원 수십 명 규모 — 최소 인스턴스 0으로 두어 유휴 비용을 없앤다
+  minInstances: 0
+  maxInstances: 2
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 512
+
+env:
+  # 수료증·검진결과서·사진이 저장되는 Cloud Storage 버킷
+  - variable: FIREBASE_STORAGE_BUCKET
+    value: sj-kmg-deploy2.firebasestorage.app
+    availability:
+      - RUNTIME
+
+  # 기록 동기화 암호 — 이 값을 아는 기기만 서버 기록을 읽고 쓸 수 있다.
+  # 사전에 Secret Manager에 등록해야 한다:
+  #   firebase apphosting:secrets:set sj-passcode
+  - variable: SJ_PASSCODE
+    secret: sj-passcode
+    availability:
+      - RUNTIME
+
+  # 위험성평가 AI 초안 생성용 Google AI Studio 키 (선택 — 없으면 AI 기능만 비활성화)
+  #   firebase apphosting:secrets:set google-generative-ai-api-key
+  - variable: GOOGLE_GENERATIVE_AI_API_KEY
+    secret: google-generative-ai-api-key
+    availability:
+      - RUNTIME

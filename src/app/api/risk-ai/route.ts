@@ -5,9 +5,8 @@ import { z } from 'zod';
 
 /**
  * 위험성평가 AI 자동 생성 API — 작업 사진을 보고 평가표 초안(작업단계·유해위험요인·안전조치 등)을 생성한다.
- * 우선순위:
- * 1) GOOGLE_GENERATIVE_AI_API_KEY 설정 시 Google Gemini 무료 등급 사용 (카드 불필요, 과금 없음)
- * 2) 없으면 Vercel AI Gateway (배포 환경 OIDC 인증 — 단, 사진 분석 모델은 유료 크레딧 필요)
+ * GOOGLE_GENERATIVE_AI_API_KEY(Google AI Studio 키)로 Gemini를 호출한다 — 무료 등급으로 동작한다.
+ * 키가 없으면 503을 돌려주고 클라이언트는 수동 입력으로 진행한다.
  * 외부 호출 방지를 위해 기록 API와 같은 동기화 암호(x-passcode)를 요구한다.
  */
 export const maxDuration = 300;
@@ -15,7 +14,6 @@ export const maxDuration = 300;
 const USE_GEMINI = !!process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 // gemini-flash-latest: 항상 최신 Flash 모델을 가리키는 별칭 — 구모델 은퇴로 인한 중단을 방지
 const GEMINI_MODEL = process.env.RISK_AI_MODEL ?? 'gemini-flash-latest';
-const GATEWAY_MODEL = process.env.RISK_AI_MODEL ?? 'anthropic/claude-sonnet-5';
 
 const MEDIA_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
@@ -54,9 +52,7 @@ function parseDataUrl(dataUrl: string): { mediaType: string; data: string } | nu
 const clamp = (v: number, min: number, max: number) => Math.min(Math.max(Math.round(v), min), max);
 
 export async function POST(req: Request) {
-  // Gemini 키가 있으면 어디서든 동작, 없으면 Vercel 배포 환경(AI Gateway OIDC)에서만 동작
-  const hasGateway = !!(process.env.VERCEL || process.env.VERCEL_OIDC_TOKEN || process.env.AI_GATEWAY_API_KEY);
-  if (!USE_GEMINI && !hasGateway) {
+  if (!USE_GEMINI) {
     return NextResponse.json({ error: 'ai_not_configured' }, { status: 503 });
   }
   const pass = process.env.SJ_PASSCODE;
@@ -85,7 +81,7 @@ export async function POST(req: Request) {
 
   try {
     const { object } = await generateObject({
-      model: USE_GEMINI ? google(GEMINI_MODEL) : GATEWAY_MODEL,
+      model: google(GEMINI_MODEL),
       system: SYSTEM,
       maxOutputTokens: 8000,
       schema: OutputSchema,
@@ -117,7 +113,7 @@ export async function POST(req: Request) {
     const msg = e instanceof Error ? e.message : String(e);
     let code = 'generation_failed';
     if (/credit|quota|payment required|402/i.test(msg)) code = 'no_credit';
-    else if (/oidc|authenticat|api key|unauthoriz/i.test(msg)) code = 'gateway_auth';
+    else if (/authenticat|api key|unauthoriz|permission/i.test(msg)) code = 'gateway_auth';
     else if (/model/i.test(msg) && /not found|not available|invalid/i.test(msg)) code = 'bad_model';
     return NextResponse.json({ error: code, detail: msg.slice(0, 300) }, { status: 502 });
   }
@@ -143,8 +139,8 @@ export async function GET(req: Request) {
     }
   }
   return NextResponse.json({
-    ok: true,
-    engine: USE_GEMINI ? 'gemini-free' : 'ai-gateway',
-    model: USE_GEMINI ? GEMINI_MODEL : GATEWAY_MODEL,
+    ok: USE_GEMINI,
+    engine: USE_GEMINI ? 'gemini-free' : 'not-configured',
+    model: USE_GEMINI ? GEMINI_MODEL : null,
   });
 }
