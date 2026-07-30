@@ -1,4 +1,22 @@
 {
+  "apphosting": {
+    "backendId": "sj-dashboard",
+    "rootDir": ".",
+    "ignore": [
+      "node_modules",
+      ".git",
+      ".next",
+      ".claude",
+      "**/*.log",
+      "data",
+      "**/*.xlsx",
+      "**/*.xls",
+      "**/*.xlsm",
+      "**/*.xlsb",
+      "**/*.csv",
+      ".env*"
+    ]
+  },
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"

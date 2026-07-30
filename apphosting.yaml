@@ -16,17 +16,18 @@ env:
     availability:
       - RUNTIME
 
-  # 기록 동기화 암호 — 이 값을 아는 기기만 서버 기록을 읽고 쓸 수 있다.
-  # 사전에 Secret Manager에 등록해야 한다:
-  #   firebase apphosting:secrets:set sj-passcode
+  # 기록 동기화 암호 — 이 값을 아는 기기만 서버 기록을 읽고 쓸 수 있다. (등록 완료)
   - variable: SJ_PASSCODE
     secret: sj-passcode
     availability:
       - RUNTIME
 
-  # 위험성평가 AI 초안 생성용 Google AI Studio 키 (선택 — 없으면 AI 기능만 비활성화)
+  # 위험성평가 AI 초안 생성용 Google AI Studio 키.
+  # 미등록 상태라 비활성화해 둠 — AI 자동 생성만 동작하지 않고 나머지는 정상이다.
+  # 재활성화: 아래 명령으로 키를 등록한 뒤 주석을 풀고 다시 배포한다.
   #   firebase apphosting:secrets:set google-generative-ai-api-key
-  - variable: GOOGLE_GENERATIVE_AI_API_KEY
-    secret: google-generative-ai-api-key
-    availability:
-      - RUNTIME
+  #   firebase deploy --only apphosting
+  # - variable: GOOGLE_GENERATIVE_AI_API_KEY
+  #   secret: google-generative-ai-api-key
+  #   availability:
+  #     - RUNTIME

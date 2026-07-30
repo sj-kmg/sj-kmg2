@@ -42,19 +42,37 @@ Firestore·Storage 보안 규칙은 브라우저에서의 직접 접근을 전�
 
 ## 배포 (Firebase App Hosting)
 
-프로젝트: **sj-kmg-deploy2** — API 라우트(SSR)가 있으므로 정적 Hosting이 아닌 App Hosting을 사용한다.
+배포 주소: **https://sj-dashboard--sj-kmg-deploy2.asia-east1.hosted.app**
 
-최초 1회 설정:
+API 라우트(SSR)가 있으므로 정적 Hosting이 아닌 App Hosting을 쓴다. 구성은 아래와 같다.
+
+| 항목 | 값 |
+| --- | --- |
+| 프로젝트 | `sj-kmg-deploy2` |
+| App Hosting 백엔드 | `sj-dashboard` · `asia-east1`(대만) |
+| Firestore · Cloud Storage | `asia-northeast3`(서울) |
+
+App Hosting은 한국 리전을 지원하지 않아(가용: asia-east1 / asia-southeast1 / europe-west4 / us-central1 / us-east4 / us-east5) 가장 가까운 대만을 썼다. 데이터는 서울에 두었으므로 API 호출 시 리전 간 왕복이 한 번 추가된다.
+
+배포:
 
 ```bash
-firebase login
-firebase apphosting:secrets:set sj-passcode
-firebase apphosting:secrets:set google-generative-ai-api-key
-firebase deploy --only firestore:rules,storage
-firebase apphosting:backends:create --project sj-kmg-deploy2 --location asia-northeast3
+firebase deploy --only apphosting
 ```
 
-`backends:create`에서 GitHub 저장소(`sj-kmg/sj-kmg2`)와 배포 브랜치(`main`)를 연결하면, 이후에는 **main에 푸시할 때마다 자동으로 빌드·배포**된다. 런타임 설정과 환경변수는 [`apphosting.yaml`](apphosting.yaml)에서 관리한다.
+보안 규칙만 갱신할 때:
+
+```bash
+firebase deploy --only firestore:rules,storage
+```
+
+런타임 설정·환경변수는 [`apphosting.yaml`](apphosting.yaml)에서 관리한다. 시크릿은 Secret Manager에 등록한다:
+
+```bash
+firebase apphosting:secrets:set sj-passcode
+```
+
+> GitHub 저장소를 연결해 푸시 자동 배포를 쓰려면 `firebase apphosting:backends:create`를 대화형으로 실행해 저장소·브랜치를 지정하면 된다. 현재는 위 명령으로 로컬 소스를 직접 배포하는 방식이다.
 
 ## 개발
 
