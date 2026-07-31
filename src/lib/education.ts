@@ -1,3 +1,4 @@
+import { seedId } from './ids';
 /**
  * 안전교육 이수 현황 데이터 — 사이드바 [안전교육] 메뉴와 메인 [안전교육 현황] 패널이 공유한다.
  * 수료증 PDF·이수 현황표에서 추출한 실데이터이며, 원본 PDF는 public/certs/ 아래에 보관되어 클릭 시 열람된다.
@@ -190,8 +191,8 @@ export function chemicalSeedWorkers(): {
   updatedAt: string;
 }[] {
   const course = EDU_COURSES.find((c) => c.key === 'chemical');
-  return (course?.records ?? []).map((r) => ({
-    id: `CW-seed-${r.name}`,
+  return (course?.records ?? []).map((r, i) => ({
+    id: seedId('CW-seed', i, r.name),
     group: '직원' as const,
     name: r.name,
     birth: r.birth,

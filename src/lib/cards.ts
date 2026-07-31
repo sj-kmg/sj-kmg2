@@ -1,4 +1,5 @@
 /** 신청현황 — 상시카드·상시차량 데이터. 공무관리 메뉴와 메인 [공무관리 현황] 패널이 공유한다. */
+import { seedId } from './ids';
 
 export interface AccessCard {
   id: string;
@@ -60,8 +61,8 @@ export function passVehicleSeed(): PassVehicle[] {
     ['특수차량', '95우 6525', '서태옥', '2026-07-21', '2027-01-16'],
     ['특수차량', '91오 8390', '김진복', '2026-07-21', '2027-01-16'],
   ];
-  return rows.map(([kind, plate, driver, startDate, endDate]) => ({
-    id: `PV-seed-${plate.replace(/\s/g, '')}`,
+  return rows.map(([kind, plate, driver, startDate, endDate], i) => ({
+    id: seedId('PV-seed', i, plate),
     kind,
     plate,
     driver,
@@ -93,7 +94,7 @@ export function accessCardSeed(): AccessCard[] {
     ['김진복', '신규', '', '', '', '', ''],
   ];
   return rows.map(([name, applyType, issueDate, endDate, loginId, password, note], i) => ({
-    id: `AC-seed-${i}-${name}`,
+    id: seedId('AC-seed', i, name),
     name,
     applyType,
     issueDate,

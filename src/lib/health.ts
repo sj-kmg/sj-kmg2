@@ -1,4 +1,5 @@
 /** 건강검진(일반·특수) 데이터 — 공무관리 메뉴와 메인 [공무관리 현황] 패널이 공유한다. */
+import { seedId } from './ids';
 
 export interface HealthCheck {
   id: string;
@@ -55,8 +56,8 @@ export function healthGeneralSeed(): HealthCheck[] {
     ['문춘종', '1980-11-12', '2026-07-01'],
     ['이철웅', '1995-03-27', '2026-07-01'],
   ];
-  return rows.map(([name, birth, checkDate]) => ({
-    id: `HC-general-seed-${name}`,
+  return rows.map(([name, birth, checkDate], i) => ({
+    id: seedId('HC-general-seed', i, name),
     kind: 'general' as const,
     group: '직원' as const,
     name,

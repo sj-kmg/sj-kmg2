@@ -13,6 +13,23 @@ import {
 
 export type SyncMode = 'loading' | 'server' | 'local';
 
+/** 저장 실패 원인을 구분해 안내 — 네트워크 문제로 뭉뚱그리면 원인 파악이 어렵다 */
+function saveFailMessage(e: unknown): string {
+  if (e instanceof SyncError) {
+    if (e.status === 400) {
+      return '저장 형식이 올바르지 않아 서버가 거부했습니다 (400).\n개발자에게 문의해 주세요.';
+    }
+    if (e.status === 413) {
+      return '내용이 너무 커서 저장할 수 없습니다. 첨부파일 크기를 줄여 주세요.';
+    }
+    if (e.status >= 500) {
+      return '서버에 일시적인 문제가 있습니다. 잠시 후 다시 시도해 주세요.';
+    }
+    return `서버 저장에 실패했습니다 (${e.status}).`;
+  }
+  return '서버 저장에 실패했습니다. 네트워크를 확인해 주세요.';
+}
+
 interface Options<T> {
   /** 로컬 → 서버 이관 시 항목 가공 (예: 아차사고 사진 업로드) */
   migrateExtra?: (entry: T) => Promise<T>;
@@ -122,12 +139,12 @@ export function useSyncedLog<T extends { id: string }>(type: LogType, localKey: 
           if (e instanceof SyncError && e.status === 401 && askPasscode()) {
             try {
               await saveEntryRemote(type, entry);
-            } catch {
-              alert('서버 저장에 실패했습니다. 네트워크를 확인해 주세요.');
+            } catch (e2) {
+              alert(saveFailMessage(e2));
               return false;
             }
           } else {
-            alert('서버 저장에 실패했습니다. 네트워크를 확인해 주세요.');
+            alert(saveFailMessage(e));
             return false;
           }
         }

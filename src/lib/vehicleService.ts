@@ -6,6 +6,7 @@
  * 각각 추가해 나가면 차량별 교체 이력이 항목별로 쌓인다.
  * 원본: 차량 엔진오일 교체.xlsx (2026-07-31 기준, 배경색으로 차종 구분)
  */
+import { seedId } from './ids';
 
 export type VehicleCategory = '일반차량' | '특수차량' | '중장비';
 
@@ -124,8 +125,8 @@ export function vehicleServiceSeed(): VehicleService[] {
     ['중장비', '스키드로더', '전남03나 3645', ''],
     ['중장비', '굴착기', '02마 1168', '2025-12-08'],
   ];
-  return rows.map(([category, name, plate, replacedAt]) => ({
-    id: `VS-seed-${plate.replace(/\s/g, '')}-엔진오일`,
+  return rows.map(([category, name, plate, replacedAt], i) => ({
+    id: seedId('VS-seed', i, plate),
     category,
     name,
     plate,

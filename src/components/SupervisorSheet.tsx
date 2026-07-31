@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { EDU_COURSES } from '@/lib/education';
+import { seedId } from '@/lib/ids';
 import { SUPERVISOR_KEY } from '@/lib/yncc';
 import EduWorkerSheet from './EduWorkerSheet';
 
@@ -9,8 +10,8 @@ import EduWorkerSheet from './EduWorkerSheet';
 export default function SupervisorSheet() {
   const seed = useMemo(() => {
     const course = EDU_COURSES.find((c) => c.key === 'supervisor');
-    return (course?.records ?? []).map((r) => ({
-      id: `SW-seed-${r.name}`,
+    return (course?.records ?? []).map((r, i) => ({
+      id: seedId('SW-seed', i, r.name),
       group: '직원' as const,
       name: r.name,
       birth: r.birth,
