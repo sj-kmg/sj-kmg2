@@ -60,7 +60,6 @@ export default function GasDetectorSheet() {
       mgmtNo: '',
       detector: '복합가스 측정기',
       model: '',
-      serialNo: '',
       usage: '',
       calDate: '',
       nextCalDate: '',
@@ -162,7 +161,6 @@ export default function GasDetectorSheet() {
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
                 <th className={`${TH} w-32`}>관리번호</th>
                 <th className={`${TH} w-56`}>MODEL</th>
-                <th className={`${TH} w-40`}>제조번호 (S/N)</th>
                 <th className={`${TH} w-52`}>용도</th>
                 <th className={`${TH} w-40`}>검교정일</th>
                 <th className={`${TH} w-40`}>차기 검교정일</th>
@@ -179,7 +177,7 @@ export default function GasDetectorSheet() {
             <tbody className="divide-y divide-slate-100">
               {shown.length === 0 && (
                 <tr>
-                  <td colSpan={14} className="px-3 py-4 text-center text-slate-300">
+                  <td colSpan={13} className="px-3 py-4 text-center text-slate-300">
                     아래 ＋ 버튼으로 측정기를 추가해 주세요
                   </td>
                 </tr>
@@ -190,7 +188,7 @@ export default function GasDetectorSheet() {
                   <Fragment key={r.id}>
                     {head && (
                       <tr className="bg-slate-50/70">
-                        <td colSpan={14} className="px-2 py-1 text-[10px] font-bold tracking-wide text-slate-500">
+                        <td colSpan={13} className="px-2 py-1 text-[10px] font-bold tracking-wide text-slate-500">
                           {DETECTOR_KIND_LABEL[head] ?? head}
                         </td>
                       </tr>
@@ -201,15 +199,6 @@ export default function GasDetectorSheet() {
                       </td>
                       <td className="px-1.5 py-1.5">
                         <input aria-label="MODEL" value={r.model} onChange={(e) => setRow(r.id, { model: e.target.value })} className={CELL} />
-                      </td>
-                      <td className="px-1.5 py-1.5">
-                        <input
-                          aria-label="제조번호"
-                          placeholder="성적서의 기기번호"
-                          value={r.serialNo ?? ''}
-                          onChange={(e) => setRow(r.id, { serialNo: e.target.value })}
-                          className={`${CELL} font-mono`}
-                        />
                       </td>
                       <td className="px-1.5 py-1.5">
                         <input aria-label="용도" placeholder="O2, CO, H2S, LEL" value={r.usage} onChange={(e) => setRow(r.id, { usage: e.target.value })} className={CELL} />
@@ -307,8 +296,7 @@ export default function GasDetectorSheet() {
 
         <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
           검교정일을 입력하면 차기 검교정일(1년 후)이 자동 입력되며 직접 수정할 수 있습니다. 교정성적서는 [첨부]로 올리고
-          [교체]로 바꿀 수 있으며, 같은 모델·같은 날짜 교정건을 구분하려면 성적서에 적힌 <b>제조번호(S/N)</b>를 입력해 두면
-          됩니다. 차기 검교정 {DETECTOR_NOTICE_DAYS}일 전부터 메인 [공무관리 현황]에 D-day가 표시되며, 메인 알림은 상태가
+          [교체]로 바꿀 수 있습니다. 차기 검교정 {DETECTOR_NOTICE_DAYS}일 전부터 메인 [공무관리 현황]에 D-day가 표시되며, 메인 알림은 상태가
           [사용]인 장비만 올라옵니다.
         </p>
       </div>

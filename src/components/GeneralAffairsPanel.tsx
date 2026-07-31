@@ -20,6 +20,12 @@ import {
 import { NOTICE_STYLE, daysUntil, noticeLevel, type NoticeLevel } from '@/lib/education';
 import { HEALTH_KEY, HEALTH_LABEL, HEALTH_NOTICE_DAYS, healthGeneralSeed, type HealthCheck } from '@/lib/health';
 import { listEntriesSilently } from '@/lib/sync';
+import {
+  VEHICLE_SERVICE_KEY,
+  VEHICLE_SERVICE_NOTICE_DAYS,
+  vehicleServiceSeed,
+  type VehicleService,
+} from '@/lib/vehicleService';
 
 interface DueItem {
   id: string;
@@ -48,12 +54,18 @@ export default function GeneralAffairsPanel() {
   useEffect(() => {
     void (async () => {
       const now = new Date();
-      const [savedCards, savedVehicles, savedHealth, savedDetectors] = await Promise.all([
+      const [savedCards, savedVehicles, savedHealth, savedDetectors, savedService] = await Promise.all([
         listEntriesSilently<AccessCard>('cards', CARDS_KEY),
         listEntriesSilently<PassVehicle>('pass-vehicles', PASS_VEHICLES_KEY),
         listEntriesSilently<HealthCheck>('health', HEALTH_KEY),
         listEntriesSilently<GasDetector>('detectors', DETECTOR_KEY),
+        listEntriesSilently<VehicleService>('vehicle-service', VEHICLE_SERVICE_KEY),
       ]);
+      const serviceIds = new Set(savedService.map((s) => `${s.plate.trim()}|${s.item}`));
+      const services = [
+        ...savedService,
+        ...vehicleServiceSeed().filter((s) => !serviceIds.has(`${s.plate.trim()}|${s.item}`)),
+      ];
       const healthNames = new Set(savedHealth.filter((h) => h.kind === 'general').map((h) => h.name.trim()));
       const health = [...savedHealth, ...healthGeneralSeed().filter((s) => !healthNames.has(s.name.trim()))];
       const detectorNos = new Set(savedDetectors.map((d) => d.mgmtNo.trim()));
@@ -105,6 +117,16 @@ export default function GeneralAffairsPanel() {
             date: d.nextCalDate,
             days: daysUntil(d.nextCalDate, now),
             notice: DETECTOR_NOTICE_DAYS,
+          })),
+        ...services
+          .filter((s) => s.plate && s.nextDue)
+          .map((s) => ({
+            id: `svc-${s.id}`,
+            name: `${s.plate}${s.name ? ` (${s.name})` : ''}`,
+            kind: `${s.item} 교체`,
+            date: s.nextDue,
+            days: daysUntil(s.nextDue, now),
+            notice: VEHICLE_SERVICE_NOTICE_DAYS,
           })),
       ].map((i) => ({ ...i, level: noticeLevel(i.days, i.notice) }));
 
@@ -163,8 +185,8 @@ export default function GeneralAffairsPanel() {
 function Footnote() {
   return (
     <p className="mt-2 border-t border-slate-100 pt-1.5 text-[10px] text-slate-400">
-      상시카드 D-{CARD_NOTICE_DAYS} · 상시차량/건강검진/측정기 검교정 D-{VEHICLE_NOTICE_DAYS}부터 표시 · 공무관리 메뉴와
-      연동
+      상시카드 D-{CARD_NOTICE_DAYS} · 상시차량/건강검진/측정기 검교정/차량 정비 D-{VEHICLE_NOTICE_DAYS}부터 표시 ·
+      공무관리 메뉴와 연동
     </p>
   );
 }

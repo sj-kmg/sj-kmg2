@@ -18,6 +18,7 @@ import AccessPass from '@/components/AccessPass';
 import AnnualPlan from '@/components/AnnualPlan';
 import HealthCheckSheet from '@/components/HealthCheckSheet';
 import GasDetectorSheet from '@/components/GasDetectorSheet';
+import VehicleServiceSheet from '@/components/VehicleServiceSheet';
 import SearchResults from '@/components/SearchResults';
 
 type ViewKey =
@@ -35,6 +36,7 @@ type ViewKey =
   | 'card'
   | 'yncc-vehicle'
   | 'gas-meter'
+  | 'vehicle-service'
   | 'risk-assess'
   | 'people'
   | 'notice'
@@ -89,6 +91,7 @@ const MENU: MenuNode[] = [
         ],
       },
       { key: 'gas-meter', label: '산소&가스측정기' },
+      { key: 'vehicle-service', label: '차량점검내역' },
     ],
   },
   { key: 'risk-assess', label: '위험성평가', icon: '📝' },
@@ -453,6 +456,7 @@ export default function Page() {
             {view === 'health-general' && <HealthCheckSheet kind="general" />}
             {view === 'health-special' && <HealthCheckSheet kind="special" />}
             {view === 'gas-meter' && <GasDetectorSheet />}
+            {view === 'vehicle-service' && <VehicleServiceSheet />}
             {(view === 'health-followup' || view === 'notice') && <ComingSoon label={viewLabel(view)} />}
             {view === 'data' && (
               <div className="mx-auto max-w-2xl py-6">

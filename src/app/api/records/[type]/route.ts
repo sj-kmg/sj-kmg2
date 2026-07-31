@@ -24,6 +24,7 @@ const TYPES = new Set([
   'health',
   'supervisor',
   'detectors',
+  'vehicle-service',
 ]);
 
 /** 기록 종류별 컬렉션 — records/{type}/entries/{id} */

@@ -11,7 +11,6 @@ export interface GasDetector {
   mgmtNo: string; // 관리번호 (SJ-O2-01 등)
   detector: string; // 장비 구분 (휴대용 O2 측정기 / 복합가스 측정기)
   model: string; // MODEL
-  serialNo?: string; // 제조번호(S/N) — 교정성적서에 기재되는 기기 고유번호
   usage: string; // 용도 (측정 가스)
   calDate: string; // 검교정일
   nextCalDate: string; // 차기 검교정일 — 검교정일 + 1년 (수정 가능)
@@ -112,7 +111,6 @@ export function detectorSeed(): GasDetector[] {
     mgmtNo,
     detector: detectorKind(mgmtNo) === 'O2' ? '휴대용 O2 측정기' : '복합가스 측정기',
     model,
-    serialNo: '', // 성적서 대조용 — 대장에 없어 비워 둔다
     usage,
     calDate,
     nextCalDate,
