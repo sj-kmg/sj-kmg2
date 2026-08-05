@@ -85,8 +85,11 @@ export function useSheetLog<T extends { id: string }>(type: LogType, localKey: s
     void (async () => {
       setStatus('saving');
       const stamped = seed.map((s) => ({ ...s, updatedAt: new Date().toISOString() }));
-      for (const row of stamped) {
-        if (!(await add(row))) {
+      // 항목이 많은 대장(장비 점검표 등)도 오래 걸리지 않도록 묶어서 동시에 보낸다
+      const BATCH = 12;
+      for (let i = 0; i < stamped.length; i += BATCH) {
+        const results = await Promise.all(stamped.slice(i, i + BATCH).map((row) => add(row)));
+        if (results.some((ok) => !ok)) {
           setStatus('error');
           return;
         }

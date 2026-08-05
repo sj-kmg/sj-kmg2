@@ -19,7 +19,8 @@ export type LogType =
   | 'health'
   | 'supervisor'
   | 'detectors'
-  | 'vehicle-service';
+  | 'vehicle-service'
+  | 'equipment';
 
 const PASS_KEY = 'sj-sync-passcode';
 

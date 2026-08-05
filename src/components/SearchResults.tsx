@@ -55,6 +55,18 @@ const MENU_INDEX: { label: string; path: string; view: string; keywords: string 
   { label: '상시카드&차량', path: '공무관리 › 신청현황 › 상시카드&차량', view: 'card', keywords: '카드 출입증 상시차량' },
   { label: 'YNCC차량', path: '공무관리 › 신청현황 › YNCC차량', view: 'yncc-vehicle', keywords: '차량 등록' },
   {
+    label: '장비점검',
+    path: '공무관리 › 장비점검',
+    view: 'equipment-check',
+    keywords: '장비 점검 에어분배기 AIR 분배기 필터 에어필터 컴프레서',
+  },
+  {
+    label: '차량점검내역',
+    path: '공무관리 › 차량점검내역',
+    view: 'vehicle-service',
+    keywords: '차량 점검 정비 엔진오일 타이어 배터리 중장비 지게차',
+  },
+  {
     label: '산소&가스측정기',
     path: '공무관리 › 산소&가스측정기',
     view: 'gas-meter',

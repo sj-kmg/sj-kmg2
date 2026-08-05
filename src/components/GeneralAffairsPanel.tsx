@@ -18,6 +18,7 @@ import {
   type GasDetector,
 } from '@/lib/detector';
 import { NOTICE_STYLE, daysUntil, noticeLevel, type NoticeLevel } from '@/lib/education';
+import { EQUIP_KEY, EQUIP_NOTICE_DAYS, airDistributorSeed, type EquipCheck } from '@/lib/equipment';
 import { HEALTH_KEY, HEALTH_LABEL, HEALTH_NOTICE_DAYS, healthGeneralSeed, type HealthCheck } from '@/lib/health';
 import { listEntriesSilently } from '@/lib/sync';
 import {
@@ -54,13 +55,16 @@ export default function GeneralAffairsPanel() {
   useEffect(() => {
     void (async () => {
       const now = new Date();
-      const [savedCards, savedVehicles, savedHealth, savedDetectors, savedService] = await Promise.all([
+      const [savedCards, savedVehicles, savedHealth, savedDetectors, savedService, savedEquip] = await Promise.all([
         listEntriesSilently<AccessCard>('cards', CARDS_KEY),
         listEntriesSilently<PassVehicle>('pass-vehicles', PASS_VEHICLES_KEY),
         listEntriesSilently<HealthCheck>('health', HEALTH_KEY),
         listEntriesSilently<GasDetector>('detectors', DETECTOR_KEY),
         listEntriesSilently<VehicleService>('vehicle-service', VEHICLE_SERVICE_KEY),
+        listEntriesSilently<EquipCheck>('equipment', EQUIP_KEY),
       ]);
+      const equipIds = new Set(savedEquip.map((e) => e.id));
+      const equips = [...savedEquip, ...airDistributorSeed().filter((e) => !equipIds.has(e.id))];
       const serviceIds = new Set(savedService.map((s) => `${s.plate.trim()}|${s.item}`));
       const services = [
         ...savedService,
@@ -128,6 +132,16 @@ export default function GeneralAffairsPanel() {
             days: daysUntil(s.nextDue, now),
             notice: VEHICLE_SERVICE_NOTICE_DAYS,
           })),
+        ...equips
+          .filter((e) => e.nextDue && e.name)
+          .map((e) => ({
+            id: `eq-${e.id}`,
+            name: e.name,
+            kind: `${e.equip} 필터교체`,
+            date: e.nextDue,
+            days: daysUntil(e.nextDue, now),
+            notice: EQUIP_NOTICE_DAYS,
+          })),
       ].map((i) => ({ ...i, level: noticeLevel(i.days, i.notice) }));
 
       setDue(
@@ -185,8 +199,8 @@ export default function GeneralAffairsPanel() {
 function Footnote() {
   return (
     <p className="mt-2 border-t border-slate-100 pt-1.5 text-[10px] text-slate-400">
-      상시카드 D-{CARD_NOTICE_DAYS} · 상시차량/건강검진/측정기 검교정/차량 정비 D-{VEHICLE_NOTICE_DAYS}부터 표시 ·
-      공무관리 메뉴와 연동
+      상시카드 D-{CARD_NOTICE_DAYS} · 상시차량/건강검진/측정기 검교정/차량 정비/장비 점검 D-{VEHICLE_NOTICE_DAYS}부터
+      표시 · 공무관리 메뉴와 연동
     </p>
   );
 }
