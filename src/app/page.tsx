@@ -18,7 +18,7 @@ import AccessPass from '@/components/AccessPass';
 import AnnualPlan from '@/components/AnnualPlan';
 import HealthCheckSheet from '@/components/HealthCheckSheet';
 import GasDetectorSheet from '@/components/GasDetectorSheet';
-import VehicleServiceSheet from '@/components/VehicleServiceSheet';
+import VehicleCheckSheet from '@/components/VehicleCheckSheet';
 import InventorySheet from '@/components/InventorySheet';
 import EquipmentCheck from '@/components/EquipmentCheck';
 import SearchResults from '@/components/SearchResults';
@@ -462,7 +462,7 @@ export default function Page() {
             {view === 'health-general' && <HealthCheckSheet kind="general" />}
             {view === 'health-special' && <HealthCheckSheet kind="special" />}
             {view === 'gas-meter' && <GasDetectorSheet />}
-            {view === 'vehicle-service' && <VehicleServiceSheet />}
+            {view === 'vehicle-service' && <VehicleCheckSheet />}
             {view === 'inventory' && <InventorySheet />}
             {view === 'equipment-check' && <EquipmentCheck />}
             {(view === 'health-followup' || view === 'notice') && <ComingSoon label={viewLabel(view)} />}

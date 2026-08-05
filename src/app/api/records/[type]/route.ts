@@ -25,6 +25,8 @@ const TYPES = new Set([
   'supervisor',
   'detectors',
   'vehicle-service',
+  'vehicle-check',
+  'vehicle-items',
   'equipment',
   'inventory',
 ]);

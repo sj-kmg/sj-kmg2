@@ -22,11 +22,15 @@ import { EQUIP_KEY, EQUIP_NOTICE_DAYS, airDistributorSeed, type EquipCheck } fro
 import { HEALTH_KEY, HEALTH_LABEL, HEALTH_NOTICE_DAYS, healthGeneralSeed, type HealthCheck } from '@/lib/health';
 import { listEntriesSilently } from '@/lib/sync';
 import {
-  VEHICLE_SERVICE_KEY,
-  VEHICLE_SERVICE_NOTICE_DAYS,
-  vehicleServiceSeed,
-  type VehicleService,
-} from '@/lib/vehicleService';
+  VEHICLE_CHECK_KEY,
+  VEHICLE_CHECK_NOTICE_DAYS,
+  VEHICLE_ITEMS_KEY,
+  nextDueDate,
+  vehicleCheckSeed,
+  vehicleItemSeed,
+  type VehicleCheck,
+  type VehicleItem,
+} from '@/lib/vehicleCheck';
 
 interface DueItem {
   id: string;
@@ -55,21 +59,21 @@ export default function GeneralAffairsPanel() {
   useEffect(() => {
     void (async () => {
       const now = new Date();
-      const [savedCards, savedVehicles, savedHealth, savedDetectors, savedService, savedEquip] = await Promise.all([
+      const [savedCards, savedVehicles, savedHealth, savedDetectors, savedService, savedItems, savedEquip] = await Promise.all([
         listEntriesSilently<AccessCard>('cards', CARDS_KEY),
         listEntriesSilently<PassVehicle>('pass-vehicles', PASS_VEHICLES_KEY),
         listEntriesSilently<HealthCheck>('health', HEALTH_KEY),
         listEntriesSilently<GasDetector>('detectors', DETECTOR_KEY),
-        listEntriesSilently<VehicleService>('vehicle-service', VEHICLE_SERVICE_KEY),
+        listEntriesSilently<VehicleCheck>('vehicle-check', VEHICLE_CHECK_KEY),
+        listEntriesSilently<VehicleItem>('vehicle-items', VEHICLE_ITEMS_KEY),
         listEntriesSilently<EquipCheck>('equipment', EQUIP_KEY),
       ]);
       const equipIds = new Set(savedEquip.map((e) => e.id));
       const equips = [...savedEquip, ...airDistributorSeed().filter((e) => !equipIds.has(e.id))];
-      const serviceIds = new Set(savedService.map((s) => `${s.plate.trim()}|${s.item}`));
-      const services = [
-        ...savedService,
-        ...vehicleServiceSeed().filter((s) => !serviceIds.has(`${s.plate.trim()}|${s.item}`)),
-      ];
+      const servicePlates = new Set(savedService.map((s) => s.plate.trim()));
+      const services = [...savedService, ...vehicleCheckSeed().filter((s) => !servicePlates.has(s.plate.trim()))];
+      const itemIds = new Set(savedItems.map((i) => i.id));
+      const checkItems = [...savedItems, ...vehicleItemSeed().filter((i) => !itemIds.has(i.id))];
       const healthNames = new Set(savedHealth.filter((h) => h.kind === 'general').map((h) => h.name.trim()));
       const health = [...savedHealth, ...healthGeneralSeed().filter((s) => !healthNames.has(s.name.trim()))];
       const detectorNos = new Set(savedDetectors.map((d) => d.mgmtNo.trim()));
@@ -122,16 +126,23 @@ export default function GeneralAffairsPanel() {
             days: daysUntil(d.nextCalDate, now),
             notice: DETECTOR_NOTICE_DAYS,
           })),
-        ...services
-          .filter((s) => s.plate && s.nextDue)
-          .map((s) => ({
-            id: `svc-${s.id}`,
-            name: `${s.plate}${s.name ? ` (${s.name})` : ''}`,
-            kind: `${s.item} 교체`,
-            date: s.nextDue,
-            days: daysUntil(s.nextDue, now),
-            notice: VEHICLE_SERVICE_NOTICE_DAYS,
-          })),
+        // 차량 × 정비항목 — 주기가 정해진 항목만 차기 시기를 계산한다
+        ...services.flatMap((v) =>
+          checkItems
+            .filter((it) => it.cycleMonths > 0 && v.dates?.[it.id])
+            .map((it) => {
+              const due = nextDueDate(v.dates[it.id], it.cycleMonths);
+              return {
+                id: `vc-${v.id}-${it.id}`,
+                name: `${v.plate}${v.name ? ` (${v.name})` : ''}`,
+                kind: `${it.label} 교체`,
+                date: due,
+                days: daysUntil(due, now),
+                notice: VEHICLE_CHECK_NOTICE_DAYS,
+              };
+            })
+            .filter((x) => x.date),
+        ),
         ...equips
           .filter((e) => e.nextDue && e.name)
           .map((e) => ({
