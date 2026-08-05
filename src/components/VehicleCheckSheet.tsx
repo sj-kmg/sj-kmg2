@@ -14,12 +14,14 @@ import {
   VEHICLE_ITEMS_KEY,
   compareItem,
   compareVehicle,
+  itemKind,
   nextDueDate,
   vehicleCheckSeed,
   vehicleItemSeed,
   type VehicleCategory,
   type VehicleCheck,
   type VehicleItem,
+  type VehicleItemKind,
 } from '@/lib/vehicleCheck';
 import { CELL, SheetToolbar, TH } from './SheetUI';
 
@@ -70,7 +72,9 @@ export default function VehicleCheckSheet() {
   /** 칸 상태 — 주기가 있는 항목만 판정 */
   const cellState = (row: VehicleCheck, item: VehicleItem) => {
     const done = row.dates?.[item.id] ?? '';
-    if (!done || !item.cycleMonths || !today) return { done, days: null as number | null, level: null };
+    if (itemKind(item) === 'text' || !done || !item.cycleMonths || !today) {
+      return { done, days: null as number | null, level: null };
+    }
     const due = nextDueDate(done, item.cycleMonths);
     if (!due) return { done, days: null, level: null };
     const days = daysUntil(due, today);
@@ -121,6 +125,7 @@ export default function VehicleCheckSheet() {
     itm.addRow({
       id: newId('VI', seq.current),
       label: '',
+      kind: 'date',
       cycleMonths: 12,
       order: (items.length ? Math.max(...items.map((i) => i.order)) : 0) + 1,
       updatedAt: '',
@@ -223,17 +228,31 @@ export default function VehicleCheckSheet() {
                     onChange={(e) => itm.setRow(it.id, { label: e.target.value })}
                     className="min-w-0 flex-1 rounded border border-slate-200 px-2 py-1 text-xs text-slate-800 focus:border-[#1f3864] focus:outline-none"
                   />
-                  <label className="flex shrink-0 items-center gap-1 text-[11px] text-slate-500">
-                    <input
-                      aria-label="주기(개월)"
-                      type="number"
-                      min={0}
-                      value={it.cycleMonths}
-                      onChange={(e) => itm.setRow(it.id, { cycleMonths: Number(e.target.value) || 0 })}
-                      className="w-14 rounded border border-slate-200 px-1 py-1 text-center text-[11px] text-slate-700"
-                    />
-                    개월
-                  </label>
+                  <select
+                    aria-label="항목 형식"
+                    value={itemKind(it)}
+                    onChange={(e) => itm.setRow(it.id, { kind: e.target.value as VehicleItemKind })}
+                    className="shrink-0 rounded border border-slate-200 px-1 py-1 text-[11px] text-slate-600"
+                    title="날짜 = 달력에서 고르는 칸 / 자유 입력 = 아무 내용이나 적는 칸"
+                  >
+                    <option value="date">날짜</option>
+                    <option value="text">자유 입력</option>
+                  </select>
+                  {itemKind(it) === 'date' ? (
+                    <label className="flex shrink-0 items-center gap-1 text-[11px] text-slate-500">
+                      <input
+                        aria-label="주기(개월)"
+                        type="number"
+                        min={0}
+                        value={it.cycleMonths}
+                        onChange={(e) => itm.setRow(it.id, { cycleMonths: Number(e.target.value) || 0 })}
+                        className="w-14 rounded border border-slate-200 px-1 py-1 text-center text-[11px] text-slate-700"
+                      />
+                      개월
+                    </label>
+                  ) : (
+                    <span className="shrink-0 text-[11px] text-slate-300">주기 없음</span>
+                  )}
                   <button aria-label="항목 삭제" onClick={() => delItem(it)} className="shrink-0 text-slate-300 hover:text-red-500">
                     ✕
                   </button>
@@ -286,9 +305,15 @@ export default function VehicleCheckSheet() {
                 <th className={`${TH} w-56`}>장비명</th>
                 <th className={`${TH} w-32`}>차량번호</th>
                 {items.map((it) => (
-                  <th key={it.id} className={`${TH} w-32`} title={it.cycleMonths ? `${it.cycleMonths}개월 주기` : '주기 없음'}>
+                  <th
+                    key={it.id}
+                    className={`${TH} ${itemKind(it) === 'text' ? 'w-48' : 'w-32'}`}
+                    title={itemKind(it) === 'text' ? '자유 입력' : it.cycleMonths ? `${it.cycleMonths}개월 주기` : '주기 없음'}
+                  >
                     {it.label || '(이름 없음)'}
-                    <span className="ml-1 font-normal text-slate-400">{it.cycleMonths ? `${it.cycleMonths}M` : ''}</span>
+                    <span className="ml-1 font-normal text-slate-400">
+                      {itemKind(it) === 'text' ? '✎' : it.cycleMonths ? `${it.cycleMonths}M` : ''}
+                    </span>
                   </th>
                 ))}
                 <th className={`${TH} w-48`}>비고</th>
@@ -332,15 +357,17 @@ export default function VehicleCheckSheet() {
                           ? '마지막 시행일을 입력하세요'
                           : '주기 없음 — 날짜만 기록'
                         : `차기 ${s.due} · ${s.days < 0 ? `D+${-s.days} (기한 초과)` : `D-${s.days}`}`;
+                    const free = itemKind(it) === 'text';
                     return (
                       <td key={it.id} className="px-1 py-1.5">
                         <input
                           aria-label={`${r.plate} ${it.label}`}
-                          type="date"
+                          type={free ? 'text' : 'date'}
+                          placeholder={free ? '자유 기재' : undefined}
                           value={s.done}
                           onChange={(e) => setDate(r, it.id, e.target.value)}
-                          className={dateCls(s.level, s.days)}
-                          title={tip}
+                          className={free ? CELL : dateCls(s.level, s.days)}
+                          title={free ? '자유롭게 적을 수 있는 칸입니다' : tip}
                         />
                       </td>
                     );

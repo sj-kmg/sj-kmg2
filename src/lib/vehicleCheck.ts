@@ -30,14 +30,26 @@ export interface VehicleCheck {
   updatedAt: string;
 }
 
-/** 정비항목(열) 정의 — 이름·주기를 사용자가 고칠 수 있다 */
+/**
+ * 열 형식 — 날짜 칸(date)이거나 자유 입력 칸(text).
+ * 예전에 저장된 항목에는 이 값이 없으므로 비어 있으면 date로 본다.
+ */
+export type VehicleItemKind = 'date' | 'text';
+
+/** 정비항목(열) 정의 — 이름·형식·주기를 사용자가 고칠 수 있다 */
 export interface VehicleItem {
   id: string; // 열 키 — 이름을 바꿔도 기록이 유지되도록 고정
   label: string; // 표시 이름
-  /** 교체주기(개월) — 0이면 주기 관리 없이 날짜만 기록 */
+  kind?: VehicleItemKind; // 없으면 'date'
+  /** 교체주기(개월) — 0이거나 자유 입력 칸이면 주기 관리를 하지 않는다 */
   cycleMonths: number;
   order: number;
   updatedAt: string;
+}
+
+/** 저장된 값이 없을 때를 대비한 형식 판정 */
+export function itemKind(item: VehicleItem): VehicleItemKind {
+  return item.kind === 'text' ? 'text' : 'date';
 }
 
 export const VEHICLE_CHECK_KEY = 'sj-vehicle-check:v1';
@@ -72,29 +84,31 @@ export function compareItem(a: VehicleItem, b: VehicleItem): number {
 
 /**
  * 기본 정비항목 — 주기적으로 교체·점검이 필요한 것 위주.
- * 화면의 [항목 관리]에서 이름·주기를 고치거나 추가·삭제할 수 있다.
- * [표시 이름, 주기(개월)]
+ * 화면의 [항목 관리]에서 이름·형식·주기를 고치거나 추가·삭제할 수 있다.
+ * id는 한 번 정하면 바꾸지 않는다 (이름을 바꿔도 입력해 둔 값이 유지되도록).
+ * [id, 표시 이름, 주기(개월), 형식]
  */
-const DEFAULT_ITEMS: [string, number][] = [
-  ['엔진오일', 12],
-  ['오일필터', 12],
-  ['에어크리너', 12],
-  ['연료필터', 24],
-  ['미션오일', 24],
-  ['브레이크오일', 24],
-  ['브레이크패드', 24],
-  ['냉각수(부동액)', 24],
-  ['타이어', 36],
-  ['배터리', 36],
-  ['와이퍼', 12],
-  ['정기점검(자동차검사)', 12],
-  ['보험기간', 12],
+const DEFAULT_ITEMS: [string, string, number, VehicleItemKind][] = [
+  ['VI-01', '엔진오일', 12, 'date'],
+  ['VI-02', '오일필터', 12, 'date'],
+  ['VI-03', '에어크리너', 12, 'date'],
+  ['VI-04', '연료필터', 24, 'date'],
+  ['VI-05', '미션오일', 24, 'date'],
+  ['VI-06', '브레이크오일', 24, 'date'],
+  ['VI-07', '브레이크패드', 24, 'date'],
+  ['VI-08', '냉각수(부동액)', 24, 'date'],
+  ['VI-09', '타이어', 36, 'date'],
+  ['VI-12', '정기점검(자동차검사)', 12, 'date'],
+  ['VI-13', '보험기간', 12, 'date'],
+  // 정해진 항목에 없는 정비 내용을 자유롭게 적는 칸
+  ['VI-14', '기타항목', 0, 'text'],
 ];
 
 export function vehicleItemSeed(): VehicleItem[] {
-  return DEFAULT_ITEMS.map(([label, cycleMonths], i) => ({
-    id: seedId('VI', i),
+  return DEFAULT_ITEMS.map(([id, label, cycleMonths, kind], i) => ({
+    id,
     label,
+    kind,
     cycleMonths,
     order: i + 1,
     updatedAt: '',
@@ -102,7 +116,7 @@ export function vehicleItemSeed(): VehicleItem[] {
 }
 
 /** 엔진오일 열의 고정 id — 기존 기록을 이 열로 옮긴다 */
-export const ENGINE_OIL_ITEM_ID = seedId('VI', 0);
+export const ENGINE_OIL_ITEM_ID = 'VI-01';
 
 /** 기존 대장에서 넘어온 정비명세서 (85루 1418 엔진오일) */
 const CARRIED_FILE =
@@ -157,7 +171,7 @@ export function vehicleCheckSeed(): VehicleCheck[] {
     category,
     name,
     plate,
-    dates: oilDate ? { [ENGINE_OIL_ITEM_ID]: oilDate } : {},
+    dates: (oilDate ? { [ENGINE_OIL_ITEM_ID]: oilDate } : {}) as Record<string, string>,
     ...(plate === '85루 1418' ? { certFile: CARRIED_FILE } : {}),
     note: '',
     updatedAt: '',
