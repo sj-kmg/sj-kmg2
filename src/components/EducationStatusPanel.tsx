@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { NOTICE_STYLE } from '@/lib/education';
 import { collectEducationStatus, type LiveDueItem, type LiveUpcoming } from '@/lib/eduLive';
+import { fileHref } from '@/lib/ids';
 
 /**
  * 메인 [안전교육 현황] 패널 — 정적 명부 + YNCC·유해화학물질 입력 시트를 합쳐 표시.
@@ -77,7 +78,7 @@ function DueRow({ item: r }: { item: LiveDueItem }) {
   }
   return (
     <a
-      href={encodeURI(r.certFile)}
+      href={fileHref(r.certFile)}
       target="_blank"
       rel="noreferrer"
       title={`${r.name} 수료증 열기`}

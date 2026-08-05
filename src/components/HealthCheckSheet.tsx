@@ -14,6 +14,7 @@ import { SyncError, uploadCert } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
 import { CELL, SheetToolbar, TH } from './SheetUI';
+import { fileHref } from '@/lib/ids';
 
 const GROUPS: HealthCheck['group'][] = ['직원', '인력'];
 
@@ -190,7 +191,7 @@ function Sheet({ kind, group }: { kind: HealthCheck['kind']; group: HealthCheck[
                   <div className="flex items-center justify-center gap-1">
                     {r.certFile && (
                       <a
-                        href={encodeURI(r.certFile)}
+                        href={fileHref(r.certFile)}
                         target="_blank"
                         rel="noreferrer"
                         className="rounded border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50"

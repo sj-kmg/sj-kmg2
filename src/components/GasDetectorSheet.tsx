@@ -19,6 +19,7 @@ import { SyncError, uploadCert } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
 import { CELL, SheetToolbar, TH } from './SheetUI';
+import { fileHref } from '@/lib/ids';
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -248,7 +249,7 @@ export default function GasDetectorSheet() {
                         <div className="flex items-center justify-center gap-1">
                           {r.certFile && (
                             <a
-                              href={encodeURI(r.certFile)}
+                              href={fileHref(r.certFile)}
                               target="_blank"
                               rel="noreferrer"
                               className="rounded border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50"

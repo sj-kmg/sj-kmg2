@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { fileHref } from '@/lib/ids';
 import {
   EDU_COURSES,
   NOTICE_STYLE,
@@ -52,7 +53,7 @@ export default function EducationRoster({ courseKey }: { courseKey: EduCourse['k
   }
 
   const openCert = (record: EduRecord) => {
-    if (record.certFile) window.open(encodeURI(record.certFile), '_blank');
+    if (record.certFile) window.open(fileHref(record.certFile), '_blank');
   };
 
   return (
@@ -176,7 +177,7 @@ function CertLink({ record }: { record: EduRecord }) {
   if (!record.certFile) return <span className="text-xs text-slate-300">추가 예정</span>;
   return (
     <a
-      href={encodeURI(record.certFile)}
+      href={fileHref(record.certFile)}
       target="_blank"
       rel="noreferrer"
       onClick={(e) => e.stopPropagation()}
