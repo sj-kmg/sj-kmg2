@@ -55,6 +55,12 @@ const MENU_INDEX: { label: string; path: string; view: string; keywords: string 
   { label: '상시카드&차량', path: '공무관리 › 신청현황 › 상시카드&차량', view: 'card', keywords: '카드 출입증 상시차량' },
   { label: 'YNCC차량', path: '공무관리 › 신청현황 › YNCC차량', view: 'yncc-vehicle', keywords: '차량 등록' },
   {
+    label: '통합재고관리',
+    path: '공무관리 › 통합재고관리',
+    view: 'inventory',
+    keywords: '재고 기자재 자재 물품 수량 펌프 양수기 렌치 공구 소모품 보유',
+  },
+  {
     label: '장비점검',
     path: '공무관리 › 장비점검',
     view: 'equipment-check',

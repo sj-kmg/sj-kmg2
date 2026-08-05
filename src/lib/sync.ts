@@ -20,7 +20,8 @@ export type LogType =
   | 'supervisor'
   | 'detectors'
   | 'vehicle-service'
-  | 'equipment';
+  | 'equipment'
+  | 'inventory';
 
 const PASS_KEY = 'sj-sync-passcode';
 

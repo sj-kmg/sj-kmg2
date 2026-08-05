@@ -55,9 +55,12 @@ export function useSheetLog<T extends { id: string }>(type: LogType, localKey: s
   // (그러지 않으면 목록 동기화 이펙트가 자기 자신을 다시 트리거해 무한 렌더가 된다)
   const sortRef = useRef(sort);
   const isBlankRef = useRef(isBlank);
+  /** 저장된 목록 — 되돌리기에서 "이미 저장된 행인지" 판단에 쓴다 */
+  const entriesRef = useRef(entries);
   useEffect(() => {
     sortRef.current = sort;
     isBlankRef.current = isBlank;
+    entriesRef.current = entries;
   });
 
   const sortRows = useCallback((list: T[]) => {
@@ -209,7 +212,14 @@ export function useSheetLog<T extends { id: string }>(type: LogType, localKey: s
     }
     // 되살아나거나 값이 달라진 행은 다시 저장
     for (const r of prevRows) {
-      if (isBlankRef.current(r)) continue;
+      if (isBlankRef.current(r)) {
+        // 되돌린 결과 빈 행이 됐는데 이미 저장돼 있다면 저장분도 지운다
+        if (entriesRef.current.some((e) => e.id === r.id)) {
+          drafts.current.add(r.id);
+          await remove(r.id);
+        }
+        continue;
+      }
       const now = current.find((c) => c.id === r.id);
       if (!now || JSON.stringify(now) !== JSON.stringify(r)) {
         drafts.current.delete(r.id);

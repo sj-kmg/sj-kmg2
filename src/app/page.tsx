@@ -19,6 +19,7 @@ import AnnualPlan from '@/components/AnnualPlan';
 import HealthCheckSheet from '@/components/HealthCheckSheet';
 import GasDetectorSheet from '@/components/GasDetectorSheet';
 import VehicleServiceSheet from '@/components/VehicleServiceSheet';
+import InventorySheet from '@/components/InventorySheet';
 import EquipmentCheck from '@/components/EquipmentCheck';
 import SearchResults from '@/components/SearchResults';
 
@@ -38,6 +39,7 @@ type ViewKey =
   | 'yncc-vehicle'
   | 'gas-meter'
   | 'vehicle-service'
+  | 'inventory'
   | 'equipment-check'
   | 'risk-assess'
   | 'people'
@@ -94,6 +96,7 @@ const MENU: MenuNode[] = [
       },
       { key: 'gas-meter', label: '산소&가스측정기' },
       { key: 'vehicle-service', label: '차량점검내역' },
+      { key: 'inventory', label: '통합재고관리' },
       { key: 'equipment-check', label: '장비점검' },
     ],
   },
@@ -460,6 +463,7 @@ export default function Page() {
             {view === 'health-special' && <HealthCheckSheet kind="special" />}
             {view === 'gas-meter' && <GasDetectorSheet />}
             {view === 'vehicle-service' && <VehicleServiceSheet />}
+            {view === 'inventory' && <InventorySheet />}
             {view === 'equipment-check' && <EquipmentCheck />}
             {(view === 'health-followup' || view === 'notice') && <ComingSoon label={viewLabel(view)} />}
             {view === 'data' && (

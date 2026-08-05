@@ -26,6 +26,7 @@ const TYPES = new Set([
   'detectors',
   'vehicle-service',
   'equipment',
+  'inventory',
 ]);
 
 /** 기록 종류별 컬렉션 — records/{type}/entries/{id} */
