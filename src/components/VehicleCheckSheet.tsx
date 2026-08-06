@@ -7,7 +7,6 @@ import { SyncError, uploadCert } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
 import {
-  CATEGORY_STYLE,
   VEHICLE_CATEGORIES,
   VEHICLE_CHECK_KEY,
   VEHICLE_CHECK_NOTICE_DAYS,
@@ -298,12 +297,11 @@ export default function VehicleCheckSheet() {
         </div>
 
         <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full text-xs" style={{ minWidth: `${640 + items.length * 132}px` }}>
+          <table className="w-full text-xs" style={{ minWidth: `${560 + items.length * 132}px` }}>
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-                <th className={`${TH} w-24`}>구분</th>
+                <th className={`${TH} sticky left-0 z-20 w-36 bg-slate-50 shadow-[2px_0_0_0_rgba(15,30,58,0.08)]`}>차량번호</th>
                 <th className={`${TH} w-56`}>장비명</th>
-                <th className={`${TH} w-32`}>차량번호</th>
                 {items.map((it) => (
                   <th
                     key={it.id}
@@ -316,7 +314,6 @@ export default function VehicleCheckSheet() {
                     </span>
                   </th>
                 ))}
-                <th className={`${TH} w-48`}>비고</th>
                 <th className={`${TH} w-32 text-center`}>명세서</th>
                 <th className="w-10 px-1 py-2" aria-label="행 삭제" />
               </tr>
@@ -324,30 +321,19 @@ export default function VehicleCheckSheet() {
             <tbody className="divide-y divide-slate-100">
               {shown.length === 0 && (
                 <tr>
-                  <td colSpan={items.length + 6} className="px-3 py-6 text-center text-slate-300">
+                  <td colSpan={items.length + 4} className="px-3 py-6 text-center text-slate-300">
                     아래 ＋ 버튼으로 차량을 추가해 주세요
                   </td>
                 </tr>
               )}
               {shown.map((r) => (
                 <tr key={r.id}>
-                  <td className="px-1 py-1.5">
-                    <select
-                      aria-label="구분"
-                      value={r.category}
-                      onChange={(e) => veh.setRow(r.id, { category: e.target.value as VehicleCategory })}
-                      className={`${CELL} font-semibold ${CATEGORY_STYLE[r.category]}`}
-                    >
-                      {VEHICLE_CATEGORIES.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
+                  {/* 옆으로 밀어도 어느 차량인지 보이도록 차량번호 칸을 고정한다 */}
+                  <td className="sticky left-0 z-10 bg-white px-1.5 py-1.5 shadow-[2px_0_0_0_rgba(15,30,58,0.08)]">
+                    <input aria-label="차량번호" placeholder="예: 12가 3456" value={r.plate} onChange={(e) => veh.setRow(r.id, { plate: e.target.value })} className={`${CELL} font-mono font-semibold`} />
                   </td>
                   <td className="px-1.5 py-1.5">
                     <input aria-label="장비명" placeholder="예: 봉고Ⅲ 1톤" value={r.name} onChange={(e) => veh.setRow(r.id, { name: e.target.value })} className={CELL} />
-                  </td>
-                  <td className="px-1.5 py-1.5">
-                    <input aria-label="차량번호" placeholder="예: 12가 3456" value={r.plate} onChange={(e) => veh.setRow(r.id, { plate: e.target.value })} className={`${CELL} font-mono`} />
                   </td>
                   {items.map((it) => {
                     const s = cellState(r, it);
@@ -372,9 +358,6 @@ export default function VehicleCheckSheet() {
                       </td>
                     );
                   })}
-                  <td className="px-1.5 py-1.5">
-                    <input aria-label="비고" placeholder="자유 기재" value={r.note} onChange={(e) => veh.setRow(r.id, { note: e.target.value })} className={CELL} />
-                  </td>
                   <td className="px-2 py-1.5">
                     <div className="flex items-center justify-center gap-1">
                       {r.certFile && (
