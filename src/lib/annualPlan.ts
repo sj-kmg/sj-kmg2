@@ -31,7 +31,7 @@ export const ANNUAL_PLAN_KEY = 'sj-annual-plan:v1';
 /** 시기 구분 표기 — 배지 색과 처리 기한 안내 */
 export const PERIOD_META: Record<PlanPeriod, { badge: string; hint: string }> = {
   년초: { badge: 'bg-sky-50 text-sky-700', hint: '1월 중' },
-  년2회: { badge: 'bg-orange-50 text-orange-700', hint: '1월·7월' },
+  년2회: { badge: 'bg-orange-50 text-orange-700', hint: '연 2회 (항목별 지정 월)' },
   연말: { badge: 'bg-red-50 text-red-700', hint: '12월 중' },
   '혹서기·혹한기': { badge: 'bg-amber-50 text-amber-700', hint: '6월·12월 최초교육' },
   월초: { badge: 'bg-emerald-50 text-emerald-900', hint: '매월 1~10일' },
@@ -49,8 +49,8 @@ export const ANNUAL_TASKS: AnnualTask[] = [
 
   // 년 2회 (1월, 7월)
   { id: 'h-emergency', period: '년2회', months: [1, 7], title: '비상시 계획 및 훈련' },
-  { id: 'h-supervisor-eval', period: '년2회', months: [1, 7], title: '관리감독자 평가' },
-  { id: 'h-compliance', period: '년2회', months: [1, 7], title: '법규 준수평가' },
+  { id: 'h-supervisor-eval', period: '년2회', months: [6, 12], title: '관리감독자 평가' },
+  { id: 'h-compliance', period: '년2회', months: [6, 12], title: '법규 준수평가' },
 
   // 연말
   { id: 'e-mgmt-review', period: '연말', months: [12], title: '경영자 검토 보고서' },
