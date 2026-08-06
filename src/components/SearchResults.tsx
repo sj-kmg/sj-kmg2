@@ -61,6 +61,12 @@ const MENU_INDEX: { label: string; path: string; view: string; keywords: string 
     keywords: '재고 기자재 자재 물품 수량 펌프 양수기 렌치 공구 소모품 보유',
   },
   {
+    label: '안전용품관리',
+    path: '공무관리 › 안전용품관리',
+    view: 'safety-stock',
+    keywords: '안전용품 재고 수량 공기호흡기 안전대 마스크 소화기 윈치 귀덮개 안전블록',
+  },
+  {
     label: '장비점검',
     path: '공무관리 › 장비점검',
     view: 'equipment-check',

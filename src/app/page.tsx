@@ -20,6 +20,7 @@ import HealthCheckSheet from '@/components/HealthCheckSheet';
 import GasDetectorSheet from '@/components/GasDetectorSheet';
 import VehicleCheckSheet from '@/components/VehicleCheckSheet';
 import InventorySheet from '@/components/InventorySheet';
+import SafetyStockSheet from '@/components/SafetyStockSheet';
 import EquipmentCheck from '@/components/EquipmentCheck';
 import SearchResults from '@/components/SearchResults';
 
@@ -40,6 +41,7 @@ type ViewKey =
   | 'gas-meter'
   | 'vehicle-service'
   | 'inventory'
+  | 'safety-stock'
   | 'equipment-check'
   | 'risk-assess'
   | 'people'
@@ -97,6 +99,7 @@ const MENU: MenuNode[] = [
       { key: 'gas-meter', label: '산소&가스측정기' },
       { key: 'vehicle-service', label: '차량점검내역' },
       { key: 'inventory', label: '통합재고관리' },
+      { key: 'safety-stock', label: '안전용품관리' },
       { key: 'equipment-check', label: '장비점검' },
     ],
   },
@@ -464,6 +467,7 @@ export default function Page() {
             {view === 'gas-meter' && <GasDetectorSheet />}
             {view === 'vehicle-service' && <VehicleCheckSheet />}
             {view === 'inventory' && <InventorySheet />}
+            {view === 'safety-stock' && <SafetyStockSheet />}
             {view === 'equipment-check' && <EquipmentCheck />}
             {(view === 'health-followup' || view === 'notice') && <ComingSoon label={viewLabel(view)} />}
             {view === 'data' && (

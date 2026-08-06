@@ -29,6 +29,8 @@ const TYPES = new Set([
   'vehicle-items',
   'equipment',
   'inventory',
+  'safety-items',
+  'safety-dates',
 ]);
 
 /** 기록 종류별 컬렉션 — records/{type}/entries/{id} */

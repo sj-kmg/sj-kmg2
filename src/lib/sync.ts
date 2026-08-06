@@ -23,7 +23,9 @@ export type LogType =
   | 'vehicle-check'
   | 'vehicle-items'
   | 'equipment'
-  | 'inventory';
+  | 'inventory'
+  | 'safety-items'
+  | 'safety-dates';
 
 const PASS_KEY = 'sj-sync-passcode';
 
