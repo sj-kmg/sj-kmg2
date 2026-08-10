@@ -84,7 +84,7 @@ export default function YnccVehicles() {
   const label = 'mb-1 block text-xs font-semibold text-slate-500';
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="w-full">
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-bold text-slate-700">🚚 YNCC 작업차량 등록 현황</h3>

@@ -97,7 +97,7 @@ export default function AnnualPlan() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="w-full">
       {/* 요약 */}
       <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center gap-3">

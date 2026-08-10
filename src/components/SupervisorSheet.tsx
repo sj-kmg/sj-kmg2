@@ -23,7 +23,7 @@ export default function SupervisorSheet() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="w-full">
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <EduWorkerSheet
           logType="supervisor"

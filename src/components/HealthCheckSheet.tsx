@@ -40,7 +40,7 @@ export default function HealthCheckSheet({ kind }: { kind: HealthCheck['kind'] }
     }`;
 
   return (
-    <div className="mx-auto max-w-[1400px]">
+    <div className="w-full">
       <div className="flex gap-1">
         {GROUPS.map((g) => (
           <button key={g} onClick={() => setTab(g)} className={tabBtn(tab === g)}>

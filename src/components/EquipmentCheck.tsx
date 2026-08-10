@@ -20,7 +20,7 @@ export default function EquipmentCheck() {
     }`;
 
   return (
-    <div className="mx-auto max-w-[1500px]">
+    <div className="w-full">
       <div className="flex flex-wrap gap-1">
         {EQUIP_TYPES.map((t) => (
           <button key={t} onClick={() => setTab(t)} className={tabBtn(tab === t)}>

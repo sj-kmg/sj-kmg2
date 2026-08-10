@@ -85,7 +85,7 @@ export default function SafetyStockSheet() {
   };
 
   return (
-    <div className="mx-auto max-w-[1100px]">
+    <div className="w-full">
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-bold text-slate-700">

@@ -25,7 +25,7 @@ export default function ChemicalAccess({ initialTab = '직원' }: { initialTab?:
     }`;
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="w-full">
       <div className="flex gap-1">
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)} className={tabBtn(tab === t.key)}>

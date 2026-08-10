@@ -57,7 +57,7 @@ export default function EducationRoster({ courseKey }: { courseKey: EduCourse['k
   };
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="w-full">
       {/* 요약 */}
       <div className="mb-4 grid grid-cols-3 gap-3">
         <SummaryTile label="이수 인원" value={`${rows.length}명`} tone="text-slate-800" />
