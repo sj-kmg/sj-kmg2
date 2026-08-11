@@ -402,12 +402,15 @@ export default function Page() {
               {clock}
             </span>
           )}
-          <button
-            onClick={() => go('data')}
-            className="ml-auto shrink-0 rounded-lg bg-[#1f3864] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a4a80] xl:ml-0"
-          >
-            💾 <span className="hidden lg:inline">데이터 관리</span>
-          </button>
+          {/* 데이터 관리는 관리자만 */}
+          {!isField && (
+            <button
+              onClick={() => go('data')}
+              className="ml-auto shrink-0 rounded-lg bg-[#1f3864] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a4a80] xl:ml-0"
+            >
+              💾 <span className="hidden lg:inline">데이터 관리</span>
+            </button>
+          )}
 
           {/* 전역 검색 — 상단 제일 오른쪽 */}
           <form onSubmit={submitSearch} className="relative hidden shrink-0 md:block">
