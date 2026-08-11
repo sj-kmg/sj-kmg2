@@ -47,6 +47,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" className={`${geistSans.variable} ${techMono.variable} h-full antialiased`}>
+      <head>
+        {/*
+          설치 안내(beforeinstallprompt)는 화면이 그려지기 전에 먼저 발생할 수 있어
+          React가 준비되기를 기다리면 놓친다. 여기서 먼저 잡아 두고 화면에서 꺼내 쓴다.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){window.__sjInstall=null;window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__sjInstall=e;window.dispatchEvent(new Event('sj-install-ready'));});})();`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         {children}
         <PwaSetup />
