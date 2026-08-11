@@ -106,15 +106,24 @@ export default function PwaSetup() {
   /** 인앱 브라우저 → 크롬(또는 기본 브라우저)으로 다시 열기 */
   const openInBrowser = () => {
     if (platform === 'android') {
-      // 카카오톡은 전용 방식이 더 확실하다
       if (inApp === '카카오톡') {
+        // 카카오톡 전용 방식이 가장 확실하다 (기본 브라우저로 열림)
         window.location.href = kakaoExternalUrl();
+        // 구버전 등으로 아무 일도 안 일어나면 크롬을 직접 실행한다.
+        // 화면이 그대로 보이고 있다는 건 전환이 안 됐다는 뜻.
         setTimeout(() => {
-          window.location.href = chromeIntentUrl();
-        }, 700);
+          if (!document.hidden) window.location.href = chromeIntentUrl();
+        }, 1500);
         return;
       }
       window.location.href = chromeIntentUrl();
+      // 크롬이 없는 기기 등으로 실패하면 주소 복사 안내로 넘어간다
+      setTimeout(() => {
+        if (!document.hidden) {
+          void copyUrl();
+          setGuideOpen(true);
+        }
+      }, 1500);
       return;
     }
     // 아이폰 인앱은 강제로 옮길 수 없다 — 주소를 복사해 사파리에서 열도록
