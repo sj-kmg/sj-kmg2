@@ -269,6 +269,11 @@ export default function Page() {
   useEffect(() => {
     setData(loadData());
     setReady(true);
+    // 앱 아이콘 바로가기(?view=tbm 등)로 열었을 때 해당 화면부터 보여 준다
+    const wanted = new URLSearchParams(window.location.search).get('view');
+    if (wanted && leaves(MENU).some((n) => n.key === wanted)) {
+      setView(wanted as ViewKey);
+    }
   }, []);
 
   // 드롭다운 밖 클릭 시 닫기

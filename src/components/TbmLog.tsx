@@ -25,7 +25,7 @@ function nowLocal(): string {
 const EMPTY = { datetime: '', site: '', place: '', work: '', attendees: '', leader: '', content: '' };
 
 export default function TbmLog({ data }: { data: SafetyData | null }) {
-  const { entries, mode, add, remove } = useSyncedLog<TbmEntry>('tbm', 'sj-tbm:v1');
+  const { entries, mode, pending, add, remove } = useSyncedLog<TbmEntry>('tbm', 'sj-tbm:v1');
   const [form, setForm] = useState({ ...EMPTY });
   const [filterSite, setFilterSite] = useState('');
   const [saved, setSaved] = useState(false);
@@ -92,8 +92,9 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
   };
 
   const badge = modeBadge(mode);
+  // 휴대폰에서 입력칸을 누를 때 화면이 확대되지 않도록 본문 글자를 16px로 둔다
   const input =
-    'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-[#1f3864] focus:outline-none';
+    'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base sm:text-sm text-slate-800 focus:border-[#1f3864] focus:outline-none';
   const label = 'mb-1 block text-xs font-semibold text-slate-500';
 
   return (
@@ -102,9 +103,16 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
       <form onSubmit={submit} className="xl:col-span-2 h-fit rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between gap-2">
           <h3 className="text-sm font-bold text-slate-700">TBM 일지 작성</h3>
-          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
+            {pending > 0 && (
+              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                미전송 {pending}건
+              </span>
+            )}
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label className={label} htmlFor="tbm-dt">일시 *</label>
             <input id="tbm-dt" type="datetime-local" required value={form.datetime} onChange={set('datetime')} className={input} />
@@ -126,7 +134,7 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
             <label className={label} htmlFor="tbm-att">참석인원</label>
             <input id="tbm-att" placeholder="예: 8명" value={form.attendees} onChange={set('attendees')} className={input} />
           </div>
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <label className={label} htmlFor="tbm-work">작업내용</label>
             <input id="tbm-work" placeholder="예: 촉매 교체 작업" value={form.work} onChange={set('work')} className={input} />
           </div>
@@ -134,7 +142,7 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
             <label className={label} htmlFor="tbm-leader">진행자</label>
             <input id="tbm-leader" placeholder="예: 김민규" value={form.leader} onChange={set('leader')} className={input} />
           </div>
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <label className={label} htmlFor="tbm-content">TBM 내용 (위험요인·안전대책 공유) *</label>
             <textarea
               id="tbm-content"
@@ -148,14 +156,17 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
           </div>
         </div>
         <div className="mt-3 flex items-center gap-3">
-          <button type="submit" className="rounded-lg bg-[#1f3864] px-4 py-2 text-sm font-medium text-white hover:bg-[#2a4a80]">
+          <button
+            type="submit"
+            className="w-full rounded-lg bg-[#1f3864] px-4 py-3 text-base font-bold text-white hover:bg-[#2a4a80] sm:w-auto sm:py-2 sm:text-sm sm:font-medium"
+          >
             일지 저장
           </button>
           {saved && <span className="text-sm font-medium text-green-600">저장되었습니다 ✓</span>}
         </div>
         <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
           {mode === 'server'
-            ? '기록은 서버에 저장되어 휴대폰·PC 어디서든 함께 보입니다.'
+            ? '기록은 서버에 저장되어 휴대폰·PC 어디서든 함께 보입니다. 현장에서 신호가 약해도 작성한 내용은 휴대폰에 보관됐다가 인터넷이 연결되면 자동으로 올라갑니다.'
             : '기록이 이 브라우저에만 저장됩니다. 기록 보존이 필요하면 주기적으로 [CSV 내보내기]로 백업하세요.'}
         </p>
       </form>

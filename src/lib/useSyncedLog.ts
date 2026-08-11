@@ -2,6 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  enqueue,
+  flushOutbox,
+  isRetriable,
+  onOutboxChange,
+  outboxCount,
+  pendingEntries,
+  pendingRemovals,
+} from './outbox';
+import {
   type LogType,
   SyncError,
   getPasscode,
@@ -69,6 +78,24 @@ function askPasscode(): boolean {
 export function useSyncedLog<T extends { id: string }>(type: LogType, localKey: string, opts?: Options<T>) {
   const [entries, setEntries] = useState<T[]>([]);
   const [mode, setMode] = useState<SyncMode>('loading');
+  /** 아직 서버로 못 보낸 기록 수 (신호 불량 등) */
+  const [pending, setPending] = useState(0);
+
+  useEffect(() => {
+    setPending(outboxCount());
+    return onOutboxChange(setPending);
+  }, []);
+
+  /** 서버 목록 + 아직 못 보낸 기록 (신호 불량 중에도 화면에서 사라지지 않게) */
+  const withPending = useCallback(
+    (list: T[]): T[] => {
+      const queued = pendingEntries<T>(type);
+      const removed = new Set(pendingRemovals(type));
+      const ids = new Set(queued.map((e) => e.id));
+      return [...queued, ...list.filter((e) => !ids.has(e.id))].filter((e) => !removed.has(e.id));
+    },
+    [type],
+  );
 
   const load = useCallback(async () => {
     const tryServer = async (): Promise<T[]> => listEntries<T>(type);
@@ -89,7 +116,7 @@ export function useSyncedLog<T extends { id: string }>(type: LogType, localKey: 
     }
 
     if (serverList === null) {
-      setEntries(loadLocal<T>(localKey));
+      setEntries(withPending(loadLocal<T>(localKey)));
       setMode('local');
       return;
     }
@@ -97,9 +124,9 @@ export function useSyncedLog<T extends { id: string }>(type: LogType, localKey: 
     // 로컬에 남은 기록을 서버로 이관
     const local = loadLocal<T>(localKey);
     const serverIds = new Set(serverList.map((e) => e.id));
-    const pending = local.filter((e) => !serverIds.has(e.id));
+    const toMigrate = local.filter((e) => !serverIds.has(e.id));
     let migrated = 0;
-    for (const raw of pending) {
+    for (const raw of toMigrate) {
       try {
         const entry = opts?.migrateExtra ? await opts.migrateExtra(raw) : raw;
         await saveEntryRemote(type, entry);
@@ -109,16 +136,16 @@ export function useSyncedLog<T extends { id: string }>(type: LogType, localKey: 
         // 이관 실패 항목은 로컬에 남긴다
       }
     }
-    if (local.length > 0 && migrated === pending.length) {
+    if (local.length > 0 && migrated === toMigrate.length) {
       try {
         localStorage.removeItem(localKey);
       } catch {
         // ignore
       }
     }
-    setEntries(serverList);
+    setEntries(withPending(serverList));
     setMode('server');
-  }, [type, localKey, opts]);
+  }, [type, localKey, opts, withPending]);
 
   // StrictMode 이중 마운트 시 load()가 동시에 두 번 돌면
   // 이관 직후 빈 로컬을 읽은 두 번째 실행이 목록을 덮어쓸 수 있어 1회로 제한한다
@@ -136,16 +163,23 @@ export function useSyncedLog<T extends { id: string }>(type: LogType, localKey: 
         try {
           await saveEntryRemote(type, entry);
         } catch (e) {
+          let err = e;
           if (e instanceof SyncError && e.status === 401 && askPasscode()) {
             try {
               await saveEntryRemote(type, entry);
+              err = null;
             } catch (e2) {
-              alert(saveFailMessage(e2));
+              err = e2;
+            }
+          }
+          if (err) {
+            // 네트워크 문제면 잃지 않도록 미전송함에 넣고 나중에 자동 전송한다
+            if (isRetriable(err)) {
+              enqueue({ type, action: 'save', id: entry.id, entry });
+            } else {
+              alert(saveFailMessage(err));
               return false;
             }
-          } else {
-            alert(saveFailMessage(e));
-            return false;
           }
         }
         // 같은 id 재저장(수정)은 기존 항목을 대체한다
@@ -167,9 +201,13 @@ export function useSyncedLog<T extends { id: string }>(type: LogType, localKey: 
       if (mode === 'server') {
         try {
           await removeEntryRemote(type, id);
-        } catch {
-          alert('서버에서 삭제하지 못했습니다. 네트워크를 확인해 주세요.');
-          return;
+        } catch (e) {
+          if (isRetriable(e)) {
+            enqueue({ type, action: 'remove', id });
+          } else {
+            alert('서버에서 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+            return;
+          }
         }
         setEntries((list) => list.filter((e) => e.id !== id));
         return;
@@ -183,7 +221,7 @@ export function useSyncedLog<T extends { id: string }>(type: LogType, localKey: 
     [mode, type, localKey],
   );
 
-  return { entries, mode, add, remove, reload: load };
+  return { entries, mode, pending, add, remove, reload: load, flush: flushOutbox };
 }
 
 /** 저장 모드 안내 배지 */
