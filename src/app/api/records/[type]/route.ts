@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { FIELD_TYPES, checkAuth, type Role } from '@/lib/auth';
 import { db, firebaseReady } from '@/lib/firebaseAdmin';
 import { deleteFiles } from '@/lib/fileStore';
 
@@ -38,18 +39,23 @@ function entriesOf(type: string) {
   return db().collection('records').doc(type).collection('entries');
 }
 
-function gate(req: Request): NextResponse | null {
+/** 통과하면 역할, 막히면 응답을 돌려준다 */
+function gate(req: Request, type: string): { role: Role } | { denied: NextResponse } {
   if (!firebaseReady()) {
-    return NextResponse.json({ error: 'storage_not_configured' }, { status: 503 });
+    return { denied: NextResponse.json({ error: 'storage_not_configured' }, { status: 503 }) };
   }
-  const pass = process.env.SJ_PASSCODE;
-  if (!pass) {
-    return NextResponse.json({ error: 'passcode_not_configured' }, { status: 503 });
+  const { role, notConfigured } = checkAuth(req);
+  if (notConfigured) {
+    return { denied: NextResponse.json({ error: 'passcode_not_configured' }, { status: 503 }) };
   }
-  if (req.headers.get('x-passcode') !== pass) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  if (!role) {
+    return { denied: NextResponse.json({ error: 'unauthorized' }, { status: 401 }) };
   }
-  return null;
+  // 현장 계정은 TBM일지·아차사고 외에는 열람조차 할 수 없다
+  if (role === 'field' && !FIELD_TYPES.has(type)) {
+    return { denied: NextResponse.json({ error: 'forbidden' }, { status: 403 }) };
+  }
+  return { role };
 }
 
 function badType(): NextResponse {
@@ -65,8 +71,8 @@ function unavailable(e: unknown): NextResponse {
 export async function GET(req: Request, ctx: { params: Promise<{ type: string }> }) {
   const { type } = await ctx.params;
   if (!TYPES.has(type)) return badType();
-  const denied = gate(req);
-  if (denied) return denied;
+  const auth = gate(req, type);
+  if ('denied' in auth) return auth.denied;
 
   try {
     const snap = await entriesOf(type).get();
@@ -79,8 +85,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ type: string }>
 export async function POST(req: Request, ctx: { params: Promise<{ type: string }> }) {
   const { type } = await ctx.params;
   if (!TYPES.has(type)) return badType();
-  const denied = gate(req);
-  if (denied) return denied;
+  const auth = gate(req, type);
+  if ('denied' in auth) return auth.denied;
 
   let entry: Record<string, unknown>;
   try {
@@ -96,7 +102,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ type: string }
     return NextResponse.json({ error: 'too_large' }, { status: 413 });
   }
   try {
-    await entriesOf(type).doc(id).set(entry);
+    const ref = entriesOf(type).doc(id);
+    // 현장 계정은 새로 쓰기만 할 수 있다 — 이미 있는 기록은 건드리지 않는다.
+    // (이미 저장된 건을 다시 보내면 조용히 넘어가므로 재전송에도 안전하다)
+    if (auth.role === 'field' && (await ref.get()).exists) {
+      return NextResponse.json({ ok: true, skipped: 'exists' });
+    }
+    await ref.set(entry);
   } catch (e) {
     return unavailable(e);
   }
@@ -106,8 +118,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ type: string }
 export async function DELETE(req: Request, ctx: { params: Promise<{ type: string }> }) {
   const { type } = await ctx.params;
   if (!TYPES.has(type)) return badType();
-  const denied = gate(req);
-  if (denied) return denied;
+  const auth = gate(req, type);
+  if ('denied' in auth) return auth.denied;
+  // 삭제는 관리자만
+  if (auth.role !== 'admin') {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
 
   const id = new URL(req.url).searchParams.get('id') ?? '';
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) {

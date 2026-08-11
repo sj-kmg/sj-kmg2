@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { SafetyData } from '@/lib/types';
+import { useRole } from '@/lib/useRole';
 import { useSyncedLog, modeBadge } from '@/lib/useSyncedLog';
 
 interface TbmEntry {
@@ -26,6 +27,9 @@ const EMPTY = { datetime: '', site: '', place: '', work: '', attendees: '', lead
 
 export default function TbmLog({ data }: { data: SafetyData | null }) {
   const { entries, mode, pending, add, remove } = useSyncedLog<TbmEntry>('tbm', 'sj-tbm:v1');
+  const { role } = useRole();
+  /** 삭제는 관리자만 — 현장 계정에는 버튼을 보여 주지 않는다 */
+  const canDelete = role !== 'field';
   const [form, setForm] = useState({ ...EMPTY });
   const [filterSite, setFilterSite] = useState('');
   const [saved, setSaved] = useState(false);
@@ -210,9 +214,11 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
                 {e.place && <span className="text-xs text-slate-500">📍 {e.place}</span>}
                 {e.attendees && <span className="text-xs text-slate-500">👷 {e.attendees}</span>}
                 {e.leader && <span className="text-xs text-slate-500">진행 {e.leader}</span>}
-                <button onClick={() => removeEntry(e.id)} className="ml-auto text-xs text-slate-300 hover:text-red-500">
-                  삭제
-                </button>
+                {canDelete && (
+                  <button onClick={() => removeEntry(e.id)} className="ml-auto text-xs text-slate-300 hover:text-red-500">
+                    삭제
+                  </button>
+                )}
               </div>
               {e.work && <p className="mt-2 text-sm font-semibold text-slate-800">{e.work}</p>}
               <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-slate-600">{e.content}</p>

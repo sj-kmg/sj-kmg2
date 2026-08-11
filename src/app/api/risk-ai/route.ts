@@ -55,6 +55,7 @@ export async function POST(req: Request) {
   if (!USE_GEMINI) {
     return NextResponse.json({ error: 'ai_not_configured' }, { status: 503 });
   }
+  // 위험성평가 AI는 관리자 전용
   const pass = process.env.SJ_PASSCODE;
   if (!pass) {
     return NextResponse.json({ error: 'passcode_not_configured' }, { status: 503 });

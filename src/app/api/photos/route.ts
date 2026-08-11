@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { checkAuth } from '@/lib/auth';
 import { firebaseReady } from '@/lib/firebaseAdmin';
 import { saveFile } from '@/lib/fileStore';
 
@@ -7,11 +8,12 @@ export async function POST(req: Request) {
   if (!firebaseReady()) {
     return NextResponse.json({ error: 'storage_not_configured' }, { status: 503 });
   }
-  const pass = process.env.SJ_PASSCODE;
-  if (!pass) {
+  // 사진·서류 업로드는 현장 계정도 할 수 있다 (아차사고 사진 등)
+  const { role, notConfigured } = checkAuth(req);
+  if (notConfigured) {
     return NextResponse.json({ error: 'passcode_not_configured' }, { status: 503 });
   }
-  if (req.headers.get('x-passcode') !== pass) {
+  if (!role) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 

@@ -23,6 +23,7 @@ import InventorySheet from '@/components/InventorySheet';
 import SafetyStockSheet from '@/components/SafetyStockSheet';
 import EquipmentCheck from '@/components/EquipmentCheck';
 import SearchResults from '@/components/SearchResults';
+import { FIELD_VIEWS, useRole } from '@/lib/useRole';
 
 type ViewKey =
   | 'main'
@@ -107,6 +108,20 @@ const MENU: MenuNode[] = [
   { key: 'people', label: '작업인원관리', icon: '👷' },
   { key: 'notice', label: '공지사항', icon: '📢', wip: true },
 ];
+
+/** 현장 계정용 메뉴 — TBM일지·아차사고만 남긴다 */
+function fieldMenu(nodes: MenuNode[]): MenuNode[] {
+  const out: MenuNode[] = [];
+  for (const n of nodes) {
+    if (n.children) {
+      const kids = fieldMenu(n.children);
+      if (kids.length) out.push({ ...n, children: kids });
+    } else if (n.key && FIELD_VIEWS.includes(n.key)) {
+      out.push(n);
+    }
+  }
+  return out;
+}
 
 /** 노드(트리)에 해당 뷰가 포함되는가 */
 function hasView(node: MenuNode, view: ViewKey): boolean {
@@ -259,6 +274,9 @@ function MobileChip({ node, view, go }: { node: MenuNode; view: ViewKey; go: (k:
 export default function Page() {
   const [data, setData] = useState<SafetyData | null>(null);
   const [view, setView] = useState<ViewKey>('main');
+  const { role } = useRole();
+  /** 현장 계정이면 쓸 수 있는 화면만 보여 준다 */
+  const isField = role === 'field';
   const [ready, setReady] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [clock, setClock] = useState('');
@@ -275,6 +293,11 @@ export default function Page() {
       setView(wanted as ViewKey);
     }
   }, []);
+
+  // 현장 계정이 쓸 수 없는 화면에 있으면 TBM일지로 돌려보낸다
+  useEffect(() => {
+    if (isField && !FIELD_VIEWS.includes(view)) setView('tbm');
+  }, [isField, view]);
 
   // 드롭다운 밖 클릭 시 닫기
   useEffect(() => {
@@ -306,11 +329,13 @@ export default function Page() {
   const hasLedgers =
     !!data && data.edu.length + data.insp.length + data.incidents.length + data.schedule.length > 0;
   // 관리대장은 데이터가 있을 때만 안전관리 하위에 노출
-  const menu: MenuNode[] = MENU.map((m) =>
+  const fullMenu: MenuNode[] = MENU.map((m) =>
     m.label === '안전관리' && hasLedgers
       ? { ...m, children: [...(m.children ?? []), { key: 'ledgers' as ViewKey, label: '관리대장' }] }
       : m,
   );
+  // 현장 계정은 TBM일지·아차사고만
+  const menu: MenuNode[] = isField ? fieldMenu(fullMenu) : fullMenu;
 
   const go = (key: ViewKey) => {
     setView(key);

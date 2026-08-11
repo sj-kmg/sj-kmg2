@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { putPhoto, getPhoto, deletePhoto, fileToResizedDataUrl } from '@/lib/photos';
 import { uploadPhoto } from '@/lib/sync';
+import { useRole } from '@/lib/useRole';
 import { useSyncedLog, modeBadge } from '@/lib/useSyncedLog';
 
 interface NearMissEntry {
@@ -47,6 +48,9 @@ export default function NearMissReport() {
     [],
   );
 
+  const { role } = useRole();
+  /** 삭제는 관리자만 — 현장 계정에는 버튼을 보여 주지 않는다 */
+  const canDelete = role !== 'field';
   const { entries, mode, add, remove } = useSyncedLog<NearMissEntry>('nearmiss', 'sj-nearmiss:v1', {
     migrateExtra,
   });
@@ -312,9 +316,11 @@ export default function NearMissReport() {
                 <span className="font-mono text-xs text-slate-500">{e.datetime.replace('T', ' ')}</span>
                 <span className="text-xs text-slate-500">📍 {e.place}</span>
                 {e.finder && <span className="text-xs text-slate-500">발견 {e.finder}</span>}
-                <button onClick={() => void removeEntry(e.id)} className="ml-auto text-xs text-slate-300 hover:text-red-500">
-                  삭제
-                </button>
+                {canDelete && (
+                  <button onClick={() => void removeEntry(e.id)} className="ml-auto text-xs text-slate-300 hover:text-red-500">
+                    삭제
+                  </button>
+                )}
               </div>
               <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-800">{e.content}</p>
               {e.action && (

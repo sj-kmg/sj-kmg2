@@ -16,9 +16,16 @@ env:
     availability:
       - RUNTIME
 
-  # 기록 동기화 암호 — 이 값을 아는 기기만 서버 기록을 읽고 쓸 수 있다. (등록 완료)
+  # 관리자 암호 — 모든 기능. 기록 수정·삭제 가능
   - variable: SJ_PASSCODE
     secret: sj-passcode
+    availability:
+      - RUNTIME
+
+  # 현장 암호 — TBM일지·아차사고 작성만 가능 (삭제·수정 불가, 다른 메뉴 접근 불가)
+  #   변경: firebase apphosting:secrets:set sj-field-passcode
+  - variable: SJ_FIELD_PASSCODE
+    secret: sj-field-passcode
     availability:
       - RUNTIME
 
