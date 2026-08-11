@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { chromeIntentUrl, detectEnv, kakaoExternalUrl, type Platform } from '@/lib/install';
 import { flushOutbox, onOutboxChange, outboxCount, startOutboxWatcher } from '@/lib/outbox';
 
-/** beforeinstallprompt — 안드로이드 크롬 계열에서만 제공된다 */
+/** beforeinstallprompt — 크롬·삼성인터넷 계열에서 제공된다 */
 interface InstallEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
@@ -15,65 +16,41 @@ declare global {
   }
 }
 
-type Browser = 'ios' | 'samsung' | 'android' | 'desktop';
-
-/** 브라우저별 설치 방법 — 자동 설치가 안 되는 경우 직접 안내한다 */
-const GUIDE: Record<Browser, { title: string; steps: string[] }> = {
-  ios: {
-    title: '아이폰 (Safari)',
-    steps: ['화면 아래 공유 버튼 ⎙ 을 누릅니다', '목록을 내려 [홈 화면에 추가]를 누릅니다', '오른쪽 위 [추가]를 누르면 끝'],
-  },
-  samsung: {
-    title: '갤럭시 (삼성 인터넷)',
-    steps: [
-      '화면 아래 메뉴 ☰ 를 누릅니다',
-      '[현재 페이지 추가] 를 누릅니다',
-      '[홈 화면] 을 고르고 [추가]를 누르면 끝',
-    ],
-  },
-  android: {
-    title: '안드로이드 (크롬)',
-    steps: ['오른쪽 위 메뉴 ⋮ 를 누릅니다', '[앱 설치] 또는 [홈 화면에 추가]를 누릅니다', '[설치]를 누르면 끝'],
-  },
-  desktop: {
-    title: 'PC (크롬·엣지)',
-    steps: ['주소창 오른쪽 끝의 설치 아이콘 ⊕ 을 누릅니다', '[설치]를 누르면 끝'],
-  },
+/** 자동 설치가 안 되는 브라우저용 최후 안내 */
+const GUIDE: Record<Platform, string[]> = {
+  ios: ['화면 아래 공유 버튼 ⎙ 을 누릅니다', '목록을 내려 [홈 화면에 추가]를 누릅니다', '오른쪽 위 [추가]를 누르면 끝'],
+  android: ['오른쪽 위 메뉴 ⋮ 를 누릅니다', '[앱 설치] 또는 [홈 화면에 추가]를 누릅니다', '[설치]를 누르면 끝'],
+  desktop: ['주소창 오른쪽 끝의 설치 아이콘 ⊕ 을 누릅니다', '[설치]를 누르면 끝'],
 };
-
-function detectBrowser(): Browser {
-  const ua = navigator.userAgent;
-  if (/iPad|iPhone|iPod/.test(ua)) return 'ios';
-  if (/SamsungBrowser/.test(ua)) return 'samsung';
-  if (/Android/.test(ua)) return 'android';
-  return 'desktop';
-}
 
 /**
  * 앱 설치·오프라인 준비.
- *  - 서비스워커를 등록해 신호가 없어도 앱이 열리게 한다
- *  - 인터넷이 돌아오면 미전송 기록을 자동으로 보낸다
- *  - 설치 전이면 [앱 설치] 버튼을 항상 띄운다 (자동 설치가 안 되는 기기는 방법을 안내)
+ *
+ * 설치 버튼은 상황에 따라 하는 일이 달라진다.
+ *  - 크롬·삼성인터넷 : 누르면 바로 설치창 (한 번에 설치)
+ *  - 카카오톡 등 인앱 : 설치가 불가능하므로 크롬으로 다시 열어 준다
+ *  - 아이폰 사파리    : 공유 → 홈 화면에 추가 안내 (애플 정책상 자동 설치 불가)
  */
 export default function PwaSetup() {
   const [canPrompt, setCanPrompt] = useState(false);
-  const [browser, setBrowser] = useState<Browser>('desktop');
+  const [platform, setPlatform] = useState<Platform>('desktop');
+  const [inApp, setInApp] = useState<string | null>(null);
   const [standalone, setStandalone] = useState(true);
   const [pending, setPending] = useState(0);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [hidden, setHidden] = useState(true);
 
   useEffect(() => {
-    const installed =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as { standalone?: boolean }).standalone === true;
-    setStandalone(installed);
-    setBrowser(detectBrowser());
+    const env = detectEnv();
+    setPlatform(env.platform);
+    setInApp(env.inApp);
+    setStandalone(env.standalone);
     setCanPrompt(!!window.__sjInstall);
     try {
-      setHidden(installed || localStorage.getItem('sj-install-hint') === 'off');
+      setHidden(env.standalone || localStorage.getItem('sj-install-hint') === 'off');
     } catch {
-      setHidden(installed);
+      setHidden(env.standalone);
     }
 
     // 화면이 뜨기 전에 잡아 둔 설치 안내가 뒤늦게 도착할 수도 있다
@@ -116,29 +93,70 @@ export default function PwaSetup() {
     }
   };
 
-  /** 자동 설치가 가능하면 바로 띄우고, 아니면 방법을 안내한다 */
-  const install = async () => {
-    const evt = window.__sjInstall;
-    if (!evt) {
-      setGuideOpen(true);
-      return;
-    }
+  const copyUrl = async () => {
     try {
-      await evt.prompt();
-      const { outcome } = await evt.userChoice;
-      window.__sjInstall = null;
-      setCanPrompt(false);
-      if (outcome === 'accepted') setHidden(true);
-      else setGuideOpen(true); // 취소했으면 수동 방법이라도 알려 준다
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch {
-      setGuideOpen(true);
+      setCopied(false);
     }
   };
 
-  const showInstall = !hidden && !standalone;
-  const guide = GUIDE[browser];
+  /** 인앱 브라우저 → 크롬(또는 기본 브라우저)으로 다시 열기 */
+  const openInBrowser = () => {
+    if (platform === 'android') {
+      // 카카오톡은 전용 방식이 더 확실하다
+      if (inApp === '카카오톡') {
+        window.location.href = kakaoExternalUrl();
+        setTimeout(() => {
+          window.location.href = chromeIntentUrl();
+        }, 700);
+        return;
+      }
+      window.location.href = chromeIntentUrl();
+      return;
+    }
+    // 아이폰 인앱은 강제로 옮길 수 없다 — 주소를 복사해 사파리에서 열도록
+    void copyUrl();
+    setGuideOpen(true);
+  };
 
+  /** 설치 버튼 — 상황에 맞는 동작 하나만 한다 */
+  const onInstallClick = () => {
+    if (inApp) {
+      openInBrowser();
+      return;
+    }
+    const evt = window.__sjInstall;
+    if (evt) {
+      void (async () => {
+        try {
+          await evt.prompt();
+          const { outcome } = await evt.userChoice;
+          window.__sjInstall = null;
+          setCanPrompt(false);
+          if (outcome === 'accepted') setHidden(true);
+        } catch {
+          setGuideOpen(true);
+        }
+      })();
+      return;
+    }
+    setGuideOpen(true);
+  };
+
+  const showInstall = !hidden && !standalone;
   if (pending === 0 && !showInstall && !guideOpen) return null;
+
+  /** 버튼 문구 — 지금 누르면 무슨 일이 일어나는지 그대로 쓴다 */
+  const label = inApp
+    ? platform === 'android'
+      ? '크롬으로 열기'
+      : 'Safari로 열기'
+    : canPrompt
+      ? '설치'
+      : '설치 방법';
 
   return (
     <>
@@ -162,19 +180,26 @@ export default function PwaSetup() {
           </div>
         )}
 
-        {/* 앱 설치 — 기기·브라우저와 무관하게 항상 보인다 */}
         {showInstall && (
           <div className="flex w-full max-w-md items-center gap-2 rounded-xl border border-cyan-300 bg-white px-3 py-2 shadow-lg">
             <span aria-hidden className="text-base">📱</span>
             <p className="min-w-0 flex-1 text-xs text-slate-600">
-              <b className="text-slate-800">휴대폰에 앱으로 설치</b>
-              <span className="block">홈 화면 아이콘으로 바로 열 수 있습니다.</span>
+              <b className="text-slate-800">
+                {inApp ? `${inApp}에서는 설치할 수 없습니다` : '휴대폰에 앱으로 설치'}
+              </b>
+              <span className="block">
+                {inApp
+                  ? platform === 'android'
+                    ? '크롬으로 열면 바로 설치할 수 있습니다.'
+                    : 'Safari로 열면 설치할 수 있습니다.'
+                  : '홈 화면 아이콘으로 바로 열 수 있습니다.'}
+              </span>
             </p>
             <button
-              onClick={() => void install()}
-              className="shrink-0 rounded-lg bg-[#1f3864] px-3 py-1.5 text-xs font-bold text-white"
+              onClick={onInstallClick}
+              className="shrink-0 rounded-lg bg-[#1f3864] px-3 py-1.5 text-xs font-bold whitespace-nowrap text-white"
             >
-              {canPrompt ? '설치' : '설치 방법'}
+              {label}
             </button>
             <button onClick={dismiss} aria-label="안내 닫기" className="shrink-0 px-1 text-slate-400">
               ✕
@@ -183,34 +208,56 @@ export default function PwaSetup() {
         )}
       </div>
 
-      {/* 설치 방법 안내 */}
+      {/* 최후 안내 — 자동 설치가 막힌 경우 */}
       {guideOpen && (
         <div
           className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-3 sm:items-center"
           onClick={() => setGuideOpen(false)}
         >
-          <div
-            className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-sm font-bold text-slate-800">앱 설치 방법 — {guide.title}</h3>
-            <ol className="mt-3 space-y-2">
-              {guide.steps.map((s, i) => (
-                <li key={i} className="flex gap-2 text-sm text-slate-700">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#1f3864] text-[11px] font-bold text-white">
-                    {i + 1}
-                  </span>
-                  <span className="min-w-0 flex-1">{s}</span>
-                </li>
-              ))}
-            </ol>
-            <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
-              설치하면 주소를 매번 입력할 필요 없이 홈 화면 아이콘으로 바로 열립니다. 다른 브라우저를 쓰고 있다면
-              메뉴에서 [홈 화면에 추가]를 찾으면 됩니다.
-            </p>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-bold text-slate-800">
+              {inApp ? `${inApp}에서는 설치가 안 됩니다` : '앱 설치 방법'}
+            </h3>
+
+            {inApp ? (
+              <>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                  주소를 복사해 뒀습니다. <b>{platform === 'ios' ? 'Safari' : '크롬'}</b>을 열고 주소창에 붙여넣은 뒤,
+                  아래 방법으로 설치해 주세요.
+                </p>
+                <ol className="mt-3 space-y-2">
+                  {GUIDE[platform].map((s, i) => (
+                    <li key={i} className="flex gap-2 text-sm text-slate-700">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#1f3864] text-[11px] font-bold text-white">
+                        {i + 1}
+                      </span>
+                      <span className="min-w-0 flex-1">{s}</span>
+                    </li>
+                  ))}
+                </ol>
+              </>
+            ) : (
+              <ol className="mt-3 space-y-2">
+                {GUIDE[platform].map((s, i) => (
+                  <li key={i} className="flex gap-2 text-sm text-slate-700">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#1f3864] text-[11px] font-bold text-white">
+                      {i + 1}
+                    </span>
+                    <span className="min-w-0 flex-1">{s}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+
+            <button
+              onClick={() => void copyUrl()}
+              className="mt-3 w-full rounded-lg border border-slate-300 py-2 text-xs font-bold text-slate-600"
+            >
+              {copied ? '주소가 복사되었습니다 ✓' : '주소 복사'}
+            </button>
             <button
               onClick={() => setGuideOpen(false)}
-              className="mt-3 w-full rounded-lg bg-[#1f3864] py-2.5 text-sm font-bold text-white"
+              className="mt-2 w-full rounded-lg bg-[#1f3864] py-2.5 text-sm font-bold text-white"
             >
               확인
             </button>
