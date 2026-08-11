@@ -472,7 +472,9 @@ export default function Page() {
               {data.fileName} · {new Date(data.loadedAt).toLocaleString('ko-KR')} 불러옴
             </span>
           ) : (
-            ready && (
+            // 현장 계정은 데이터 관리를 쓰지 않으므로 안내하지 않는다
+            ready &&
+            !isField && (
               <span className="text-xs text-orange-500">데이터 미연결 — [데이터 관리]에서 파일을 불러와 주세요</span>
             )
           )}
