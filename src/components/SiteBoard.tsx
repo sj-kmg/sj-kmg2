@@ -59,11 +59,13 @@ export default function SiteBoard({
           </button>
         </div>
         <span className="font-mono text-[11px] text-slate-400">{date}</span>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-1.5">
           <Chip tone="site">현장 {day.sites.length}</Chip>
           <Chip tone="head">인원 {day.headcount}</Chip>
+          <Chip tone="staff">직원 {day.staff}</Chip>
+          <Chip tone="labor">인력 {day.labor}</Chip>
           {onOpenWorkforce && (
-            <button onClick={onOpenWorkforce} className="text-[11px] font-semibold text-blue-700 hover:underline">
+            <button onClick={onOpenWorkforce} className="ml-1 text-[11px] font-semibold text-blue-700 hover:underline">
               기록 관리 →
             </button>
           )}
@@ -124,6 +126,11 @@ function SiteCard({
   const laborN = laborCountOf(e);
   const total = staff.length + laborN;
   const color = siteColor(e.site);
+  /** 장비현황은 자유 입력이라 쉼표로 나눠 항목별로 보여 준다 */
+  const equipment = (e.equipment ?? '')
+    .split(/[,·/]/)
+    .map((q) => q.trim())
+    .filter(Boolean);
 
   /** 인력 구분별 인원 */
   const byCategory = labor.reduce<Record<string, number>>((acc, r) => {
@@ -247,21 +254,35 @@ function SiteCard({
           </div>
         )}
 
-        {/* 장비 */}
-        {e.equipment && (
-          <p className="mt-2 border-t border-slate-100 pt-1.5 text-[11px] text-slate-400">
-            <span className="font-semibold">장비</span> {e.equipment}
-          </p>
-        )}
+        {/* 장비 — 현장별 투입 장비를 인원과 같은 비중으로 보여 준다 */}
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2">
+          <span className="text-[10px] font-semibold text-slate-400">장비</span>
+          {equipment.length > 0 ? (
+            equipment.map((q, i) => (
+              <span
+                key={`${q}-${i}`}
+                className="flex items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600"
+              >
+                <span aria-hidden>🚜</span>
+                {q}
+              </span>
+            ))
+          ) : (
+            <span className="text-[11px] text-slate-400">투입 장비 없음</span>
+          )}
+        </div>
       </div>
     </li>
   );
 }
 
-function Chip({ tone, children }: { tone: 'site' | 'head'; children: React.ReactNode }) {
-  const cls =
-    tone === 'site'
-      ? 'bg-blue-500/15 text-blue-700'
-      : 'bg-cyan-500/15 text-cyan-700';
-  return <span className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${cls}`}>{children}</span>;
+const CHIP_TONE = {
+  site: 'bg-blue-500/15 text-blue-700',
+  head: 'bg-cyan-500/15 text-cyan-700',
+  staff: 'bg-slate-100 text-slate-600',
+  labor: 'bg-violet-500/15 text-violet-700',
+} as const;
+
+function Chip({ tone, children }: { tone: keyof typeof CHIP_TONE; children: React.ReactNode }) {
+  return <span className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${CHIP_TONE[tone]}`}>{children}</span>;
 }

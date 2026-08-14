@@ -45,22 +45,6 @@ export default function OpsCalendar({
   const dstr = (d: number) => `${ym.y}-${pad2(ym.m + 1)}-${pad2(d)}`;
   const todayStr = ymd(now);
 
-  /** 이번 달 집계 — 가동일수 · 연인원 · 현장 수 */
-  const summary = useMemo(() => {
-    let activeDays = 0;
-    let headcount = 0;
-    const sites = new Set<string>();
-    for (let d = 1; d <= daysInMonth; d += 1) {
-      const day = ops.byDate.get(dstr(d));
-      if (!day || day.entries.length === 0) continue;
-      activeDays += 1;
-      headcount += day.headcount;
-      day.sites.forEach((s) => sites.add(s));
-    }
-    return { activeDays, headcount, siteCount: sites.size };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ops.byDate, ym.y, ym.m, daysInMonth]);
-
   const move = (delta: number) => {
     const d = new Date(ym.y, ym.m + delta, 1);
     setYm({ y: d.getFullYear(), m: d.getMonth() });
@@ -90,13 +74,6 @@ export default function OpsCalendar({
         >
           오늘
         </button>
-      </div>
-
-      {/* 월 집계 */}
-      <div className="mb-2 grid grid-cols-3 gap-1.5">
-        <MiniStat label="가동일" value={summary.activeDays} unit="일" />
-        <MiniStat label="현장" value={summary.siteCount} unit="곳" />
-        <MiniStat label="연인원" value={summary.headcount} unit="명" />
       </div>
 
       {/* 날짜 격자 */}
@@ -136,14 +113,14 @@ export default function OpsCalendar({
             >
               <span className="flex items-center gap-0.5">
                 <span
-                  className={`font-mono text-[11px] leading-none ${
+                  className={`font-mono leading-none ${
                     isToday
-                      ? 'rounded bg-white px-1 py-0.5 font-bold text-[#0a0f1e]'
+                      ? 'flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold text-white shadow-[0_0_12px_rgba(34,211,238,0.85)] [background:linear-gradient(135deg,#22d3ee,#4b7bff)]'
                       : dow === 0
-                        ? 'text-red-400'
+                        ? 'text-[11px] text-red-400'
                         : dow === 6
-                          ? 'text-sky-400'
-                          : 'text-slate-600'
+                          ? 'text-[11px] text-sky-400'
+                          : 'text-[11px] text-slate-600'
                   }`}
                 >
                   {d}
@@ -174,6 +151,13 @@ export default function OpsCalendar({
 
       <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-slate-100 pt-2 text-[10px] text-slate-400">
         <span className="flex items-center gap-1">
+          <span
+            aria-hidden
+            className="h-3 w-3 rounded-full [background:linear-gradient(135deg,#22d3ee,#4b7bff)]"
+          />
+          오늘
+        </span>
+        <span className="flex items-center gap-1">
           <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />색점 = 현장
         </span>
         <span className="flex items-center gap-1">
@@ -182,18 +166,6 @@ export default function OpsCalendar({
         <span className="flex items-center gap-1">
           <span className="h-1 w-1 rounded-full bg-amber-400" />일정
         </span>
-      </p>
-    </div>
-  );
-}
-
-function MiniStat({ label, value, unit }: { label: string; value: number; unit: string }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-center">
-      <p className="text-[10px] text-slate-400">{label}</p>
-      <p className="font-mono text-sm font-bold text-slate-800">
-        {value}
-        <span className="ml-0.5 text-[10px] font-normal text-slate-400">{unit}</span>
       </p>
     </div>
   );

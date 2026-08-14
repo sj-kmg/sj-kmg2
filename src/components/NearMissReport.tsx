@@ -5,18 +5,7 @@ import { putPhoto, getPhoto, deletePhoto, fileToResizedDataUrl } from '@/lib/pho
 import { uploadPhoto } from '@/lib/sync';
 import { useRole } from '@/lib/useRole';
 import { useSyncedLog, modeBadge } from '@/lib/useSyncedLog';
-
-interface NearMissEntry {
-  id: string;
-  datetime: string; // YYYY-MM-DDTHH:mm
-  place: string;
-  finder: string;
-  content: string;
-  action: string; // 개선대책
-  photoIds: string[]; // 로컬(IndexedDB) 저장 사진
-  photoUrls?: string[]; // 서버(Blob) 저장 사진
-  createdAt: string;
-}
+import { NEARMISS_KEY, type NearMissEntry } from '@/lib/nearmiss';
 
 function nowLocal(): string {
   const d = new Date();
@@ -51,7 +40,7 @@ export default function NearMissReport() {
   const { role } = useRole();
   /** 삭제는 관리자만 — 현장 계정에는 버튼을 보여 주지 않는다 */
   const canDelete = role !== 'field';
-  const { entries, mode, add, remove } = useSyncedLog<NearMissEntry>('nearmiss', 'sj-nearmiss:v1', {
+  const { entries, mode, add, remove } = useSyncedLog<NearMissEntry>('nearmiss', NEARMISS_KEY, {
     migrateExtra,
   });
 

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { NEARMISS_KEY, nearMissDate, type NearMissEntry } from './nearmiss';
 import { listEntriesSilently } from './sync';
 import { TBM_KEY, tbmDate, type TbmEntry } from './tbm';
 import {
@@ -22,15 +23,20 @@ export interface DayOps {
   labor: number;
   /** TBM일지가 작성된 현장 */
   tbmSites: Set<string>;
+  /** 그날 접수된 아차사고 */
+  nearMisses: NearMissEntry[];
 }
 
 export interface OpsData {
   loading: boolean;
   workforce: WorkforceEntry[];
   tbm: TbmEntry[];
+  nearmiss: NearMissEntry[];
   /** YYYY-MM-DD → 하루 요약 */
   byDate: Map<string, DayOps>;
   dayOf: (date: string) => DayOps;
+  /** 지금 바로 다시 불러오기 */
+  reload: () => void;
 }
 
 const EMPTY_DAY = (date: string): DayOps => ({
@@ -41,57 +47,91 @@ const EMPTY_DAY = (date: string): DayOps => ({
   staff: 0,
   labor: 0,
   tbmSites: new Set<string>(),
+  nearMisses: [],
 });
 
 /**
- * 메인 대시보드용 현장·인원 데이터.
- * 작업인원 기록과 TBM일지를 조용히(암호 프롬프트 없이) 불러와 날짜별로 묶는다.
+ * 메인 대시보드용 현장·인원·아차사고 데이터.
+ *
+ * 작업인원 기록·TBM일지·아차사고를 조용히(암호 프롬프트 없이) 불러와 날짜별로 묶는다.
+ * 다른 화면에서 기록을 저장한 뒤 돌아오면 최신 내용이 보여야 하므로,
+ * 창이 다시 활성화될 때마다 자동으로 다시 읽는다.
  */
 export function useOps(): OpsData {
   const [workforce, setWorkforce] = useState<WorkforceEntry[]>([]);
   const [tbm, setTbm] = useState<TbmEntry[]>([]);
+  const [nearmiss, setNearmiss] = useState<NearMissEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tick, setTick] = useState(0);
+  const aliveRef = useRef(true);
+
+  const reload = useCallback(() => setTick((t) => t + 1), []);
 
   useEffect(() => {
-    let alive = true;
+    aliveRef.current = true;
     void (async () => {
-      const [wf, tb] = await Promise.all([
+      const [wf, tb, nm] = await Promise.all([
         listEntriesSilently<WorkforceEntry>('workforce', WORKFORCE_KEY),
         listEntriesSilently<TbmEntry>('tbm', TBM_KEY),
+        listEntriesSilently<NearMissEntry>('nearmiss', NEARMISS_KEY),
       ]);
-      if (!alive) return;
+      if (!aliveRef.current) return;
       setWorkforce(wf);
       setTbm(tb);
+      setNearmiss(nm);
       setLoading(false);
     })();
     return () => {
-      alive = false;
+      aliveRef.current = false;
     };
-  }, []);
+  }, [tick]);
+
+  // 다른 탭·기기에서 기록을 남기고 돌아왔을 때 최신 상태로 맞춘다
+  useEffect(() => {
+    const onFocus = () => {
+      if (document.visibilityState === 'visible') reload();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
+  }, [reload]);
 
   const byDate = useMemo(() => {
     const map = new Map<string, DayOps>();
+    const dayFor = (d: string): DayOps => {
+      const found = map.get(d);
+      if (found) return found;
+      const made = EMPTY_DAY(d);
+      map.set(d, made);
+      return made;
+    };
+
     for (const e of workforce) {
       if (!e.date) continue;
-      const day = map.get(e.date) ?? EMPTY_DAY(e.date);
+      const day = dayFor(e.date);
       day.entries.push(e);
       if (e.site && !day.sites.includes(e.site)) day.sites.push(e.site);
       day.staff += staffCountOf(e);
       day.labor += laborCountOf(e);
       day.headcount += headcountOf(e);
-      map.set(e.date, day);
     }
     for (const t of tbm) {
       const d = tbmDate(t);
       if (!d) continue;
-      const day = map.get(d) ?? EMPTY_DAY(d);
-      if (t.site) day.tbmSites.add(t.site);
-      map.set(d, day);
+      if (t.site) dayFor(d).tbmSites.add(t.site);
+    }
+    for (const n of nearmiss) {
+      const d = nearMissDate(n);
+      if (!d) continue;
+      dayFor(d).nearMisses.push(n);
     }
     return map;
-  }, [workforce, tbm]);
+  }, [workforce, tbm, nearmiss]);
 
   const dayOf = useMemo(() => (date: string) => byDate.get(date) ?? EMPTY_DAY(date), [byDate]);
 
-  return { loading, workforce, tbm, byDate, dayOf };
+  return { loading, workforce, tbm, nearmiss, byDate, dayOf, reload };
 }

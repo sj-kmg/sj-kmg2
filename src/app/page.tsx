@@ -69,7 +69,6 @@ const MENU: MenuNode[] = [
       { key: 'nearmiss', label: '아차사고' },
     ],
   },
-  { key: 'people', label: '작업인원관리', icon: '👷' },
   {
     label: '공무관리',
     icon: '🗂️',
@@ -105,6 +104,7 @@ const MENU: MenuNode[] = [
       { key: 'equipment-check', label: '장비점검' },
     ],
   },
+  { key: 'people', label: '작업인원관리', icon: '👷' },
   { key: 'risk-assess', label: '위험성평가', icon: '📝' },
   { key: 'notice', label: '공지사항', icon: '📢', wip: true },
 ];
@@ -471,6 +471,7 @@ export default function Page() {
                   onOpenEducation={() => setView('edu-supervisor')}
                   onOpenWorkforce={() => setView('people')}
                   onOpenTbm={() => setView('tbm')}
+                  onOpenNearMiss={() => setView('nearmiss')}
                 />
               )}
               {view === 'ledgers' && (data ? <Ledgers data={data} /> : <NeedData onGo={() => setView('data')} />)}

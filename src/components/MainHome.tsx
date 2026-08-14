@@ -7,7 +7,6 @@ import { useOps } from '@/lib/useOps';
 import { todayLocal } from '@/lib/workforce';
 import OpsCalendar from './OpsCalendar';
 import SiteBoard from './SiteBoard';
-import CrewPanel from './CrewPanel';
 import OpsTrend from './OpsTrend';
 import WeatherPanel from './WeatherPanel';
 import NoticesPanel from './NoticesPanel';
@@ -23,12 +22,14 @@ export default function MainHome({
   onOpenEducation,
   onOpenWorkforce,
   onOpenTbm,
+  onOpenNearMiss,
   data,
 }: {
   data: SafetyData | null;
   onOpenEducation?: () => void;
   onOpenWorkforce?: () => void;
   onOpenTbm?: () => void;
+  onOpenNearMiss?: () => void;
 }) {
   const ops = useOps();
   const [date, setDate] = useState(todayLocal());
@@ -37,7 +38,7 @@ export default function MainHome({
 
   const siteCount = day.sites.length;
   const tbmDone = day.sites.filter((s) => day.tbmSites.has(s)).length;
-  const noManager = day.entries.filter((e) => !e.manager.trim()).length;
+  const nearMiss = day.nearMisses;
 
   const hi = data ? highRiskMin(data.gradeSystem) : 0;
   const highRisk = data ? data.risks.filter((r) => r.r !== null && (r.r as number) >= hi).length : 0;
@@ -71,12 +72,17 @@ export default function MainHome({
           icon="📋"
         />
         <Kpi
-          label="현장소장 배치"
-          value={siteCount === 0 ? '-' : `${day.entries.length - noManager}/${day.entries.length}`}
-          unit=""
-          sub={noManager > 0 ? `미지정 ${noManager}건 — 확인 필요` : '전 현장 지정 완료'}
-          tone={noManager > 0 ? 'red' : 'emerald'}
-          icon="🎖️"
+          label={isToday ? '금일 아차사고' : '아차사고 발생'}
+          value={nearMiss.length}
+          unit="건"
+          sub={
+            nearMiss.length > 0
+              ? nearMiss.map((n) => n.place || n.finder || '장소 미기재').join(' · ')
+              : '접수된 아차사고 없음'
+          }
+          tone={nearMiss.length > 0 ? 'red' : 'emerald'}
+          icon="⚡"
+          onClick={onOpenNearMiss}
         />
         <Kpi
           label={`고위험 요인 (R≥${hi || '-'})`}
@@ -115,15 +121,11 @@ export default function MainHome({
           />
         </Panel>
 
-        <Panel title="인원 배치 현황" icon="👷" className="col-span-12 md:col-span-6 xl:col-span-4">
-          <CrewPanel ops={ops} date={date} />
-        </Panel>
-
-        <Panel title="투입 인원 추세" icon="📈" className="col-span-12 md:col-span-6 xl:col-span-4">
+        <Panel title="투입 인원 추세" icon="📈" className="col-span-12 xl:col-span-6">
           <OpsTrend ops={ops} date={date} onSelect={setDate} />
         </Panel>
 
-        <Panel title="오늘의 날씨" icon="⛅" className="col-span-12 xl:col-span-4">
+        <Panel title="오늘의 날씨" icon="⛅" className="col-span-12 xl:col-span-6">
           <WeatherPanel />
         </Panel>
 
@@ -184,6 +186,7 @@ function Kpi({
   sub,
   tone = 'blue',
   icon,
+  onClick,
 }: {
   label: string;
   value: string | number;
@@ -191,14 +194,16 @@ function Kpi({
   sub?: string;
   tone?: keyof typeof TONE | string;
   icon?: string;
+  onClick?: () => void;
 }) {
   const t = TONE[tone] ?? TONE.blue;
-  return (
-    <section className="panel-lit relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm">
+  const body = (
+    <>
       <span aria-hidden className="absolute inset-x-0 top-0 h-0.5" style={{ background: t.bar }} />
       <div className="flex items-center gap-1.5">
         {icon && <span aria-hidden className="text-xs opacity-80">{icon}</span>}
         <p className="truncate text-[11px] font-semibold text-slate-400">{label}</p>
+        {onClick && <span aria-hidden className="ml-auto text-[10px] text-slate-400">→</span>}
       </div>
       <p
         className="mt-1.5 font-mono text-[28px] font-bold leading-none"
@@ -208,8 +213,17 @@ function Kpi({
         {unit && <span className="ml-1 text-xs font-normal text-slate-400">{unit}</span>}
       </p>
       {sub && <p className="mt-1.5 truncate text-[11px] text-slate-400" title={sub}>{sub}</p>}
-    </section>
+    </>
   );
+  const cls = 'panel-lit relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm';
+  if (onClick) {
+    return (
+      <button onClick={onClick} className={`${cls} text-left`}>
+        {body}
+      </button>
+    );
+  }
+  return <section className={cls}>{body}</section>;
 }
 
 /* ---------------- 공통 패널 ---------------- */
