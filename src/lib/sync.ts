@@ -53,13 +53,30 @@ export class SyncError extends Error {
   }
 }
 
-async function call(path: string, init?: RequestInit): Promise<Response> {
+/**
+ * 요청 공통 헤더 — 구글 로그인 토큰과 기존 암호를 함께 싣는다.
+ * 서버는 구글 토큰을 먼저 보고, 없으면 암호로 판단한다.
+ */
+export async function authHeaders(): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {};
   const pass = getPasscode();
+  if (pass) headers['x-passcode'] = pass;
+  try {
+    const { idToken } = await import('./firebaseClient');
+    const token = await idToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+  } catch {
+    // 구글 로그인을 쓰지 않는 환경 — 암호만으로 동작한다
+  }
+  return headers;
+}
+
+async function call(path: string, init?: RequestInit): Promise<Response> {
   const res = await fetch(path, {
     ...init,
     headers: {
       ...(init?.headers ?? {}),
-      ...(pass ? { 'x-passcode': pass } : {}),
+      ...(await authHeaders()),
       ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
     },
   });

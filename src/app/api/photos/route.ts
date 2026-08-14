@@ -9,12 +9,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'storage_not_configured' }, { status: 503 });
   }
   // 사진·서류 업로드는 현장 계정도 할 수 있다 (아차사고 사진 등)
-  const { role, notConfigured } = checkAuth(req);
+  const { role, notConfigured } = await checkAuth(req);
   if (notConfigured) {
     return NextResponse.json({ error: 'passcode_not_configured' }, { status: 503 });
   }
   if (!role) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+  // 열람 전용 계정은 업로드도 할 수 없다
+  if (role === 'viewer') {
+    return NextResponse.json({ error: 'read_only' }, { status: 403 });
   }
 
   let dataUrl = '';

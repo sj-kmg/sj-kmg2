@@ -23,6 +23,8 @@ import InventorySheet from '@/components/InventorySheet';
 import SafetyStockSheet from '@/components/SafetyStockSheet';
 import EquipmentCheck from '@/components/EquipmentCheck';
 import SearchResults from '@/components/SearchResults';
+import AccessAdmin from '@/components/AccessAdmin';
+import GoogleAuthBox from '@/components/GoogleAuthBox';
 import { FIELD_VIEWS, useRole } from '@/lib/useRole';
 
 type ViewKey =
@@ -47,6 +49,7 @@ type ViewKey =
   | 'risk-assess'
   | 'people'
   | 'notice'
+  | 'access'
   | 'data'
   | 'search';
 
@@ -56,6 +59,8 @@ interface MenuNode {
   label: string;
   icon?: string;
   wip?: boolean;
+  /** 오른쪽에 표시할 알림 숫자 (권한허용의 대기 건수) */
+  badge?: number;
   children?: MenuNode[];
 }
 
@@ -109,14 +114,14 @@ const MENU: MenuNode[] = [
   { key: 'notice', label: '공지사항', icon: '📢', wip: true },
 ];
 
-/** 현장 계정용 메뉴 — TBM일지·아차사고만 남긴다 */
-function fieldMenu(nodes: MenuNode[]): MenuNode[] {
+/** 허용된 화면만 남긴다 — 현장 계정·열람 전용 계정 공용 */
+function limitMenu(nodes: MenuNode[], allowed: string[]): MenuNode[] {
   const out: MenuNode[] = [];
   for (const n of nodes) {
     if (n.children) {
-      const kids = fieldMenu(n.children);
+      const kids = limitMenu(n.children, allowed);
       if (kids.length) out.push({ ...n, children: kids });
-    } else if (n.key && FIELD_VIEWS.includes(n.key)) {
+    } else if (n.key && allowed.includes(n.key)) {
       out.push(n);
     }
   }
@@ -177,6 +182,14 @@ function SideNode({
           </span>
         )}
         <span className="truncate">{node.label}</span>
+        {node.badge != null && node.badge > 0 && (
+          <span
+            aria-label={`처리할 신청 ${node.badge}건`}
+            className="ml-auto shrink-0 rounded-full bg-red-500 px-1.5 py-0.5 font-mono text-[9px] font-bold text-white shadow-[0_0_10px_rgba(242,85,95,0.8)]"
+          >
+            {node.badge}
+          </span>
+        )}
         {node.wip && <span className="ml-auto shrink-0 text-[9px] font-normal text-slate-400">예정</span>}
       </button>
     );
@@ -214,9 +227,13 @@ function SideNode({
 export default function Page() {
   const [data, setData] = useState<SafetyData | null>(null);
   const [view, setView] = useState<ViewKey>('main');
-  const { role } = useRole();
+  const session = useRole();
+  const { role } = session;
   /** 현장 계정이면 쓸 수 있는 화면만 보여 준다 */
   const isField = role === 'field';
+  /** 승인된 열람 전용 계정 — 지정된 메뉴만 보이고, 저장·삭제는 서버가 막는다 */
+  const isViewer = role === 'viewer';
+  const viewerMenus = session.menus ?? [];
   const [ready, setReady] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [clock, setClock] = useState('');
@@ -234,10 +251,15 @@ export default function Page() {
     }
   }, []);
 
-  // 현장 계정이 쓸 수 없는 화면에 있으면 TBM일지로 돌려보낸다
+  // 쓸 수 없는 화면에 있으면 허용된 첫 화면으로 돌려보낸다
   useEffect(() => {
     if (isField && !FIELD_VIEWS.includes(view)) setView('tbm');
   }, [isField, view]);
+  useEffect(() => {
+    if (isViewer && view !== 'search' && !viewerMenus.includes(view)) {
+      setView((viewerMenus[0] as ViewKey) ?? 'main');
+    }
+  }, [isViewer, viewerMenus, view]);
 
   // 헤더 라이브 시계
   useEffect(() => {
@@ -267,8 +289,16 @@ export default function Page() {
       ? { ...m, children: [...(m.children ?? []), { key: 'ledgers' as ViewKey, label: '관리대장' }] }
       : m,
   );
-  // 현장 계정은 TBM일지·아차사고만
-  const menu: MenuNode[] = isField ? fieldMenu(fullMenu) : fullMenu;
+  // 권한허용은 관리자에게만 — 대기 건수를 배지로 알린다
+  if (role === 'admin') {
+    fullMenu.push({ key: 'access', label: '권한허용', icon: '🔑', badge: session.pendingCount });
+  }
+  // 현장 계정은 TBM일지·아차사고만, 열람 계정은 승인된 메뉴만
+  const menu: MenuNode[] = isField
+    ? limitMenu(fullMenu, FIELD_VIEWS)
+    : isViewer
+      ? limitMenu(fullMenu, viewerMenus)
+      : fullMenu;
 
   const go = (key: ViewKey) => {
     setView(key);
@@ -288,6 +318,7 @@ export default function Page() {
     if (v === 'data') return ['데이터 관리'];
     if (v === 'ledgers') return ['안전관리', '관리대장'];
     if (v === 'search') return ['검색'];
+    if (v === 'access') return ['권한허용'];
     return findPath(menu, v) ?? ['메인'];
   };
   const path = viewPath(view);
@@ -336,27 +367,34 @@ export default function Page() {
       </nav>
 
       {/* 계정 · 데이터 */}
-      <div className="shrink-0 border-t border-slate-200 p-3">
-        <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2">
-          <span
-            aria-hidden
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#22d3ee] to-[#4b7bff] text-[11px] font-bold text-white"
-          >
-            {isField ? '현' : '관'}
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate text-[11px] font-bold text-slate-700">
-              {isField ? '현장 계정' : '관리자'}
-            </span>
-            <span className="block truncate text-[9px] text-slate-400">
-              {isField ? 'TBM·아차사고 작성' : '전체 메뉴 사용'}
-            </span>
-          </span>
-        </div>
-        {!isField && (
+      <div className="shrink-0 space-y-2 border-t border-slate-200 p-3">
+        {session.user ? (
+          <GoogleAuthBox session={session} />
+        ) : (
+          <>
+            <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2">
+              <span
+                aria-hidden
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#22d3ee] to-[#4b7bff] text-[11px] font-bold text-white"
+              >
+                {isField ? '현' : '관'}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-[11px] font-bold text-slate-700">
+                  {isField ? '현장 계정' : '관리자'}
+                </span>
+                <span className="block truncate text-[9px] text-slate-400">
+                  {isField ? 'TBM·아차사고 작성' : '전체 메뉴 사용'}
+                </span>
+              </span>
+            </div>
+            <GoogleAuthBox session={session} />
+          </>
+        )}
+        {!isField && !isViewer && (
           <button
             onClick={() => go('data')}
-            className={`mt-2 w-full rounded-xl px-3 py-2 text-xs font-semibold ${
+            className={`w-full rounded-xl px-3 py-2 text-xs font-semibold ${
               view === 'data'
                 ? 'bg-[#1f3864] text-white'
                 : 'border border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-800'
@@ -493,6 +531,7 @@ export default function Page() {
               {view === 'inventory' && <InventorySheet />}
               {view === 'safety-stock' && <SafetyStockSheet />}
               {view === 'equipment-check' && <EquipmentCheck />}
+              {view === 'access' && <AccessAdmin onChanged={session.refresh} />}
               {(view === 'health-followup' || view === 'notice') && <ComingSoon label={path[path.length - 1]} />}
               {view === 'data' && (
                 <div className="mx-auto max-w-2xl py-6">

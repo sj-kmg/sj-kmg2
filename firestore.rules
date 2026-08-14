@@ -1,8 +1,9 @@
 rules_version = '2';
 
-// 이 앱은 Firebase 클라이언트 SDK를 쓰지 않는다.
-// 모든 읽기·쓰기는 동기화 암호(x-passcode)로 보호되는 서버 API가 Admin SDK로 처리하며,
+// 브라우저의 Firebase 클라이언트 SDK는 구글 로그인(Authentication)에만 쓴다.
+// 기록 읽기·쓰기는 전부 서버 API가 Admin SDK로 처리하고(암호 또는 구글 ID 토큰 검증),
 // Admin SDK는 이 규칙의 적용을 받지 않는다. 따라서 브라우저에서의 직접 접근은 전면 차단한다.
+// 특히 access/{uid}(승인 상태)는 로그인한 사용자라도 직접 고칠 수 없어야 한다.
 service cloud.firestore {
   match /databases/{database}/documents {
     match /{document=**} {
