@@ -23,7 +23,6 @@ import InventorySheet from '@/components/InventorySheet';
 import SafetyStockSheet from '@/components/SafetyStockSheet';
 import EquipmentCheck from '@/components/EquipmentCheck';
 import SearchResults from '@/components/SearchResults';
-import PptStudio from '@/components/PptStudio';
 import { FIELD_VIEWS, useRole } from '@/lib/useRole';
 
 type ViewKey =
@@ -47,7 +46,6 @@ type ViewKey =
   | 'equipment-check'
   | 'risk-assess'
   | 'people'
-  | 'ppt-studio'
   | 'notice'
   | 'data'
   | 'search';
@@ -108,7 +106,6 @@ const MENU: MenuNode[] = [
     ],
   },
   { key: 'risk-assess', label: '위험성평가', icon: '📝' },
-  { key: 'ppt-studio', label: '문서생성', icon: '📊' },
   { key: 'notice', label: '공지사항', icon: '📢', wip: true },
 ];
 
@@ -495,7 +492,6 @@ export default function Page() {
               {view === 'inventory' && <InventorySheet />}
               {view === 'safety-stock' && <SafetyStockSheet />}
               {view === 'equipment-check' && <EquipmentCheck />}
-              {view === 'ppt-studio' && <PptStudio />}
               {(view === 'health-followup' || view === 'notice') && <ComingSoon label={path[path.length - 1]} />}
               {view === 'data' && (
                 <div className="mx-auto max-w-2xl py-6">
