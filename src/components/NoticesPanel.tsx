@@ -18,11 +18,14 @@ interface Notices {
   items: NoticeItem[];
 }
 
-/** 법령 개정·안전보건 뉴스 알림 — /notices.json (일일 확인·갱신) */
-export default function NoticesPanel() {
+/**
+ * 법령 개정·안전보건 뉴스 알림 — /notices.json (일일 확인·갱신)
+ * compact: 메인 화면용 축약 표시 (참고 정보이므로 비중을 낮춘다)
+ */
+export default function NoticesPanel({ compact = false }: { compact?: boolean }) {
   const [data, setData] = useState<Notices | null>(null);
   const [error, setError] = useState(false);
-  const [open, setOpen] = useState<number | null>(0);
+  const [open, setOpen] = useState<number | null>(compact ? null : 0);
 
   useEffect(() => {
     fetch('/notices.json')
@@ -40,9 +43,11 @@ export default function NoticesPanel() {
 
   return (
     <div className="flex h-full flex-col">
-      <ul className="max-h-56 flex-1 divide-y divide-slate-100 overflow-y-auto pr-1">
+      <ul
+        className={`flex-1 divide-y divide-slate-100 overflow-y-auto pr-1 ${compact ? 'max-h-32' : 'max-h-56'}`}
+      >
         {data.items.map((n, i) => (
-          <li key={i} className="py-2">
+          <li key={i} className={compact ? 'py-1' : 'py-2'}>
             <button className="w-full text-left" onClick={() => setOpen(open === i ? null : i)}>
               <div className="flex items-center gap-2">
                 <span
@@ -52,9 +57,13 @@ export default function NoticesPanel() {
                 >
                   {n.category}
                 </span>
-                {n.law && <span className="shrink-0 text-[11px] text-slate-400">{n.law}</span>}
-                <span className="truncate text-sm font-medium text-slate-800">{n.title}</span>
-                <span className="ml-auto shrink-0 font-mono text-[10px] text-slate-400">{n.date}</span>
+                {n.law && !compact && <span className="shrink-0 text-[11px] text-slate-400">{n.law}</span>}
+                <span className={`truncate font-medium text-slate-800 ${compact ? 'text-xs' : 'text-sm'}`}>
+                  {n.title}
+                </span>
+                <span className="ml-auto shrink-0 font-mono text-[10px] text-slate-400">
+                  {compact ? n.date.slice(5) : n.date}
+                </span>
               </div>
             </button>
             {open === i && (
@@ -72,7 +81,7 @@ export default function NoticesPanel() {
         ))}
       </ul>
       <p className="mt-2 border-t border-slate-100 pt-2 text-[10px] text-slate-400">
-        {data.criteria} · 최근 확인 {data.updatedAt}
+        {compact ? `최근 확인 ${data.updatedAt}` : `${data.criteria} · 최근 확인 ${data.updatedAt}`}
       </p>
     </div>
   );

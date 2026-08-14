@@ -1,12 +1,184 @@
 @import "tailwindcss";
 
-/* ====== AI · 퓨처리스틱 라이트 테마 ====== */
+/* ============================================================
+   신정개발 안전관리 플랫폼 — "Dark Intelligence" 디자인 시스템
+   ------------------------------------------------------------
+   화면 전체를 딥 네이비 다크 테마로 통일한다.
+   기존 화면들이 쓰는 라이트 계열 유틸리티(bg-white·text-slate-*)는
+   아래 @theme 팔레트 재정의로 다크에 맞는 값으로 한 번에 바뀐다.
+   ============================================================ */
+
 :root {
-  --background: #d9e3f4;
-  --foreground: #0f1e3a;
-  --accent: #0891b2;
-  --accent-soft: rgba(8, 145, 178, 0.5);
-  --line: rgba(15, 30, 58, 0.08);
+  /* 네이티브 위젯(날짜 선택기·스크롤바)까지 다크로 */
+  color-scheme: dark;
+
+  /* 표면 */
+  --bg: #060911;
+  --bg-soft: #0a0f1e;
+  --surface: #101728;
+  --surface-2: #16203a;
+  --surface-3: #1c2745;
+  --field: #0b1120;
+
+  /* 경계선 */
+  --line: rgba(150, 178, 255, 0.11);
+  --line-2: rgba(150, 178, 255, 0.2);
+
+  /* 강조 */
+  --primary: #4b7bff;
+  --primary-hi: #82a6ff;
+  --violet: #8b5cf6;
+  --cyan: #22d3ee;
+  --glow: rgba(75, 123, 255, 0.35);
+
+  /* 글자 */
+  --text: #e9eefc;
+  --muted: #8f9cbb;
+
+  --background: var(--bg);
+  --foreground: var(--text);
+}
+
+/* ------------------------------------------------------------
+   팔레트 재정의 — 라이트 테마용 색 계단을 다크 기준으로 뒤집는다.
+   (slate-50/100 = 어두운 면, slate-700/800 = 밝은 글자)
+   ------------------------------------------------------------ */
+@theme {
+  --color-white: #ffffff;
+
+  --color-slate-50: #151d31;
+  --color-slate-100: #1b2439;
+  --color-slate-200: #273252;
+  --color-slate-300: #55627f;
+  --color-slate-400: #8b98b8;
+  --color-slate-500: #a4b0cd;
+  --color-slate-600: #bcc6de;
+  --color-slate-700: #d6dcee;
+  --color-slate-800: #e7ecf9;
+  --color-slate-900: #f5f8ff;
+  --color-slate-950: #ffffff;
+
+  --color-gray-50: #151d31;
+  --color-gray-100: #1b2439;
+  --color-gray-200: #273252;
+  --color-gray-300: #55627f;
+  --color-gray-400: #8b98b8;
+  --color-gray-500: #a4b0cd;
+  --color-gray-600: #bcc6de;
+  --color-gray-700: #d6dcee;
+  --color-gray-800: #e7ecf9;
+  --color-gray-900: #f5f8ff;
+
+  /* 위험·경고 */
+  --color-red-50: #2c1421;
+  --color-red-100: #3a1a2a;
+  --color-red-200: #4e2135;
+  --color-red-300: #8a4155;
+  --color-red-400: #f87171;
+  --color-red-500: #f2555f;
+  --color-red-600: #ff7a7a;
+  --color-red-700: #ffa8a8;
+  --color-red-800: #ffc9c9;
+  --color-red-900: #ffe0e0;
+
+  --color-orange-50: #2e1c10;
+  --color-orange-100: #3d2514;
+  --color-orange-200: #52321a;
+  --color-orange-300: #8a5a2c;
+  --color-orange-400: #fb923c;
+  --color-orange-500: #ff8f3c;
+  --color-orange-600: #ffa658;
+  --color-orange-700: #ffc48d;
+  --color-orange-800: #ffdcba;
+  --color-orange-900: #ffeeda;
+
+  --color-amber-50: #2d2110;
+  --color-amber-100: #3b2b14;
+  --color-amber-200: #4f3a1a;
+  --color-amber-300: #f5c451;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f5b423;
+  --color-amber-600: #ffc94a;
+  --color-amber-700: #ffd97a;
+  --color-amber-800: #ffe8ad;
+  --color-amber-900: #fff3d4;
+
+  --color-yellow-50: #2d2710;
+  --color-yellow-100: #3b3314;
+  --color-yellow-700: #ffe07a;
+  --color-yellow-800: #ffefad;
+
+  /* 정상·완료 */
+  --color-green-50: #0e2a1d;
+  --color-green-100: #123726;
+  --color-green-200: #184a33;
+  --color-green-300: #2f7a56;
+  --color-green-400: #4ade80;
+  --color-green-500: #35c977;
+  --color-green-600: #4ede8e;
+  --color-green-700: #86efac;
+  --color-green-800: #b6f6cd;
+  --color-green-900: #d8fbe6;
+
+  --color-emerald-50: #0c2a22;
+  --color-emerald-100: #10372c;
+  --color-emerald-200: #164a3b;
+  --color-emerald-300: #2b7d64;
+  --color-emerald-400: #34d399;
+  --color-emerald-500: #2fc994;
+  --color-emerald-600: #4ce0ac;
+  --color-emerald-700: #6ee7b7;
+  --color-emerald-800: #a7f3d0;
+  --color-emerald-900: #d1fae5;
+
+  --color-teal-50: #0c2a2b;
+  --color-teal-100: #103739;
+  --color-teal-700: #5eead4;
+
+  /* 정보·강조 */
+  --color-cyan-50: #0b2635;
+  --color-cyan-100: #0e3244;
+  --color-cyan-200: #16455c;
+  --color-cyan-300: #67e8f9;
+  --color-cyan-400: #34dbf0;
+  --color-cyan-500: #22d3ee;
+  --color-cyan-600: #56e0f2;
+  --color-cyan-700: #8ceaf7;
+  --color-cyan-800: #b6f2fb;
+  --color-cyan-900: #d8f8fd;
+
+  --color-sky-50: #0d2440;
+  --color-sky-100: #112f52;
+  --color-sky-200: #173f6d;
+  --color-sky-300: #7dd3fc;
+  --color-sky-400: #56c2fb;
+  --color-sky-500: #38bdf8;
+  --color-sky-600: #63c8fa;
+  --color-sky-700: #9bdcfd;
+  --color-sky-800: #c4ecfe;
+  --color-sky-900: #e2f6ff;
+
+  --color-blue-50: #0f1f45;
+  --color-blue-100: #142856;
+  --color-blue-200: #1b3673;
+  --color-blue-300: #93b4ff;
+  --color-blue-400: #6d97ff;
+  --color-blue-500: #4b7bff;
+  --color-blue-600: #5f8bff;
+  --color-blue-700: #93b4ff;
+  --color-blue-800: #bed0ff;
+  --color-blue-900: #dfe8ff;
+
+  --color-indigo-50: #171a44;
+  --color-indigo-100: #1d2155;
+  --color-indigo-500: #6366f1;
+  --color-indigo-700: #a5b0ff;
+
+  --color-violet-500: #8b5cf6;
+  --color-violet-700: #c4b5fd;
+  --color-purple-500: #a855f7;
+  --color-pink-500: #ec4899;
+  --color-rose-500: #f43f5e;
 }
 
 @theme inline {
@@ -15,17 +187,18 @@
   --font-sans: var(--font-geist-sans);
 }
 
-::selection { background: rgba(34, 211, 238, 0.3); color: #06283d; }
-
+/* ============================================================
+   바탕 — 딥 네이비 + 은은한 뉴럴 메시
+   ============================================================ */
 body {
   background:
-    radial-gradient(900px 460px at 10% -10%, rgba(56, 189, 248, 0.24), transparent 62%),
-    radial-gradient(1000px 520px at 92% -5%, rgba(129, 140, 248, 0.2), transparent 58%),
-    radial-gradient(820px 560px at 50% 112%, rgba(45, 212, 191, 0.16), transparent 60%),
-    linear-gradient(rgba(15, 30, 58, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(15, 30, 58, 0.05) 1px, transparent 1px),
-    linear-gradient(180deg, #e9f0fa 0%, var(--background) 100%);
-  background-size: auto, auto, auto, 44px 44px, 44px 44px, auto;
+    radial-gradient(1100px 620px at 8% -12%, rgba(75, 123, 255, 0.16), transparent 60%),
+    radial-gradient(900px 560px at 96% -6%, rgba(139, 92, 246, 0.14), transparent 58%),
+    radial-gradient(900px 620px at 50% 118%, rgba(34, 211, 238, 0.08), transparent 62%),
+    linear-gradient(rgba(150, 178, 255, 0.032) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(150, 178, 255, 0.032) 1px, transparent 1px),
+    linear-gradient(180deg, var(--bg-soft) 0%, var(--bg) 100%);
+  background-size: auto, auto, auto, 48px 48px, 48px 48px, auto;
   background-attachment: fixed;
   color: var(--foreground);
   font-family:
@@ -36,30 +209,115 @@ body {
     sans-serif;
 }
 
-/* 은은하게 움직이는 광원 */
+/* 아주 느리게 흐르는 광원 — 화면이 '살아 있는' 느낌만 남긴다 */
 body::after {
   content: "";
   position: fixed;
-  inset: -10%;
+  inset: -12%;
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(620px 340px at 24% 26%, rgba(34, 211, 238, 0.14), transparent 62%),
-    radial-gradient(740px 420px at 76% 70%, rgba(99, 102, 241, 0.12), transparent 62%);
-  animation: aurora 18s ease-in-out infinite alternate;
+    radial-gradient(700px 380px at 22% 28%, rgba(75, 123, 255, 0.1), transparent 62%),
+    radial-gradient(760px 420px at 78% 72%, rgba(139, 92, 246, 0.09), transparent 62%);
+  animation: aurora 24s ease-in-out infinite alternate;
 }
 @keyframes aurora {
-  from { transform: translate3d(-2.5%, -1.5%, 0) scale(1); }
-  to { transform: translate3d(2.5%, 2%, 0) scale(1.06); }
+  from { transform: translate3d(-2%, -1.5%, 0) scale(1); }
+  to { transform: translate3d(2%, 2%, 0) scale(1.05); }
 }
+
+::selection { background: rgba(75, 123, 255, 0.35); color: #fff; }
 
 /* 스크롤바 */
 *::-webkit-scrollbar { width: 8px; height: 8px; }
 *::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background: #c3d3ea; border-radius: 8px; }
-*::-webkit-scrollbar-thumb:hover { background: #9fb6d6; }
+*::-webkit-scrollbar-thumb { background: #263049; border-radius: 8px; }
+*::-webkit-scrollbar-thumb:hover { background: #37456a; }
 
-/* ====== 인터랙션 ====== */
+/* ============================================================
+   표면 재매핑 — 기존 화면의 bg-white 를 다크 카드/입력면으로
+   ============================================================ */
+.bg-white,
+.bg-white\/80,
+.bg-white\/85,
+.bg-white\/90,
+.bg-white\/95,
+.bg-white\/97 {
+  background-color: var(--surface) !important;
+}
+input.bg-white,
+select.bg-white,
+textarea.bg-white {
+  background-color: var(--field) !important;
+}
+
+/* ============================================================
+   카드(패널) — 전 화면 공통. .shadow-sm 을 패널 스킨으로 사용
+   ============================================================ */
+.shadow-sm {
+  position: relative;
+  border-radius: 16px !important;
+  border-color: var(--line) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0) 42%),
+    var(--surface) !important;
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.04) inset,
+    0 18px 40px -24px rgba(0, 0, 0, 0.9) !important;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.shadow-sm:hover {
+  border-color: var(--line-2) !important;
+}
+
+/* 패널 상단의 미세한 하이라이트 라인 */
+.panel-lit::before {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(122, 162, 255, 0.5), transparent);
+}
+
+/* 자리표시(구성 예정) 박스 */
+div.border-dashed {
+  border-color: var(--line-2) !important;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(75, 123, 255, 0.05) 0 10px,
+    transparent 10px 20px
+  );
+}
+
+/* ============================================================
+   입력 요소
+   ============================================================ */
+input,
+select,
+textarea {
+  color: var(--text);
+}
+input::placeholder,
+textarea::placeholder { color: #5c6987; }
+select option { background: var(--surface-2); color: var(--text); }
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: rgba(75, 123, 255, 0.75) !important;
+  box-shadow: 0 0 0 3px rgba(75, 123, 255, 0.16);
+}
+/* 날짜 선택기 아이콘을 다크에서 보이게 */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.75);
+  cursor: pointer;
+}
+
 button, a, select, input, textarea {
   transition:
     color 0.16s ease,
@@ -69,13 +327,50 @@ button, a, select, input, textarea {
     transform 0.12s ease,
     opacity 0.16s ease;
 }
-button:not(:disabled):active { transform: scale(0.96); }
+button:not(:disabled):active { transform: scale(0.97); }
 
-/* 화면(메뉴) 전환 효과 */
-.view-enter { animation: viewIn 0.36s cubic-bezier(0.22, 1, 0.36, 1); }
+/* ============================================================
+   화면 전환
+   ============================================================ */
+.view-enter { animation: viewIn 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
 @keyframes viewIn {
-  from { opacity: 0; transform: translateY(12px); filter: blur(4px); }
-  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================
+   사이드바 내비게이션
+   ============================================================ */
+.side-link {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  border-radius: 10px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #96a3c2;
+  text-align: left;
+  position: relative;
+}
+.side-link:hover { color: var(--text); background: rgba(122, 162, 255, 0.08); }
+.side-link--on {
+  color: #ffffff;
+  background: linear-gradient(90deg, rgba(75, 123, 255, 0.26), rgba(75, 123, 255, 0.05));
+  box-shadow: inset 0 0 0 1px rgba(122, 162, 255, 0.24);
+}
+.side-link--on::before {
+  content: "";
+  position: absolute;
+  left: -0.5rem;
+  top: 50%;
+  height: 18px;
+  width: 3px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--cyan), var(--primary));
+  box-shadow: 0 0 12px var(--glow);
 }
 
 /* 상단 바 하단의 흐르는 스캔 라인 */
@@ -85,126 +380,57 @@ button:not(:disabled):active { transform: scale(0.96); }
   left: 0;
   right: 0;
   bottom: -1px;
-  height: 2px;
+  height: 1px;
   pointer-events: none;
-  background: linear-gradient(90deg, transparent 0%, var(--accent-soft) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(75, 123, 255, 0.7) 50%, transparent 100%);
   background-size: 220% 100%;
-  animation: sweep 5.5s linear infinite;
+  animation: sweep 7s linear infinite;
 }
 @keyframes sweep {
   from { background-position: 120% 0; }
   to { background-position: -120% 0; }
 }
 
-/* 상단 메뉴 항목 */
-.nav-item {
-  flex-shrink: 0;
-  border-radius: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #4a5f85;
-  position: relative;
-}
-.nav-item:hover { color: #0e7490; background: rgba(8, 145, 178, 0.08); }
-.nav-item--on {
-  color: #0e7490;
-  background: rgba(8, 145, 178, 0.1);
-  animation: navGlow 2.8s ease-in-out infinite;
-}
-@keyframes navGlow {
-  0%, 100% { box-shadow: inset 0 -2px 0 0 rgba(8, 145, 178, 0.85), 0 0 12px rgba(34, 211, 238, 0.16); }
-  50% { box-shadow: inset 0 -2px 0 0 rgba(6, 182, 212, 1), 0 0 20px rgba(34, 211, 238, 0.34); }
-}
-
-/* ====== HUD 패널 (카드 공통) ====== */
-.shadow-sm {
-  position: relative;
-  border-radius: 10px !important;
-  border-top-right-radius: 0 !important;
-  background: linear-gradient(165deg, rgba(255, 255, 255, 0.96), rgba(243, 248, 255, 0.92)) !important;
-  backdrop-filter: blur(6px);
-  box-shadow:
-    0 1px 2px rgba(15, 30, 58, 0.05),
-    0 10px 26px rgba(15, 30, 58, 0.07) !important;
-  transition: box-shadow 0.3s ease, border-color 0.3s ease;
-}
-.shadow-sm:hover {
-  border-color: rgba(8, 145, 178, 0.4) !important;
-  box-shadow:
-    0 1px 2px rgba(15, 30, 58, 0.06),
-    0 14px 34px rgba(15, 30, 58, 0.1),
-    0 0 26px rgba(34, 211, 238, 0.16) !important;
-}
-/* 좌상 브래킷 */
-.shadow-sm::before {
-  content: "";
-  position: absolute;
-  top: 0; left: 0;
-  width: 16px;
-  height: 16px;
-  pointer-events: none;
-  border-top: 2px solid var(--accent-soft);
-  border-left: 2px solid var(--accent-soft);
-  border-top-left-radius: 10px;
-  transition: width 0.3s ease, height 0.3s ease, opacity 0.3s ease;
-}
-/* 우상 사선 노치 */
-.shadow-sm::after {
-  content: "";
-  position: absolute;
-  top: -1px; right: -1px;
-  width: 15px;
-  height: 15px;
-  pointer-events: none;
-  background: linear-gradient(
-    to bottom left,
-    var(--background) 0 47%,
-    rgba(8, 145, 178, 0.55) 47% 56%,
-    transparent 56%
-  );
-}
-.shadow-sm:hover::before { width: 24px; height: 24px; }
-
-/* 자리표시(구성 예정) 박스 — 사선 해치 */
-div.border-dashed {
-  background-image: repeating-linear-gradient(
-    45deg,
-    rgba(8, 145, 178, 0.05) 0 10px,
-    transparent 10px 20px
-  );
-}
-
-/* 발광 스탯 숫자 */
-.hud-num {
-  color: #0b3a5c;
-  text-shadow: 0 0 16px rgba(34, 211, 238, 0.35);
-}
-
-/* ====== 숫자·날짜 폰트 (가독성 우선) ====== */
+/* ============================================================
+   숫자 표기
+   ============================================================ */
 .font-mono {
   font-family: var(--font-tech-mono), ui-monospace, "SFMono-Regular", monospace !important;
   font-weight: 500;
   letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums slashed-zero;
 }
+.hud-num {
+  color: #ffffff;
+  text-shadow: 0 0 22px rgba(75, 123, 255, 0.5);
+}
 
-/* ====== 브랜드 색 (라이트 테마용 그라데이션 + 글로우) ====== */
+/* ============================================================
+   브랜드 버튼 — 기존 #1f3864 계열을 새 그라데이션으로 치환
+   ============================================================ */
 .bg-\[\#1f3864\] {
-  background: linear-gradient(135deg, #0891b2, #2563eb) !important;
-  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.28);
+  background: linear-gradient(135deg, #4b7bff, #7c5cff) !important;
+  color: #fff !important;
+  box-shadow: 0 6px 18px -8px rgba(75, 123, 255, 0.9);
 }
-.bg-\[\#1f3864\]:hover { box-shadow: 0 4px 18px rgba(34, 211, 238, 0.45); }
-.hover\:bg-\[\#2a4a80\]:hover { background: linear-gradient(135deg, #06b6d4, #3b82f6) !important; }
-.text-\[\#1f3864\] { color: #0e7490 !important; }
-.hover\:border-\[\#1f3864\]:hover { border-color: #0891b2 !important; }
-.hover\:text-\[\#1f3864\]:hover { color: #0e7490 !important; }
-.focus\:border-\[\#1f3864\]:focus {
-  border-color: #0891b2 !important;
-  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18);
-}
+.bg-\[\#1f3864\]:hover { box-shadow: 0 8px 24px -8px rgba(124, 92, 255, 0.95); }
+.hover\:bg-\[\#2a4a80\]:hover { background: linear-gradient(135deg, #5f8bff, #9370ff) !important; }
+.text-\[\#1f3864\] { color: var(--primary-hi) !important; }
+.border-\[\#1f3864\] { border-color: rgba(122, 162, 255, 0.45) !important; }
+.hover\:border-\[\#1f3864\]:hover { border-color: var(--primary) !important; }
+.hover\:text-\[\#1f3864\]:hover { color: var(--primary-hi) !important; }
+.hover\:bg-\[\#1f3864\]:hover { background: linear-gradient(135deg, #4b7bff, #7c5cff) !important; }
+.focus\:border-\[\#1f3864\]:focus { border-color: rgba(75, 123, 255, 0.75) !important; }
 
-/* 모션 최소화 환경 배려 */
+/* 표 헤더 등 옅은 면 */
+thead .bg-slate-50,
+thead.bg-slate-50 { background-color: var(--surface-2) !important; }
+
+/* ============================================================
+   모션 최소화 배려
+   ============================================================ */
 @media (prefers-reduced-motion: reduce) {
-  body::after, .topbar::after, .nav-item--on, .view-enter { animation: none !important; }
+  body::after,
+  .topbar::after,
+  .view-enter { animation: none !important; }
 }

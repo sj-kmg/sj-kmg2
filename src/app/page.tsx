@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { SafetyData } from '@/lib/types';
 import { loadData, saveData, clearData } from '@/lib/store';
 import FileDrop from '@/components/FileDrop';
@@ -23,6 +23,7 @@ import InventorySheet from '@/components/InventorySheet';
 import SafetyStockSheet from '@/components/SafetyStockSheet';
 import EquipmentCheck from '@/components/EquipmentCheck';
 import SearchResults from '@/components/SearchResults';
+import PptStudio from '@/components/PptStudio';
 import { FIELD_VIEWS, useRole } from '@/lib/useRole';
 
 type ViewKey =
@@ -46,6 +47,7 @@ type ViewKey =
   | 'equipment-check'
   | 'risk-assess'
   | 'people'
+  | 'ppt-studio'
   | 'notice'
   | 'data'
   | 'search';
@@ -69,6 +71,7 @@ const MENU: MenuNode[] = [
       { key: 'nearmiss', label: '아차사고' },
     ],
   },
+  { key: 'people', label: '작업인원관리', icon: '👷' },
   {
     label: '공무관리',
     icon: '🗂️',
@@ -105,7 +108,7 @@ const MENU: MenuNode[] = [
     ],
   },
   { key: 'risk-assess', label: '위험성평가', icon: '📝' },
-  { key: 'people', label: '작업인원관리', icon: '👷' },
+  { key: 'ppt-studio', label: '문서생성', icon: '📊' },
   { key: 'notice', label: '공지사항', icon: '📢', wip: true },
 ];
 
@@ -129,7 +132,7 @@ function hasView(node: MenuNode, view: ViewKey): boolean {
   return (node.children ?? []).some((c) => hasView(c, view));
 }
 
-/** 뷰의 전체 경로 라벨 (예: 공무관리 — 안전교육 — 유해화학물질 — 직원) */
+/** 뷰의 전체 경로 라벨 (예: 공무관리 — 안전교육 — 유해화학물질) */
 function findPath(nodes: MenuNode[], view: ViewKey): string[] | null {
   for (const n of nodes) {
     if (n.key === view) return [n.label];
@@ -141,15 +144,15 @@ function findPath(nodes: MenuNode[], view: ViewKey): string[] | null {
   return null;
 }
 
-/** 모든 말단(leaf) 노드 — 모바일 칩 메뉴용 */
+/** 모든 말단(leaf) 노드 */
 function leaves(nodes: MenuNode[]): MenuNode[] {
   return nodes.flatMap((n) => (n.children ? leaves(n.children) : [n]));
 }
 
 /* 메뉴 컴포넌트는 모듈 레벨로 정의 — Page 리렌더(시계 등)에도 펼침 상태가 유지된다 */
 
-/** 드롭다운 내부 노드 (중분류/소분류 아코디언) */
-function DropNode({
+/** 사이드바 메뉴 노드 (대·중·소분류 아코디언) */
+function SideNode({
   node,
   depth,
   view,
@@ -162,112 +165,52 @@ function DropNode({
 }) {
   const containsActive = hasView(node, view);
   const [open, setOpen] = useState(containsActive);
-  const active = node.key ? view === node.key : false;
+
   if (!node.children) {
+    const active = node.key ? view === node.key : false;
     return (
       <button
         onClick={() => node.key && go(node.key)}
-        style={{ paddingLeft: `${12 + depth * 14}px` }}
-        className={`flex w-full items-center gap-2 rounded-lg py-2 pr-3 text-left text-sm ${
-          active ? 'bg-cyan-500/10 font-semibold text-cyan-700' : 'text-slate-600 hover:bg-cyan-500/8 hover:text-cyan-700'
-        }`}
+        className={`side-link ${active ? 'side-link--on' : ''}`}
+        style={{ paddingLeft: `${0.7 + depth * 0.75}rem` }}
       >
-        {node.label}
-        {node.wip && <span className="ml-auto text-[9px] text-slate-400">예정</span>}
+        {node.icon && (
+          <span aria-hidden className="text-[13px]">
+            {node.icon}
+          </span>
+        )}
+        <span className="truncate">{node.label}</span>
+        {node.wip && <span className="ml-auto shrink-0 text-[9px] font-normal text-slate-400">예정</span>}
       </button>
     );
   }
+
   return (
     <div>
       <button
         onClick={() => setOpen(!open)}
-        style={{ paddingLeft: `${12 + depth * 14}px` }}
-        className={`flex w-full items-center gap-2 rounded-lg py-2 pr-3 text-left text-sm font-bold ${
-          containsActive ? 'text-cyan-700' : 'text-slate-700 hover:bg-cyan-500/8 hover:text-cyan-700'
-        }`}
+        className={`side-link ${containsActive && !open ? 'text-slate-800' : ''}`}
+        style={{ paddingLeft: `${0.7 + depth * 0.75}rem` }}
+        aria-expanded={open}
       >
-        {node.label}
-        <span aria-hidden className="ml-auto text-[9px] text-cyan-600/70">
-          {open ? '▾' : '▸'}
-        </span>
-      </button>
-      {open &&
-        node.children.map((c) => <DropNode key={c.key ?? c.label} node={c} depth={depth + 1} view={view} go={go} />)}
-    </div>
-  );
-}
-
-/** 상단 메뉴 항목 (단일) */
-function TopItem({ node, view, go }: { node: MenuNode; view: ViewKey; go: (k: ViewKey) => void }) {
-  const active = node.key ? view === node.key : false;
-  return (
-    <button onClick={() => node.key && go(node.key)} className={`nav-item ${active ? 'nav-item--on' : ''}`}>
-      {node.icon && (
-        <span aria-hidden className="mr-1 text-xs">
-          {node.icon}
-        </span>
-      )}
-      {node.label}
-      {node.wip && <span className="ml-1 align-middle text-[9px] text-slate-400">예정</span>}
-    </button>
-  );
-}
-
-/** 상단 메뉴 그룹(대분류 드롭다운) */
-function TopGroup({
-  node,
-  view,
-  openMenu,
-  setOpenMenu,
-  go,
-}: {
-  node: MenuNode;
-  view: ViewKey;
-  openMenu: string | null;
-  setOpenMenu: (v: string | null) => void;
-  go: (k: ViewKey) => void;
-}) {
-  const open = openMenu === node.label;
-  const activeChild = hasView(node, view);
-  return (
-    <div className="relative shrink-0">
-      <button
-        onClick={() => setOpenMenu(open ? null : node.label)}
-        className={`nav-item ${activeChild ? 'nav-item--on' : open ? 'bg-cyan-500/10 text-cyan-700' : ''}`}
-      >
-        <span aria-hidden className="mr-1 text-xs">
-          {node.icon}
-        </span>
-        {node.label}
-        <span aria-hidden className="ml-1 text-[9px] text-cyan-400/70">
-          {open ? '▲' : '▼'}
+        {node.icon && (
+          <span aria-hidden className="text-[13px]">
+            {node.icon}
+          </span>
+        )}
+        <span className="truncate">{node.label}</span>
+        <span aria-hidden className={`ml-auto shrink-0 text-[8px] transition-transform ${open ? 'rotate-90' : ''}`}>
+          ▶
         </span>
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1.5 max-h-[70vh] min-w-52 overflow-y-auto rounded-xl border border-cyan-500/25 bg-white/97 p-1 shadow-[0_16px_40px_rgba(15,30,58,0.16),0_0_22px_rgba(34,211,238,0.12)] backdrop-blur-md">
-          {(node.children ?? []).map((c) => (
-            <DropNode key={c.key ?? c.label} node={c} depth={0} view={view} go={go} />
+        <div className="ml-4 mt-0.5 space-y-0.5 border-l border-slate-200 pl-1">
+          {node.children.map((c) => (
+            <SideNode key={c.key ?? c.label} node={c} depth={depth} view={view} go={go} />
           ))}
         </div>
       )}
     </div>
-  );
-}
-
-/** 모바일 메뉴 칩 */
-function MobileChip({ node, view, go }: { node: MenuNode; view: ViewKey; go: (k: ViewKey) => void }) {
-  const active = node.key ? view === node.key : false;
-  return (
-    <button
-      onClick={() => node.key && go(node.key)}
-      className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium ${
-        active
-          ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-[0_0_14px_rgba(34,211,238,0.35)]'
-          : 'border border-cyan-500/20 bg-white/80 text-slate-600'
-      }`}
-    >
-      {node.label}
-    </button>
   );
 }
 
@@ -278,11 +221,11 @@ export default function Page() {
   /** 현장 계정이면 쓸 수 있는 화면만 보여 준다 */
   const isField = role === 'field';
   const [ready, setReady] = useState(false);
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [navOpen, setNavOpen] = useState(false);
   const [clock, setClock] = useState('');
+  const [today, setToday] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [query, setQuery] = useState('');
-  const navRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     setData(loadData());
@@ -299,21 +242,14 @@ export default function Page() {
     if (isField && !FIELD_VIEWS.includes(view)) setView('tbm');
   }, [isField, view]);
 
-  // 드롭다운 밖 클릭 시 닫기
+  // 헤더 라이브 시계
   useEffect(() => {
-    const onDown = (e: MouseEvent) => {
-      if (navRef.current && !navRef.current.contains(e.target as Node)) setOpenMenu(null);
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, []);
-
-  // 헤더 라이브 시계 (HUD)
-  useEffect(() => {
+    const DOW = ['일', '월', '화', '수', '목', '금', '토'];
     const tick = () => {
       const d = new Date();
       const p = (n: number) => String(n).padStart(2, '0');
       setClock(`${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`);
+      setToday(`${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} (${DOW[d.getDay()]})`);
     };
     tick();
     const iv = setInterval(tick, 1000);
@@ -339,7 +275,7 @@ export default function Page() {
 
   const go = (key: ViewKey) => {
     setView(key);
-    setOpenMenu(null);
+    setNavOpen(false);
   };
 
   const submitSearch = (e: React.FormEvent) => {
@@ -348,205 +284,262 @@ export default function Page() {
     if (!q) return;
     setQuery(q);
     setView('search');
-    setOpenMenu(null);
+    setNavOpen(false);
   };
 
-  const viewLabel = (v: ViewKey): string => {
-    if (v === 'data') return '데이터 관리';
-    if (v === 'ledgers') return '안전관리 — 관리대장';
-    if (v === 'search') return `검색`;
-    return findPath(menu, v)?.join(' — ') ?? '메인';
+  const viewPath = (v: ViewKey): string[] => {
+    if (v === 'data') return ['데이터 관리'];
+    if (v === 'ledgers') return ['안전관리', '관리대장'];
+    if (v === 'search') return ['검색'];
+    return findPath(menu, v) ?? ['메인'];
   };
+  const path = viewPath(view);
+
+  /* ── 사이드바 본문 (데스크톱·모바일 공용) ─────────────────── */
+  const sidebar = (
+    <div className="flex h-full flex-col">
+      {/* 로고 */}
+      <button onClick={() => go('main')} className="flex shrink-0 items-center gap-2.5 px-4 pb-4 pt-5 text-left">
+        <span
+          aria-hidden
+          className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#4b7bff] to-[#7c5cff] text-base shadow-[0_6px_20px_-6px_rgba(75,123,255,0.9)]"
+        >
+          🛡️
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-[15px] font-black leading-tight tracking-tight text-slate-900">
+            ㈜신정개발
+          </span>
+          <span className="block truncate text-[8.5px] font-bold tracking-[0.22em] text-blue-700">
+            SMART SAFETY PLATFORM
+          </span>
+        </span>
+      </button>
+
+      {/* 검색 */}
+      <form onSubmit={submitSearch} className="relative shrink-0 px-3 pb-3">
+        <input
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="이름·차량번호·키워드 검색"
+          aria-label="전체 검색"
+          className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-8 pr-2.5 text-xs text-slate-700 placeholder:text-slate-300"
+        />
+        <span aria-hidden className="pointer-events-none absolute left-6 top-1/2 -translate-y-1/2 text-[11px] opacity-60">
+          🔍
+        </span>
+      </form>
+
+      {/* 메뉴 */}
+      <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3 pb-3">
+        <p className="px-2 pb-1 pt-1.5 text-[9px] font-bold tracking-[0.18em] text-slate-400">MENU</p>
+        {menu.map((m) => (
+          <SideNode key={m.key ?? m.label} node={m} depth={0} view={view} go={go} />
+        ))}
+      </nav>
+
+      {/* 계정 · 데이터 */}
+      <div className="shrink-0 border-t border-slate-200 p-3">
+        <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2">
+          <span
+            aria-hidden
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#22d3ee] to-[#4b7bff] text-[11px] font-bold text-white"
+          >
+            {isField ? '현' : '관'}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-[11px] font-bold text-slate-700">
+              {isField ? '현장 계정' : '관리자'}
+            </span>
+            <span className="block truncate text-[9px] text-slate-400">
+              {isField ? 'TBM·아차사고 작성' : '전체 메뉴 사용'}
+            </span>
+          </span>
+        </div>
+        {!isField && (
+          <button
+            onClick={() => go('data')}
+            className={`mt-2 w-full rounded-xl px-3 py-2 text-xs font-semibold ${
+              view === 'data'
+                ? 'bg-[#1f3864] text-white'
+                : 'border border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-800'
+            }`}
+          >
+            💾 데이터 관리
+          </button>
+        )}
+      </div>
+    </div>
+  );
 
   return (
-    <div className="flex min-h-screen flex-col">
-      {/* 상단 내비게이션 */}
-      <header className="topbar sticky top-0 z-40 border-b border-cyan-500/20 bg-white/85 backdrop-blur-md">
-        <div className="flex items-center gap-4 px-4 py-2.5 lg:px-6">
-          {/* 로고 */}
-          <button onClick={() => go('main')} className="shrink-0 text-left" aria-label="메인으로">
-            <span className="flex items-center gap-2">
-              <span
-                aria-hidden
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400 to-blue-600 text-base shadow-[0_0_14px_rgba(34,211,238,0.45)]"
-              >
-                🛡️
-              </span>
-              <span>
-                <span className="block bg-gradient-to-r from-cyan-700 to-blue-700 bg-clip-text text-base font-black leading-tight tracking-tight text-transparent">
-                  ㈜신정개발
-                </span>
-                <span className="block text-[9px] font-bold tracking-[0.28em] text-cyan-600/90">
-                  SMART SAFETY PLATFORM
-                </span>
-              </span>
-            </span>
-          </button>
+    <div className="flex min-h-screen">
+      {/* ── 사이드바 (데스크톱 고정) ───────────────────────── */}
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 border-r border-slate-200 bg-[color:var(--bg-soft)]/80 backdrop-blur-xl lg:block xl:w-64">
+        {sidebar}
+      </aside>
 
-          {/* 데스크톱 메뉴 */}
-          <nav ref={navRef} className="hidden min-w-0 flex-1 flex-wrap items-center gap-0.5 md:flex">
-            {menu.map((m) =>
-              m.children ? (
-                <TopGroup key={m.label} node={m} view={view} openMenu={openMenu} setOpenMenu={setOpenMenu} go={go} />
-              ) : (
-                <TopItem key={m.key} node={m} view={view} go={go} />
-              ),
-            )}
-          </nav>
-
-          {clock && (
-            <span
-              aria-hidden
-              className="ml-auto hidden shrink-0 font-mono text-sm font-bold tracking-[0.12em] text-cyan-700 xl:block"
-            >
-              {clock}
-            </span>
-          )}
-          {/* 데이터 관리는 관리자만 */}
-          {!isField && (
-            <button
-              onClick={() => go('data')}
-              className="ml-auto shrink-0 rounded-lg bg-[#1f3864] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a4a80] xl:ml-0"
-            >
-              💾 <span className="hidden lg:inline">데이터 관리</span>
-            </button>
-          )}
-
-          {/* 전역 검색 — 상단 제일 오른쪽 */}
-          <form onSubmit={submitSearch} className="relative hidden shrink-0 md:block">
-            <input
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="전체 검색"
-              aria-label="전체 검색"
-              className="w-32 rounded-lg border border-cyan-500/25 bg-white/90 py-1.5 pl-3 pr-8 text-sm text-slate-800 placeholder:text-slate-400 focus:border-cyan-500/70 focus:outline-none focus:shadow-[0_0_14px_rgba(34,211,238,0.2)] lg:w-44"
-            />
-            <button type="submit" aria-label="검색" className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-cyan-600">
-              🔍
-            </button>
-          </form>
+      {/* ── 사이드바 (모바일 드로어) ───────────────────────── */}
+      {navOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            aria-label="메뉴 닫기"
+            onClick={() => setNavOpen(false)}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          />
+          <div className="absolute left-0 top-0 h-full w-64 border-r border-slate-200 bg-[color:var(--bg-soft)] shadow-2xl">
+            {sidebar}
+          </div>
         </div>
+      )}
 
-        {/* 모바일: 검색 + 메뉴 칩 */}
-        <div className="px-4 pb-2.5 md:hidden">
-          <form onSubmit={submitSearch} className="relative mb-2">
+      {/* ── 본문 ──────────────────────────────────────────── */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="topbar sticky top-0 z-40 border-b border-slate-200 bg-[color:var(--bg)]/75 backdrop-blur-xl">
+          <div className="flex items-center gap-3 px-4 py-2.5 lg:px-6">
+            <button
+              onClick={() => setNavOpen(true)}
+              aria-label="메뉴 열기"
+              className="shrink-0 rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm text-slate-500 lg:hidden"
+            >
+              ☰
+            </button>
+
+            {/* 경로 + 제목 */}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[10px] font-semibold tracking-wider text-slate-400">
+                {path.slice(0, -1).length > 0 ? path.slice(0, -1).join(' / ') : '대시보드'}
+              </p>
+              <h1 className="flex items-center gap-2 truncate text-base font-bold tracking-tight text-slate-900 md:text-lg">
+                {view === 'search' ? (
+                  <>
+                    검색 <span className="truncate text-sm font-medium text-blue-700">&ldquo;{query}&rdquo;</span>
+                  </>
+                ) : (
+                  path[path.length - 1]
+                )}
+              </h1>
+            </div>
+
+            {/* 데이터 연결 상태 */}
+            {ready &&
+              (data ? (
+                <span
+                  className="hidden shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[10px] text-slate-400 xl:flex"
+                  title={`${data.fileName} · ${new Date(data.loadedAt).toLocaleString('ko-KR')} 불러옴`}
+                >
+                  <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  <span className="max-w-40 truncate font-semibold text-slate-500">{data.fileName}</span>
+                </span>
+              ) : (
+                !isField && (
+                  <button
+                    onClick={() => go('data')}
+                    className="hidden shrink-0 items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[10px] font-semibold text-amber-700 md:flex"
+                  >
+                    <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                    데이터 미연결
+                  </button>
+                )
+              ))}
+
+            {/* 날짜·시계 */}
+            <div className="hidden shrink-0 text-right md:block">
+              <p className="font-mono text-[10px] leading-tight text-slate-400">{today}</p>
+              <p className="font-mono text-sm font-bold leading-tight text-slate-800">{clock}</p>
+            </div>
+          </div>
+
+          {/* 모바일 검색 */}
+          <form onSubmit={submitSearch} className="relative px-4 pb-2.5 lg:hidden">
             <input
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="이름·차량번호·키워드 전체 검색"
               aria-label="전체 검색"
-              className="w-full rounded-lg border border-cyan-500/25 bg-white/90 py-1.5 pl-3 pr-8 text-sm text-slate-800 placeholder:text-slate-400 focus:border-cyan-500/70 focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-8 text-sm text-slate-700 placeholder:text-slate-300"
             />
-            <button type="submit" aria-label="검색" className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400">
+            <button type="submit" aria-label="검색" className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400">
               🔍
             </button>
           </form>
-          <nav className="flex gap-2 overflow-x-auto">
-            {leaves(menu).map((n) => (
-              <MobileChip key={n.key} node={n} view={view} go={go} />
-            ))}
-          </nav>
-        </div>
-      </header>
+        </header>
 
-      {/* 본문 — 메뉴 전환 시 view-enter 애니메이션 */}
-      <main key={view === 'search' ? `search-${query}` : view} className="view-enter flex-1 p-4 lg:p-6">
-        {/* 페이지 타이틀 */}
-        <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1">
-          <h1 className="flex items-center gap-2.5 text-lg font-bold tracking-tight text-slate-900 md:text-xl">
-            <span
-              aria-hidden
-              className="h-5 w-1.5 rounded-full bg-gradient-to-b from-cyan-300 to-blue-600 shadow-[0_0_12px_rgba(34,211,238,0.9)]"
-            />
-            {view === 'search' ? (
-              <>
-                검색 <span className="text-base font-medium text-cyan-300">&ldquo;{query}&rdquo;</span>
-              </>
-            ) : (
-              viewLabel(view)
-            )}
-          </h1>
-          {data ? (
-            <span className="text-xs text-slate-400">
-              {data.meta['평가연도'] && `${data.meta['평가연도']}년 · `}
-              {data.fileName} · {new Date(data.loadedAt).toLocaleString('ko-KR')} 불러옴
-            </span>
-          ) : (
-            // 현장 계정은 데이터 관리를 쓰지 않으므로 안내하지 않는다
-            ready &&
-            !isField && (
-              <span className="text-xs text-orange-500">데이터 미연결 — [데이터 관리]에서 파일을 불러와 주세요</span>
-            )
+        <main key={view === 'search' ? `search-${query}` : view} className="view-enter flex-1 p-4 lg:p-6">
+          {!ready ? null : (
+            <>
+              {view === 'main' && (
+                <MainHome
+                  data={data}
+                  onOpenEducation={() => setView('edu-supervisor')}
+                  onOpenWorkforce={() => setView('people')}
+                  onOpenTbm={() => setView('tbm')}
+                />
+              )}
+              {view === 'ledgers' && (data ? <Ledgers data={data} /> : <NeedData onGo={() => setView('data')} />)}
+              {view === 'tbm' && <TbmLog data={data} />}
+              {view === 'nearmiss' && <NearMissReport />}
+              {view === 'people' && <WorkforceLog data={data} />}
+              {view === 'edu-supervisor' && <SupervisorSheet />}
+              {view === 'edu-chemical' && <ChemicalAccess />}
+              {view === 'edu-yncc' && <YnccWorkers />}
+              {view === 'annual-plan' && <AnnualPlan />}
+              {view === 'card' && <AccessPass />}
+              {view === 'yncc-vehicle' && <YnccVehicles />}
+              {view === 'risk-assess' && <RiskAssessment />}
+              {view === 'search' && <SearchResults query={query} onNavigate={(v) => go(v as ViewKey)} />}
+              {view === 'health-general' && <HealthCheckSheet kind="general" />}
+              {view === 'health-special' && <HealthCheckSheet kind="special" />}
+              {view === 'gas-meter' && <GasDetectorSheet />}
+              {view === 'vehicle-service' && <VehicleCheckSheet />}
+              {view === 'inventory' && <InventorySheet />}
+              {view === 'safety-stock' && <SafetyStockSheet />}
+              {view === 'equipment-check' && <EquipmentCheck />}
+              {view === 'ppt-studio' && <PptStudio />}
+              {(view === 'health-followup' || view === 'notice') && <ComingSoon label={path[path.length - 1]} />}
+              {view === 'data' && (
+                <div className="mx-auto max-w-2xl py-6">
+                  <h2 className="mb-2 text-xl font-bold text-slate-800">안전관리 데이터 불러오기</h2>
+                  <p className="mb-6 text-sm text-slate-500">
+                    데이터 파일을 선택하면 위험성평가 현황을 한눈에 보여드립니다. 파일을 다시 선택하면 최신 내용으로
+                    교체됩니다.
+                  </p>
+                  <FileDrop onLoaded={onLoaded} />
+                  {data && (
+                    <div className="mt-6 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <p className="text-sm text-slate-600">
+                        현재 데이터: <b>{data.fileName}</b>
+                        <span className="ml-2 text-xs text-slate-400">
+                          {new Date(data.loadedAt).toLocaleString('ko-KR')} 불러옴 · 위험요인 {data.risks.length}건
+                        </span>
+                      </p>
+                      <button
+                        onClick={() => {
+                          if (
+                            confirm(
+                              '이 브라우저에 저장된 대시보드 데이터를 삭제할까요?\n(원본 파일은 영향을 받지 않습니다)',
+                            )
+                          ) {
+                            clearData();
+                            setData(null);
+                          }
+                        }}
+                        className="shrink-0 rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
+                      >
+                        데이터 삭제
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
-        </div>
+        </main>
 
-        {!ready ? null : (
-          <>
-            {view === 'main' && (
-              <MainHome data={data} onOpenEducation={() => setView('edu-supervisor')} />
-            )}
-            {view === 'ledgers' && (data ? <Ledgers data={data} /> : <NeedData onGo={() => setView('data')} />)}
-            {view === 'tbm' && <TbmLog data={data} />}
-            {view === 'nearmiss' && <NearMissReport />}
-            {view === 'people' && <WorkforceLog data={data} />}
-            {view === 'edu-supervisor' && <SupervisorSheet />}
-            {view === 'edu-chemical' && <ChemicalAccess />}
-            {view === 'edu-yncc' && <YnccWorkers />}
-            {view === 'annual-plan' && <AnnualPlan />}
-            {view === 'card' && <AccessPass />}
-            {view === 'yncc-vehicle' && <YnccVehicles />}
-            {view === 'risk-assess' && <RiskAssessment />}
-            {view === 'search' && <SearchResults query={query} onNavigate={(v) => go(v as ViewKey)} />}
-            {view === 'health-general' && <HealthCheckSheet kind="general" />}
-            {view === 'health-special' && <HealthCheckSheet kind="special" />}
-            {view === 'gas-meter' && <GasDetectorSheet />}
-            {view === 'vehicle-service' && <VehicleCheckSheet />}
-            {view === 'inventory' && <InventorySheet />}
-            {view === 'safety-stock' && <SafetyStockSheet />}
-            {view === 'equipment-check' && <EquipmentCheck />}
-            {(view === 'health-followup' || view === 'notice') && <ComingSoon label={viewLabel(view)} />}
-            {view === 'data' && (
-              <div className="mx-auto max-w-2xl py-6">
-                <h2 className="mb-2 text-xl font-bold text-slate-800">안전관리 데이터 불러오기</h2>
-                <p className="mb-6 text-sm text-slate-500">
-                  데이터 파일을 선택하면 위험성평가 현황을 한눈에 보여드립니다. 파일을 다시 선택하면 최신 내용으로
-                  교체됩니다.
-                </p>
-                <FileDrop onLoaded={onLoaded} />
-                {data && (
-                  <div className="mt-6 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
-                    <p className="text-sm text-slate-600">
-                      현재 데이터: <b>{data.fileName}</b>
-                      <span className="ml-2 text-xs text-slate-400">
-                        {new Date(data.loadedAt).toLocaleString('ko-KR')} 불러옴 · 위험요인 {data.risks.length}건
-                      </span>
-                    </p>
-                    <button
-                      onClick={() => {
-                        if (
-                          confirm(
-                            '이 브라우저에 저장된 대시보드 데이터를 삭제할까요?\n(원본 파일은 영향을 받지 않습니다)',
-                          )
-                        ) {
-                          clearData();
-                          setData(null);
-                        }
-                      }}
-                      className="shrink-0 rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
-                    >
-                      데이터 삭제
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        )}
-      </main>
-
-      <footer className="border-t border-slate-200 py-3 text-center text-xs text-slate-400">
-        데이터는 이 브라우저에서만 처리·보관되며 서버로 전송되지 않습니다.
-      </footer>
+        <footer className="border-t border-slate-200 px-6 py-3 text-center text-[11px] text-slate-400">
+          데이터는 이 브라우저에서만 처리·보관되며 서버로 전송되지 않습니다.
+        </footer>
+      </div>
     </div>
   );
 }

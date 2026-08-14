@@ -3,43 +3,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { SafetyData } from '@/lib/types';
 import { useSyncedLog, modeBadge } from '@/lib/useSyncedLog';
+import {
+  LABOR_CATEGORIES,
+  WORKFORCE_KEY,
+  laborCountOf,
+  laborSummary,
+  todayLocal,
+  type LaborRow,
+  type WorkforceEntry,
+} from '@/lib/workforce';
 
-/** 인력 1명 = 1행 (구분번호는 행 순서로 자동 부여) */
-interface LaborRow {
-  category: string; // 구분
-  name: string; // 인력이름
-  workType: string; // 작업구분
-  hours: string; // 작업시간
-}
-
-interface WorkforceEntry {
-  id: string;
-  site: string; // 현장명
-  date: string; // 작업일시(날짜)
-  manager: string; // 현장소장
-  staff: string; // 직원
-  laborRows?: LaborRow[]; // 인력 목록
-  laborNames?: string; // (구버전 기록 호환)
-  laborCount?: string; // (구버전 기록 호환)
-  workHours: string; // 작업시간(현장 전체)
-  work: string; // 작업내용
-  equipment: string; // 장비현황
-  createdAt: string;
-}
-
-const LABOR_CATEGORIES = ['공영인력', '개미인력', '여수인력', '여천인력', '당근인력'];
 const EMPTY_ROW: LaborRow = { category: '', name: '', workType: '', hours: '' };
-
-function todayLocal(): string {
-  const d = new Date();
-  const p = (n: number) => (n < 10 ? `0${n}` : String(n));
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
-
-function laborCountOf(e: WorkforceEntry): number {
-  if (e.laborRows && e.laborRows.length > 0) return e.laborRows.length;
-  return Number(e.laborCount) || 0;
-}
 
 const EMPTY = {
   site: '',
@@ -52,7 +26,7 @@ const EMPTY = {
 };
 
 export default function WorkforceLog({ data }: { data: SafetyData | null }) {
-  const { entries, mode, add, remove } = useSyncedLog<WorkforceEntry>('workforce', 'sj-workforce:v1');
+  const { entries, mode, add, remove } = useSyncedLog<WorkforceEntry>('workforce', WORKFORCE_KEY);
   const [form, setForm] = useState({ ...EMPTY });
   const [laborRows, setLaborRows] = useState<LaborRow[]>([{ ...EMPTY_ROW }]);
   const [filterSite, setFilterSite] = useState('');
@@ -107,15 +81,6 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
   const removeEntry = (id: string) => {
     if (!confirm('이 작업인원 기록을 삭제할까요?')) return;
     void remove(id);
-  };
-
-  const laborSummary = (e: WorkforceEntry): string => {
-    if (e.laborRows && e.laborRows.length > 0) {
-      return e.laborRows
-        .map((r, i) => `${i + 1}. ${[r.category, r.name, r.workType, r.hours].filter(Boolean).join(' ')}`)
-        .join(' / ');
-    }
-    return [e.laborNames, e.laborCount && `${e.laborCount}명`].filter(Boolean).join(' · ');
   };
 
   const exportCsv = () => {

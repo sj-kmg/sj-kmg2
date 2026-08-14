@@ -4,18 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { SafetyData } from '@/lib/types';
 import { useRole } from '@/lib/useRole';
 import { useSyncedLog, modeBadge } from '@/lib/useSyncedLog';
-
-interface TbmEntry {
-  id: string;
-  datetime: string; // YYYY-MM-DDTHH:mm
-  site: string; // 현장(발주처·공장)
-  place: string; // 작업 위치
-  work: string; // 작업 내용
-  attendees: string; // 참석 인원
-  leader: string; // 진행자(작성자)
-  content: string; // TBM 내용 (위험요인·안전대책 공유)
-  createdAt: string;
-}
+import { TBM_KEY, type TbmEntry } from '@/lib/tbm';
 
 function nowLocal(): string {
   const d = new Date();
@@ -26,7 +15,7 @@ function nowLocal(): string {
 const EMPTY = { datetime: '', site: '', place: '', work: '', attendees: '', leader: '', content: '' };
 
 export default function TbmLog({ data }: { data: SafetyData | null }) {
-  const { entries, mode, pending, add, remove } = useSyncedLog<TbmEntry>('tbm', 'sj-tbm:v1');
+  const { entries, mode, pending, add, remove } = useSyncedLog<TbmEntry>('tbm', TBM_KEY);
   const { role } = useRole();
   /** 삭제는 관리자만 — 현장 계정에는 버튼을 보여 주지 않는다 */
   const canDelete = role !== 'field';

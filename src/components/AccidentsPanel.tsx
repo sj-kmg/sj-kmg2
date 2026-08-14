@@ -17,8 +17,11 @@ interface Accidents {
   items: AccidentItem[];
 }
 
-/** 전국 중대재해·온열질환 사망사고 현황 — /accidents.json (일일 확인·갱신) */
-export default function AccidentsPanel() {
+/**
+ * 전국 중대재해·온열질환 사망사고 현황 — /accidents.json (일일 확인·갱신)
+ * compact: 메인 화면용 축약 표시 (참고 정보이므로 비중을 낮춘다)
+ */
+export default function AccidentsPanel({ compact = false }: { compact?: boolean }) {
   const [data, setData] = useState<Accidents | null>(null);
   const [error, setError] = useState(false);
   const [open, setOpen] = useState<number | null>(null);
@@ -39,9 +42,11 @@ export default function AccidentsPanel() {
 
   return (
     <div className="flex h-full flex-col">
-      <ul className="max-h-44 flex-1 divide-y divide-slate-100 overflow-y-auto pr-1">
+      <ul
+        className={`flex-1 divide-y divide-slate-100 overflow-y-auto pr-1 ${compact ? 'max-h-32' : 'max-h-44'}`}
+      >
         {data.items.map((a, i) => (
-          <li key={i} className="py-1.5">
+          <li key={i} className={compact ? 'py-1' : 'py-1.5'}>
             <button className="w-full text-left" onClick={() => setOpen(open === i ? null : i)}>
               <div className="flex items-center gap-2">
                 <span className="shrink-0 font-mono text-[10px] text-slate-400">{a.date.slice(5)}</span>
