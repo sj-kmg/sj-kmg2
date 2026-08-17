@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { SafetyData } from '@/lib/types';
-import { highRiskMin } from '@/lib/risk';
+import { collectEducationStatus } from '@/lib/eduLive';
+import { collectGeneralAffairsStatus } from '@/lib/generalAffairsLive';
 import { useOps } from '@/lib/useOps';
 import { todayLocal } from '@/lib/workforce';
+import DueSummaryModal, { type DueSummaryItem } from './DueSummaryModal';
 import OpsCalendar from './OpsCalendar';
 import SiteBoard from './SiteBoard';
 import OpsTrend from './OpsTrend';
@@ -40,13 +42,39 @@ export default function MainHome({
   const tbmDone = day.sites.filter((s) => day.tbmSites.has(s)).length;
   const nearMiss = day.nearMisses;
 
-  const hi = data ? highRiskMin(data.gradeSystem) : 0;
-  const highRisk = data ? data.risks.filter((r) => r.r !== null && (r.r as number) >= hi).length : 0;
+  // 안전교육·공무관리 — D-10 이내(기한 초과 포함) 항목만 KPI로 센다
+  const DUE_WINDOW = 10;
+  const [eduDue, setEduDue] = useState<DueSummaryItem[] | null>(null);
+  const [gaDue, setGaDue] = useState<DueSummaryItem[] | null>(null);
+  const [openModal, setOpenModal] = useState<'edu' | 'ga' | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void collectEducationStatus(new Date()).then(({ due }) => {
+      if (!alive) return;
+      setEduDue(
+        due
+          .filter((r) => r.days <= DUE_WINDOW)
+          .map((r) => ({ id: r.id, name: r.name, category: r.course, date: r.renewAt, days: r.days, level: r.level })),
+      );
+    });
+    void collectGeneralAffairsStatus(new Date()).then(({ due }) => {
+      if (!alive) return;
+      setGaDue(
+        due
+          .filter((r) => r.days <= DUE_WINDOW)
+          .map((r) => ({ id: r.id, name: r.name, category: r.kind, date: r.date, days: r.days, level: r.level })),
+      );
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   return (
     <div className="space-y-4">
       {/* ── KPI ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <Kpi
           label={isToday ? '오늘 가동 현장' : '가동 현장'}
           value={siteCount}
@@ -85,14 +113,31 @@ export default function MainHome({
           onClick={onOpenNearMiss}
         />
         <Kpi
-          label={`고위험 요인 (R≥${hi || '-'})`}
-          value={data ? highRisk : '-'}
-          unit={data ? '건' : ''}
-          sub={data ? `전체 위험요인 ${data.risks.length}건` : '데이터 미연결'}
-          tone={highRisk > 0 ? 'amber' : 'slate'}
-          icon="⚠️"
+          label="안전교육 현황"
+          value={eduDue ? eduDue.length : '-'}
+          unit={eduDue ? '건' : ''}
+          sub={eduDue === null ? '불러오는 중…' : eduDue.length > 0 ? 'D-10 이내 갱신 대상 — 눌러서 확인' : 'D-10 이내 대상 없음'}
+          tone={eduDue && eduDue.length > 0 ? 'amber' : 'emerald'}
+          icon="🎓"
+          onClick={eduDue && eduDue.length > 0 ? () => setOpenModal('edu') : undefined}
+        />
+        <Kpi
+          label="공무관리 현황"
+          value={gaDue ? gaDue.length : '-'}
+          unit={gaDue ? '건' : ''}
+          sub={gaDue === null ? '불러오는 중…' : gaDue.length > 0 ? 'D-10 이내 만료 대상 — 눌러서 확인' : 'D-10 이내 대상 없음'}
+          tone={gaDue && gaDue.length > 0 ? 'amber' : 'emerald'}
+          icon="🗂️"
+          onClick={gaDue && gaDue.length > 0 ? () => setOpenModal('ga') : undefined}
         />
       </div>
+
+      {openModal === 'edu' && (
+        <DueSummaryModal title="안전교육 현황" icon="🎓" items={eduDue ?? []} onClose={() => setOpenModal(null)} />
+      )}
+      {openModal === 'ga' && (
+        <DueSummaryModal title="공무관리 현황" icon="🗂️" items={gaDue ?? []} onClose={() => setOpenModal(null)} />
+      )}
 
       {/* ── 현장·인원 관리 ───────────────────────────────────── */}
       <div className="grid grid-cols-12 gap-4">

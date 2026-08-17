@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SafetyData } from '@/lib/types';
+import { deletePhoto, fileToResizedDataUrl, getPhoto, putPhoto } from '@/lib/photos';
+import { uploadPhoto } from '@/lib/sync';
 import { useRole } from '@/lib/useRole';
 import { useSyncedLog, modeBadge } from '@/lib/useSyncedLog';
 import { TBM_KEY, tbmAttendees, tbmHazard, tbmMeasure, type TbmEntry } from '@/lib/tbm';
@@ -34,7 +36,28 @@ const EMPTY = {
 };
 
 export default function TbmLog({ data }: { data: SafetyData | null }) {
-  const { entries, mode, pending, add, remove } = useSyncedLog<TbmEntry>('tbm', TBM_KEY);
+  // 로컬 → 서버 이관 시 IndexedDB 사진을 서버로 올리고 URL로 교체
+  const migrateExtra = useMemo(
+    () => async (entry: TbmEntry): Promise<TbmEntry> => {
+      if (!entry.photoIds || entry.photoIds.length === 0) return entry;
+      const urls: string[] = [...(entry.photoUrls ?? [])];
+      for (const pid of entry.photoIds) {
+        const dataUrl = await getPhoto(pid).catch(() => null);
+        if (dataUrl) {
+          try {
+            urls.push(await uploadPhoto(dataUrl));
+            await deletePhoto(pid).catch(() => undefined);
+          } catch {
+            // 업로드 실패한 사진은 포기 (기록 자체는 이관)
+          }
+        }
+      }
+      return { ...entry, photoIds: [], photoUrls: urls };
+    },
+    [],
+  );
+
+  const { entries, mode, pending, add, remove } = useSyncedLog<TbmEntry>('tbm', TBM_KEY, { migrateExtra });
   const { role } = useRole();
   /** 삭제는 관리자만 — 현장 계정에는 버튼을 보여 주지 않는다 */
   const canDelete = role !== 'field';
@@ -43,10 +66,30 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
   const [attendees, setAttendees] = useState<string[]>(['']);
   const [filterSite, setFilterSite] = useState('');
   const [saved, setSaved] = useState(false);
+  const [pendingPhotos, setPendingPhotos] = useState<string[]>([]); // dataURL
+  const [localPhotos, setLocalPhotos] = useState<Record<string, string>>({}); // photoId → dataURL
+  const [preview, setPreview] = useState<string | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const loadedPhotoIds = useRef(new Set<string>());
 
   useEffect(() => {
     setForm((f) => ({ ...f, date: todayStr(), time: nowTime() }));
   }, []);
+
+  // 로컬 모드 항목의 사진을 IndexedDB에서 로드
+  useEffect(() => {
+    (async () => {
+      for (const e of entries) {
+        for (const pid of e.photoIds ?? []) {
+          if (loadedPhotoIds.current.has(pid)) continue;
+          loadedPhotoIds.current.add(pid);
+          const d = await getPhoto(pid).catch(() => null);
+          if (d) setLocalPhotos((m) => ({ ...m, [pid]: d }));
+        }
+      }
+    })();
+  }, [entries]);
 
   // 현장 자동완성: 불러온 데이터의 발주처 + 기존 일지의 현장명
   const siteOptions = useMemo(() => {
@@ -71,39 +114,87 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
   const setAttendee = (i: number, v: string) =>
     setAttendees((list) => list.map((n, j) => (j === i ? v : n)));
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.date || !form.time || !form.site.trim() || !form.hazard.trim()) return;
-    const names = attendees.map((n) => n.trim()).filter(Boolean);
-    const entry: TbmEntry = {
-      id: `TBM-${Date.now()}`,
-      datetime: `${form.date}T${form.time}`,
-      site: form.site.trim(),
-      place: form.place.trim(),
-      work: form.work.trim(),
-      leader: form.leader.trim(),
-      attendeeList: names,
-      attendees: names.join(', '),
-      hazard: form.hazard.trim(),
-      measure: form.measure.trim(),
-      content: '',
-      createdAt: new Date().toISOString(),
-    };
-    if (!(await add(entry))) return;
-    // 같은 현장에서 이어 쓰는 경우가 많아 현장·날짜는 남겨 둔다
-    setForm({ ...EMPTY, date: form.date, time: nowTime(), site: form.site });
-    setAttendees(['']);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const addPhotos = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setPhotoBusy(true);
+    try {
+      for (const file of Array.from(files).slice(0, 5 - pendingPhotos.length)) {
+        const dataUrl = await fileToResizedDataUrl(file);
+        setPendingPhotos((p) => [...p, dataUrl]);
+      }
+    } catch {
+      alert('사진을 처리하지 못했습니다. 이미지 파일인지 확인해 주세요.');
+    } finally {
+      setPhotoBusy(false);
+    }
   };
 
-  const removeEntry = (id: string) => {
-    if (!confirm('이 TBM 일지를 삭제할까요?')) return;
-    void remove(id);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.date || !form.time || !form.site.trim() || !form.hazard.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      const names = attendees.map((n) => n.trim()).filter(Boolean);
+      const id = `TBM-${Date.now()}`;
+      const photoIds: string[] = [];
+      const photoUrls: string[] = [];
+      for (let i = 0; i < pendingPhotos.length; i++) {
+        if (mode === 'server') {
+          try {
+            photoUrls.push(await uploadPhoto(pendingPhotos[i]));
+            continue;
+          } catch {
+            // 서버 업로드 실패 시 이 사진은 로컬로라도 보관
+          }
+        }
+        const pid = `${id}-P${i + 1}`;
+        try {
+          await putPhoto(pid, pendingPhotos[i]);
+          photoIds.push(pid);
+          setLocalPhotos((m) => ({ ...m, [pid]: pendingPhotos[i] }));
+        } catch {
+          // 사진 저장 실패 시 해당 사진만 제외
+        }
+      }
+      const entry: TbmEntry = {
+        id,
+        datetime: `${form.date}T${form.time}`,
+        site: form.site.trim(),
+        place: form.place.trim(),
+        work: form.work.trim(),
+        leader: form.leader.trim(),
+        attendeeList: names,
+        attendees: names.join(', '),
+        hazard: form.hazard.trim(),
+        measure: form.measure.trim(),
+        content: '',
+        photoIds,
+        photoUrls,
+        createdAt: new Date().toISOString(),
+      };
+      if (!(await add(entry))) return;
+      // 같은 현장에서 이어 쓰는 경우가 많아 현장·날짜는 남겨 둔다
+      setForm({ ...EMPTY, date: form.date, time: nowTime(), site: form.site });
+      setAttendees(['']);
+      setPendingPhotos([]);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const removeEntry = async (id: string) => {
+    if (!confirm('이 TBM 일지를 삭제할까요? 첨부 사진도 함께 삭제됩니다.')) return;
+    const target = entries.find((e) => e.id === id);
+    for (const pid of target?.photoIds ?? []) {
+      await deletePhoto(pid).catch(() => undefined);
+    }
+    void remove(id); // 서버 모드에서는 서버가 사진(Blob)도 함께 삭제
   };
 
   const exportCsv = () => {
-    const head = ['일시', '현장(발주처)', '공사명', '금일작업내용', '참석자', '인원', '진행자', '위험요인', '안전대책'];
+    const head = ['일시', '현장(발주처)', '공사명', '금일작업내용', '참석자', '인원', '진행자', '위험요인', '안전대책', '사진(장)'];
     const esc = (s: string) => `"${(s ?? '').replace(/"/g, '""')}"`;
     const rows = [...entries]
       .sort((a, b) => a.datetime.localeCompare(b.datetime))
@@ -119,6 +210,7 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
           e.leader,
           tbmHazard(e),
           tbmMeasure(e),
+          String((e.photoIds?.length ?? 0) + (e.photoUrls?.length ?? 0)),
         ]
           .map(esc)
           .join(',');
@@ -131,6 +223,11 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  const photoSrcs = (e: TbmEntry): string[] => [
+    ...(e.photoUrls ?? []),
+    ...(e.photoIds ?? []).map((pid) => localPhotos[pid]).filter(Boolean),
+  ];
 
   const badge = modeBadge(mode);
   // 휴대폰에서 입력칸을 누를 때 화면이 확대되지 않도록 본문 글자를 16px로 둔다
@@ -258,20 +355,61 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
               className={input}
             />
           </div>
+
+          {/* 사진 첨부 */}
+          <div className="sm:col-span-2">
+            <label className={label} htmlFor="tbm-photo">사진 첨부 (최대 5장)</label>
+            <label
+              htmlFor="tbm-photo"
+              className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 px-3 py-3 text-sm text-slate-500 hover:border-[#1f3864] hover:text-[#1f3864]"
+            >
+              📷 {photoBusy ? '사진 처리 중…' : '사진 선택 또는 촬영'}
+            </label>
+            <input
+              id="tbm-photo"
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                void addPhotos(e.target.files);
+                e.target.value = '';
+              }}
+            />
+            {pendingPhotos.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {pendingPhotos.map((p, i) => (
+                  <div key={i} className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={p} alt={`첨부 사진 ${i + 1}`} className="h-16 w-16 rounded-lg border border-slate-200 object-cover" />
+                    <button
+                      type="button"
+                      aria-label="사진 제거"
+                      onClick={() => setPendingPhotos((list) => list.filter((_, j) => j !== i))}
+                      className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-[10px] text-white"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <div className="mt-3 flex items-center gap-3">
           <button
             type="submit"
-            className="w-full rounded-lg bg-[#1f3864] px-4 py-3 text-base font-bold text-white hover:bg-[#2a4a80] sm:w-auto sm:py-2 sm:text-sm sm:font-medium"
+            disabled={submitting}
+            className="w-full rounded-lg bg-[#1f3864] px-4 py-3 text-base font-bold text-white hover:bg-[#2a4a80] disabled:opacity-60 sm:w-auto sm:py-2 sm:text-sm sm:font-medium"
           >
-            일지 저장
+            {submitting ? '저장 중…' : '일지 저장'}
           </button>
           {saved && <span className="text-sm font-medium text-green-600">저장되었습니다 ✓</span>}
         </div>
         <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
           {mode === 'server'
-            ? '기록은 서버에 저장되어 휴대폰·PC 어디서든 함께 보입니다. 현장에서 신호가 약해도 작성한 내용은 휴대폰에 보관됐다가 인터넷이 연결되면 자동으로 올라갑니다.'
-            : '기록이 이 브라우저에만 저장됩니다. 기록 보존이 필요하면 주기적으로 [CSV 내보내기]로 백업하세요.'}
+            ? '기록·사진은 서버에 저장되어 휴대폰·PC 어디서든 함께 보입니다. 현장에서 신호가 약해도 작성한 내용은 휴대폰에 보관됐다가 인터넷이 연결되면 자동으로 올라갑니다.'
+            : '기록·사진이 이 브라우저에만 저장됩니다. 보존이 필요하면 주기적으로 [CSV 내보내기]로 백업하세요.'}
         </p>
       </form>
 
@@ -318,7 +456,7 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
                   {e.place && <span className="text-xs text-slate-500">🏗️ {e.place}</span>}
                   {e.leader && <span className="text-xs text-slate-500">진행 {e.leader}</span>}
                   {canDelete && (
-                    <button onClick={() => removeEntry(e.id)} className="ml-auto text-xs text-slate-300 hover:text-red-500">
+                    <button onClick={() => void removeEntry(e.id)} className="ml-auto text-xs text-slate-300 hover:text-red-500">
                       삭제
                     </button>
                   )}
@@ -351,11 +489,37 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
                     </div>
                   )}
                 </div>
+
+                {photoSrcs(e).length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {photoSrcs(e).map((src, i) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={i}
+                        src={src}
+                        alt="TBM 사진"
+                        className="h-20 w-20 cursor-zoom-in rounded-lg border border-slate-200 object-cover"
+                        onClick={() => setPreview(src)}
+                      />
+                    ))}
+                  </div>
+                )}
               </article>
             );
           })
         )}
       </div>
+
+      {/* 사진 확대 보기 */}
+      {preview && (
+        <div
+          className="fixed inset-0 z-50 flex cursor-zoom-out items-center justify-center bg-black/70 p-6"
+          onClick={() => setPreview(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={preview} alt="사진 확대" className="max-h-full max-w-full rounded-lg" />
+        </div>
+      )}
     </div>
   );
 }

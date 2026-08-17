@@ -23,6 +23,8 @@ export interface TbmEntry {
   measure?: string;
   /** 위험요인·안전대책 통합 입력 (구버전 기록 호환) */
   content: string;
+  photoIds: string[]; // 로컬(IndexedDB) 저장 사진
+  photoUrls?: string[]; // 서버 저장 사진
   createdAt: string;
 }
 

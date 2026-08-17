@@ -330,9 +330,10 @@ export default function Page() {
       <button onClick={() => go('main')} className="flex shrink-0 items-center gap-2.5 px-4 pb-4 pt-5 text-left">
         <span
           aria-hidden
-          className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#4b7bff] to-[#7c5cff] text-base shadow-[0_6px_20px_-6px_rgba(75,123,255,0.9)]"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white p-1.5 shadow-[0_6px_20px_-6px_rgba(75,123,255,0.6)]"
         >
-          🛡️
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-symbol.png" alt="" className="h-full w-full object-contain" />
         </span>
         <span className="min-w-0">
           <span className="block truncate text-[15px] font-black leading-tight tracking-tight text-slate-900">
@@ -456,27 +457,16 @@ export default function Page() {
               </h1>
             </div>
 
-            {/* 데이터 연결 상태 */}
-            {ready &&
-              (data ? (
-                <span
-                  className="hidden shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[10px] text-slate-400 xl:flex"
-                  title={`${data.fileName} · ${new Date(data.loadedAt).toLocaleString('ko-KR')} 불러옴`}
-                >
-                  <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  <span className="max-w-40 truncate font-semibold text-slate-500">{data.fileName}</span>
-                </span>
-              ) : (
-                !isField && (
-                  <button
-                    onClick={() => go('data')}
-                    className="hidden shrink-0 items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[10px] font-semibold text-amber-700 md:flex"
-                  >
-                    <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                    데이터 미연결
-                  </button>
-                )
-              ))}
+            {/* 데이터 연결 상태 — 파일이 연결돼 있을 때만 조용히 표시, 미연결 경고는 띄우지 않는다 */}
+            {ready && data && (
+              <span
+                className="hidden shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[10px] text-slate-400 xl:flex"
+                title={`${data.fileName} · ${new Date(data.loadedAt).toLocaleString('ko-KR')} 불러옴`}
+              >
+                <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                <span className="max-w-40 truncate font-semibold text-slate-500">{data.fileName}</span>
+              </span>
+            )}
 
             {/* 날짜·시계 */}
             <div className="hidden shrink-0 text-right md:block">
