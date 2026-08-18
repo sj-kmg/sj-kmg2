@@ -165,7 +165,7 @@ export default function HealthFollowup() {
                   <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-4">
                     <div className="flex flex-col gap-2.5 lg:flex-row">
                       {/* 신체도 — 검진소견을 부위별로 표시 */}
-                      <div className="flex shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-white p-3 lg:w-[360px]">
+                      <div className="flex shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-white p-3 lg:w-[420px]">
                         <BodyDiagram findings={r.findings} accent={accent} />
                       </div>
 
