@@ -21,6 +21,21 @@ const DEFAULT_ATTACHMENTS: { plate: string; regCertFile: string; insuranceCertFi
     regCertFile: '/certs/yncc-vehicles/86저0128_자동차등록증.pdf',
     insuranceCertFile: '/certs/yncc-vehicles/86저0128_보험증권.pdf',
   },
+  {
+    plate: '802소3632',
+    regCertFile: '/certs/yncc-vehicles/802소3632_자동차등록증.pdf',
+    insuranceCertFile: '/certs/yncc-vehicles/802소3632_보험증권.pdf',
+  },
+  {
+    plate: '93너7439',
+    regCertFile: '/certs/yncc-vehicles/93너7439_자동차등록증.pdf',
+    insuranceCertFile: '/certs/yncc-vehicles/93너7439_보험증권.pdf',
+  },
+  {
+    plate: '95우6525',
+    regCertFile: '/certs/yncc-vehicles/95우6525_자동차등록증.pdf',
+    insuranceCertFile: '/certs/yncc-vehicles/95우6525_보험증권.pdf',
+  },
 ];
 
 function fileToDataUrl(file: File): Promise<string> {
