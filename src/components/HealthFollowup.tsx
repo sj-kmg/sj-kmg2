@@ -164,9 +164,9 @@ export default function HealthFollowup() {
 
                 {isOpen && (
                   <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-4">
-                    <div className="flex flex-col gap-2.5 md:flex-row">
+                    <div className="flex flex-col gap-2.5 lg:flex-row">
                       {/* 신체도 — 검진소견을 부위별로 표시 */}
-                      <div className="flex shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-white p-2 md:w-[190px]">
+                      <div className="flex shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-white p-3 lg:w-[400px]">
                         <BodyDiagram findings={r.findings} accent={accent} />
                       </div>
 
@@ -360,58 +360,77 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-/** 신체도 — 검진소견을 부위별로 분류해 실루엣에 점으로 표시하고, 옆에 소견을 라벨로 붙인다 */
+/**
+ * 신체도 — 실루엣 + 부위별 아이콘 배지. 검진소견을 부위별로 분류해 해당 지점을
+ * 강조하고, 오른쪽에 부위명·소견을 나란히 표시한다 (특이사항 없는 부위는 흐리게).
+ */
 function BodyDiagram({ findings, accent }: { findings: string; accent: string }) {
   const matches = matchBodyPoints(findings);
-  const matchedKeys = new Set(matches.map((m) => m.point.key));
+  const matchedByKey = new Map(matches.map((m) => [m.point.key, m]));
+  const rowY = (i: number) => 40 + i * 62;
   return (
-    <svg viewBox="0 0 220 190" className="h-auto w-full max-w-[190px]" aria-label="신체 부위별 검진소견">
+    <svg viewBox="0 0 400 420" className="h-auto w-full max-w-[420px]" aria-label="신체 부위별 검진소견">
       {/* 실루엣 */}
-      <circle cx="40" cy="22" r="14" className="fill-slate-200" />
-      <rect x="34" y="32" width="12" height="10" className="fill-slate-200" />
-      <rect x="15" y="40" width="50" height="72" rx="18" className="fill-slate-200" />
-      <rect x="2" y="44" width="13" height="58" rx="6" className="fill-slate-200" />
-      <rect x="65" y="44" width="13" height="58" rx="6" className="fill-slate-200" />
-      <rect x="18" y="108" width="16" height="76" rx="7" className="fill-slate-200" />
-      <rect x="46" y="108" width="16" height="76" rx="7" className="fill-slate-200" />
+      <g fill="#1f3864">
+        <ellipse cx="80" cy="36" rx="23" ry="26" />
+        <rect x="66" y="58" width="28" height="16" rx="4" />
+        <polygon points="38,74 122,74 106,196 54,196" />
+        <polygon points="26.3,75.3 5.2,208.3 22.8,211.7 53.7,80.7" />
+        <polygon points="133.7,75.3 154.8,208.3 137.2,211.7 106.3,80.7" />
+        <polygon points="54,196 78,196 72,395 62,395" />
+        <polygon points="82,196 106,196 98,395 88,395" />
+        <ellipse cx="67" cy="402" rx="14" ry="8" />
+        <ellipse cx="93" cy="402" rx="14" ry="8" />
+      </g>
 
+      {/* 부위 지점 — 활성 부위만 강조, 나머지는 흐리게 */}
       {BODY_POINTS.map((p) => {
-        const active = matchedKeys.has(p.key);
+        const active = matchedByKey.has(p.key);
         return (
           <circle
             key={p.key}
             cx={p.x}
             cy={p.y}
-            r={active ? 5 : 3}
-            fill={active ? accent : '#cbd5e1'}
+            r={active ? 7 : 4}
+            fill={active ? accent : '#94a3b8'}
             stroke="#fff"
-            strokeWidth={1.5}
+            strokeWidth={2}
           />
         );
       })}
 
-      {matches.map((m, i) => {
-        const ly = 46 + i * 30;
-        const label = m.text.length > 14 ? `${m.text.slice(0, 14)}…` : m.text;
+      {/* 부위별 배지·라벨 — 항상 6개 모두 표시 */}
+      {BODY_POINTS.map((p, i) => {
+        const m = matchedByKey.get(p.key);
+        const active = !!m;
+        const y = rowY(i);
+        const badgeColor = active ? accent : '#e2e8f0';
+        const textColor = active ? '#1e293b' : '#94a3b8';
+        const detail = m ? (m.text.length > 13 ? `${m.text.slice(0, 13)}…` : m.text) : '특이사항 없음';
         return (
-          <g key={m.point.key}>
-            <line x1={m.point.x} y1={m.point.y} x2={90} y2={ly} stroke={accent} strokeWidth={1} strokeDasharray="2 2" />
-            <circle cx={90} cy={ly} r={2} fill={accent} />
-            <text x={96} y={ly - 3} style={{ fontSize: 8, fontWeight: 700 }} className="fill-slate-600">
-              {m.point.label}
+          <g key={p.key}>
+            {active && (
+              <path
+                d={`M${p.x},${p.y} Q250,${(p.y + y) / 2} 205,${y}`}
+                fill="none"
+                stroke={accent}
+                strokeWidth={1.2}
+                strokeDasharray="3 3"
+              />
+            )}
+            <circle cx={205} cy={y} r={18} fill={badgeColor} />
+            <text x={205} y={y + 5} textAnchor="middle" style={{ fontSize: 14, fontWeight: 800 }} fill={active ? '#fff' : '#94a3b8'}>
+              {p.label[0]}
             </text>
-            <text x={96} y={ly + 7} style={{ fontSize: 7 }} className="fill-slate-400">
-              {label}
+            <text x={233} y={y - 4} style={{ fontSize: 13, fontWeight: 800 }} fill={textColor}>
+              {p.label}
+            </text>
+            <text x={233} y={y + 13} style={{ fontSize: 11 }} fill={active ? '#64748b' : '#cbd5e1'}>
+              {detail}
             </text>
           </g>
         );
       })}
-
-      {matches.length === 0 && (
-        <text x="110" y="95" textAnchor="middle" style={{ fontSize: 8 }} className="fill-slate-300">
-          특이 소견 없음
-        </text>
-      )}
     </svg>
   );
 }

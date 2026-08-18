@@ -92,7 +92,7 @@ const MENU_INDEX: { label: string; path: string; view: string; keywords: string 
   },
   { label: '위험성평가', path: '위험성평가', view: 'risk-assess', keywords: '위험 평가 빈도 강도' },
   { label: '작업인원관리', path: '작업인원관리', view: 'people', keywords: '인원 출력' },
-  { label: '인력관리', path: '인력관리', view: 'labor-roster', keywords: '인력 공영 개미 여수 여천 당근 특수검진 유해화학물질 YNCC' },
+  { label: '인력관리', path: '공무관리 › 인력관리', view: 'labor-roster', keywords: '인력 공영 개미 여수 여천 당근 특수검진 유해화학물질 YNCC' },
   { label: '공지사항', path: '공지사항', view: 'notice', keywords: '공지' },
 ];
 

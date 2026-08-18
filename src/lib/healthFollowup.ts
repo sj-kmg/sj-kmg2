@@ -61,10 +61,12 @@ export interface BodyPoint {
 }
 
 export const BODY_POINTS: BodyPoint[] = [
-  { key: 'heart', label: '심장·혈압', x: 34, y: 62, keywords: ['고혈압', '혈압', '심장', '순환', '부정맥', '빈혈'] },
-  { key: 'lungs', label: '호흡기', x: 52, y: 62, keywords: ['흉부', '폐', '호흡', '결핵', '천식', '기관지'] },
-  { key: 'liver', label: '간·대사', x: 50, y: 98, keywords: ['간', '지방간', '당뇨', '대사', '이상지질', '콜레스테롤', '비만'] },
-  { key: 'stomach', label: '위장관', x: 32, y: 98, keywords: ['위', '소화', '장질환', '위장', '역류'] },
+  { key: 'brain', label: '뇌·신경', x: 80, y: 36, keywords: ['두통', '어지럼', '뇌', '신경'] },
+  { key: 'heart', label: '심장·혈압', x: 66, y: 95, keywords: ['고혈압', '혈압', '심장', '순환', '부정맥', '빈혈'] },
+  { key: 'lungs', label: '호흡기', x: 94, y: 95, keywords: ['흉부', '폐', '호흡', '결핵', '천식', '기관지'] },
+  { key: 'stomach', label: '위장관', x: 70, y: 140, keywords: ['위', '소화', '위장', '역류'] },
+  { key: 'liver', label: '간·대사', x: 92, y: 152, keywords: ['간', '지방간', '당뇨', '대사', '이상지질', '콜레스테롤', '비만'] },
+  { key: 'gut', label: '장', x: 76, y: 175, keywords: ['장질환', '대장', '변비', '설사', '치질'] },
 ];
 
 /** 검진소견 텍스트를 신체 부위별로 분류 — 신체도의 활성 지점·라벨 표시용 */

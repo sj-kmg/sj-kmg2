@@ -118,10 +118,10 @@ const MENU: MenuNode[] = [
           { key: 'extinguisher', label: '소화기관리' },
         ],
       },
+      { key: 'labor-roster', label: '인력관리' },
     ],
   },
   { key: 'people', label: '작업인원관리', icon: '👷' },
-  { key: 'labor-roster', label: '인력관리', icon: '🪪' },
   { key: 'risk-assess', label: '위험성평가', icon: '📝' },
   { key: 'notice', label: '공지사항', icon: '📢', wip: true },
 ];
