@@ -64,7 +64,6 @@ export default function GasDetectorSheet() {
       usage: '',
       calDate: '',
       nextCalDate: '',
-      kolas: true,
       maker: '',
       vendor: '',
       status: '사용',
@@ -157,28 +156,27 @@ export default function GasDetectorSheet() {
         </div>
 
         <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full min-w-[1720px] text-xs">
+          <table className="w-full min-w-[1560px] text-xs">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-                <th className={`${TH} ${TH_STICKY} w-32`}>관리번호</th>
-                <th className={`${TH} w-56`}>MODEL</th>
-                <th className={`${TH} w-52`}>용도</th>
-                <th className={`${TH} w-40`}>검교정일</th>
-                <th className={`${TH} w-40`}>차기 검교정일</th>
-                <th className={`${TH} w-24 text-center`}>D-day</th>
-                <th className={`${TH} w-48`}>제조사</th>
-                <th className={`${TH} w-28`}>검교정업체</th>
-                <th className={`${TH} w-16 text-center`}>KOLAS</th>
+                <th className={`${TH} ${TH_STICKY} w-28`}>관리번호</th>
+                <th className={`${TH} w-44`}>MODEL</th>
+                <th className={`${TH} w-44`}>용도</th>
+                <th className={`${TH} w-36`}>검교정일</th>
+                <th className={`${TH} w-36`}>차기 검교정일</th>
+                <th className={`${TH} w-20 text-center`}>D-day</th>
+                <th className={`${TH} w-44`}>제조사</th>
+                <th className={`${TH} w-24`}>검교정업체</th>
                 <th className={`${TH} w-24 text-center`}>상태</th>
                 <th className={`${TH} w-32 text-center`}>성적서</th>
-                <th className={`${TH} w-48`}>비고</th>
+                <th className={`${TH} w-40`}>비고</th>
                 <th className="w-10 px-1 py-2" aria-label="행 삭제" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {shown.length === 0 && (
                 <tr>
-                  <td colSpan={13} className="px-3 py-4 text-center text-slate-300">
+                  <td colSpan={12} className="px-3 py-4 text-center text-slate-300">
                     아래 ＋ 버튼으로 측정기를 추가해 주세요
                   </td>
                 </tr>
@@ -189,7 +187,7 @@ export default function GasDetectorSheet() {
                   <Fragment key={r.id}>
                     {head && (
                       <tr className="bg-slate-50/70">
-                        <td colSpan={13} className="px-2 py-1 text-[10px] font-bold tracking-wide text-slate-500">
+                        <td colSpan={12} className="px-2 py-1 text-[10px] font-bold tracking-wide text-slate-500">
                           {DETECTOR_KIND_LABEL[head] ?? head}
                         </td>
                       </tr>
@@ -222,15 +220,6 @@ export default function GasDetectorSheet() {
                       </td>
                       <td className="px-1.5 py-1.5">
                         <input aria-label="검교정업체" value={r.vendor} onChange={(e) => setRow(r.id, { vendor: e.target.value })} className={CELL} />
-                      </td>
-                      <td className="px-1 py-1.5 text-center">
-                        <input
-                          aria-label="KOLAS 인정"
-                          type="checkbox"
-                          checked={r.kolas}
-                          onChange={(e) => setRow(r.id, { kolas: e.target.checked })}
-                          className="h-3.5 w-3.5 accent-cyan-600"
-                        />
                       </td>
                       <td className="px-1 py-1.5">
                         <select

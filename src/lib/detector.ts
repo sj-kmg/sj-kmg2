@@ -14,7 +14,6 @@ export interface GasDetector {
   usage: string; // 용도 (측정 가스)
   calDate: string; // 검교정일
   nextCalDate: string; // 차기 검교정일 — 검교정일 + 1년 (수정 가능)
-  kolas: boolean; // KOLAS 인정 여부
   maker: string; // 제조사
   vendor: string; // 검교정업체
   status: DetectorStatus;
@@ -114,7 +113,6 @@ export function detectorSeed(): GasDetector[] {
     usage,
     calDate,
     nextCalDate,
-    kolas: true, // 원본 대장 전 항목 KOLAS 'O'
     maker,
     vendor,
     status,

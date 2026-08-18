@@ -82,7 +82,7 @@ const MENU_INDEX: { label: string; path: string; view: string; keywords: string 
     label: '산소&가스측정기',
     path: '공무관리 › 산소&가스측정기',
     view: 'gas-meter',
-    keywords: '측정기 가스 산소 검교정 교정 detector O2 LEL KOLAS',
+    keywords: '측정기 가스 산소 검교정 교정 detector O2 LEL',
   },
   { label: '위험성평가', path: '위험성평가', view: 'risk-assess', keywords: '위험 평가 빈도 강도' },
   { label: '작업인원관리', path: '작업인원관리', view: 'people', keywords: '인원 출력' },
