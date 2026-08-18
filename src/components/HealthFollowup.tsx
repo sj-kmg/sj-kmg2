@@ -2,7 +2,6 @@
 
 import { useMemo, useRef, useState } from 'react';
 import {
-  BODY_POINTS,
   FITNESS_CODES,
   FITNESS_LABEL,
   HEALTH_FOLLOWUP_KEY,
@@ -11,12 +10,12 @@ import {
   HEALTH_GRADE_TONE,
   healthFollowupSeed,
   lastCounselDate,
-  matchBodyPoints,
   primaryGrade,
   type CounselEntry,
   type FollowupWorker,
 } from '@/lib/healthFollowup';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
+import BodyDiagram from './BodyDiagram';
 import { CELL } from './SheetUI';
 
 const EMPTY: Omit<FollowupWorker, 'id' | 'updatedAt'> = {
@@ -166,13 +165,13 @@ export default function HealthFollowup() {
                   <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-4">
                     <div className="flex flex-col gap-2.5 lg:flex-row">
                       {/* 신체도 — 검진소견을 부위별로 표시 */}
-                      <div className="flex shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-white p-3 lg:w-[400px]">
+                      <div className="flex shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-white p-3 lg:w-[360px]">
                         <BodyDiagram findings={r.findings} accent={accent} />
                       </div>
 
                       <div className="min-w-0 flex-1 space-y-2.5">
                         {/* 압축 정보 */}
-                        <div className="grid grid-cols-2 gap-2 rounded-lg border border-slate-100 bg-white p-3 sm:grid-cols-3 lg:grid-cols-6">
+                        <div className="grid grid-cols-2 gap-2 rounded-lg border border-slate-100 bg-white p-3 sm:grid-cols-3">
                           <Field label="성명">
                             <input id={`hf-name-${r.id}`} placeholder="이름" value={r.name} onChange={(e) => setRow(r.id, { name: e.target.value })} className={CELL} />
                           </Field>
@@ -263,70 +262,70 @@ export default function HealthFollowup() {
                             />
                           </div>
                         </div>
-                      </div>
-                    </div>
 
-                    {/* 상담이력 — 타임라인 */}
-                    <div className="mt-2.5 rounded-lg border border-slate-100 bg-white p-3">
-                      <div className="mb-2 flex items-center gap-2">
-                        <p className="text-xs font-bold text-slate-600">🕐 상담이력</p>
-                        {last && <span className="text-[11px] text-slate-400">최근 {last}</span>}
-                        <button
-                          onClick={() => addCounsel(r)}
-                          className="ml-auto rounded-md border border-[#1f3864] px-2 py-1 text-[11px] font-bold text-[#1f3864] hover:bg-[#1f3864] hover:text-white"
-                        >
-                          ＋ 상담 기록 추가
-                        </button>
-                      </div>
-                      {r.counsels.length === 0 ? (
-                        <p className="py-3 text-center text-xs text-slate-400">등록된 상담 기록이 없습니다.</p>
-                      ) : (
-                        (() => {
-                          const sorted = [...r.counsels].map((c, i) => ({ c, i })).sort((a, b) => b.c.date.localeCompare(a.c.date));
-                          return (
-                            <div>
-                              {sorted.map(({ c, i }, idx) => (
-                                <div key={i} className="relative flex gap-2.5 pb-2.5 last:pb-0">
-                                  {idx !== sorted.length - 1 && (
-                                    <span aria-hidden className="absolute left-[5px] top-4 bottom-0 w-px bg-slate-200" />
-                                  )}
-                                  <span aria-hidden className="relative z-10 mt-2 h-3 w-3 shrink-0 rounded-full border-2 border-white bg-[#1f3864] shadow" />
-                                  <div className="grid flex-1 grid-cols-1 gap-1.5 sm:grid-cols-[8rem_1fr_1fr_1.5rem] sm:items-center">
-                                    <input
-                                      aria-label="상담일자"
-                                      type="date"
-                                      value={c.date}
-                                      onChange={(e) => setCounsel(r, i, { date: e.target.value })}
-                                      className={`${CELL} font-mono`}
-                                    />
-                                    <input
-                                      aria-label="건강상태"
-                                      placeholder="예: 현재 건강상태 : 양호"
-                                      value={c.status}
-                                      onChange={(e) => setCounsel(r, i, { status: e.target.value })}
-                                      className={CELL}
-                                    />
-                                    <input
-                                      aria-label="비고"
-                                      placeholder="비고 (예: 운동 권유)"
-                                      value={c.note ?? ''}
-                                      onChange={(e) => setCounsel(r, i, { note: e.target.value })}
-                                      className={CELL}
-                                    />
-                                    <button
-                                      onClick={() => removeCounsel(r, i)}
-                                      aria-label="상담 기록 삭제"
-                                      className="text-center text-slate-300 hover:text-red-500"
-                                    >
-                                      ✕
-                                    </button>
-                                  </div>
+                        {/* 상담이력 — 타임라인 (신체도 오른쪽 여백을 채운다) */}
+                        <div className="rounded-lg border border-slate-100 bg-white p-3">
+                          <div className="mb-2 flex items-center gap-2">
+                            <p className="text-xs font-bold text-slate-600">🕐 상담이력</p>
+                            {last && <span className="text-[11px] text-slate-400">최근 {last}</span>}
+                            <button
+                              onClick={() => addCounsel(r)}
+                              className="ml-auto rounded-md border border-[#1f3864] px-2 py-1 text-[11px] font-bold text-[#1f3864] hover:bg-[#1f3864] hover:text-white"
+                            >
+                              ＋ 상담 기록 추가
+                            </button>
+                          </div>
+                          {r.counsels.length === 0 ? (
+                            <p className="py-3 text-center text-xs text-slate-400">등록된 상담 기록이 없습니다.</p>
+                          ) : (
+                            (() => {
+                              const sorted = [...r.counsels].map((c, i) => ({ c, i })).sort((a, b) => b.c.date.localeCompare(a.c.date));
+                              return (
+                                <div>
+                                  {sorted.map(({ c, i }, idx) => (
+                                    <div key={i} className="relative flex gap-2.5 pb-2.5 last:pb-0">
+                                      {idx !== sorted.length - 1 && (
+                                        <span aria-hidden className="absolute left-[5px] top-4 bottom-0 w-px bg-slate-200" />
+                                      )}
+                                      <span aria-hidden className="relative z-10 mt-2 h-3 w-3 shrink-0 rounded-full border-2 border-white bg-[#1f3864] shadow" />
+                                      <div className="grid flex-1 grid-cols-1 gap-1.5 sm:grid-cols-[7.5rem_1fr_1fr_1.25rem] sm:items-center">
+                                        <input
+                                          aria-label="상담일자"
+                                          type="date"
+                                          value={c.date}
+                                          onChange={(e) => setCounsel(r, i, { date: e.target.value })}
+                                          className={`${CELL} font-mono`}
+                                        />
+                                        <input
+                                          aria-label="건강상태"
+                                          placeholder="예: 현재 건강상태 : 양호"
+                                          value={c.status}
+                                          onChange={(e) => setCounsel(r, i, { status: e.target.value })}
+                                          className={CELL}
+                                        />
+                                        <input
+                                          aria-label="비고"
+                                          placeholder="비고 (예: 운동 권유)"
+                                          value={c.note ?? ''}
+                                          onChange={(e) => setCounsel(r, i, { note: e.target.value })}
+                                          className={CELL}
+                                        />
+                                        <button
+                                          onClick={() => removeCounsel(r, i)}
+                                          aria-label="상담 기록 삭제"
+                                          className="text-center text-slate-300 hover:text-red-500"
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
-                            </div>
-                          );
-                        })()
-                      )}
+                              );
+                            })()
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     <div className="mt-3 flex justify-end">
@@ -357,80 +356,5 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <p className="mb-0.5 truncate text-[9px] font-semibold text-slate-400">{label}</p>
       {children}
     </div>
-  );
-}
-
-/**
- * 신체도 — 실루엣 + 부위별 아이콘 배지. 검진소견을 부위별로 분류해 해당 지점을
- * 강조하고, 오른쪽에 부위명·소견을 나란히 표시한다 (특이사항 없는 부위는 흐리게).
- */
-function BodyDiagram({ findings, accent }: { findings: string; accent: string }) {
-  const matches = matchBodyPoints(findings);
-  const matchedByKey = new Map(matches.map((m) => [m.point.key, m]));
-  const rowY = (i: number) => 40 + i * 62;
-  return (
-    <svg viewBox="0 0 400 420" className="h-auto w-full max-w-[420px]" aria-label="신체 부위별 검진소견">
-      {/* 실루엣 */}
-      <g fill="#1f3864">
-        <ellipse cx="80" cy="36" rx="23" ry="26" />
-        <rect x="66" y="58" width="28" height="16" rx="4" />
-        <polygon points="38,74 122,74 106,196 54,196" />
-        <polygon points="26.3,75.3 5.2,208.3 22.8,211.7 53.7,80.7" />
-        <polygon points="133.7,75.3 154.8,208.3 137.2,211.7 106.3,80.7" />
-        <polygon points="54,196 78,196 72,395 62,395" />
-        <polygon points="82,196 106,196 98,395 88,395" />
-        <ellipse cx="67" cy="402" rx="14" ry="8" />
-        <ellipse cx="93" cy="402" rx="14" ry="8" />
-      </g>
-
-      {/* 부위 지점 — 활성 부위만 강조, 나머지는 흐리게 */}
-      {BODY_POINTS.map((p) => {
-        const active = matchedByKey.has(p.key);
-        return (
-          <circle
-            key={p.key}
-            cx={p.x}
-            cy={p.y}
-            r={active ? 7 : 4}
-            fill={active ? accent : '#94a3b8'}
-            stroke="#fff"
-            strokeWidth={2}
-          />
-        );
-      })}
-
-      {/* 부위별 배지·라벨 — 항상 6개 모두 표시 */}
-      {BODY_POINTS.map((p, i) => {
-        const m = matchedByKey.get(p.key);
-        const active = !!m;
-        const y = rowY(i);
-        const badgeColor = active ? accent : '#e2e8f0';
-        const textColor = active ? '#1e293b' : '#94a3b8';
-        const detail = m ? (m.text.length > 13 ? `${m.text.slice(0, 13)}…` : m.text) : '특이사항 없음';
-        return (
-          <g key={p.key}>
-            {active && (
-              <path
-                d={`M${p.x},${p.y} Q250,${(p.y + y) / 2} 205,${y}`}
-                fill="none"
-                stroke={accent}
-                strokeWidth={1.2}
-                strokeDasharray="3 3"
-              />
-            )}
-            <circle cx={205} cy={y} r={18} fill={badgeColor} />
-            <text x={205} y={y + 5} textAnchor="middle" style={{ fontSize: 14, fontWeight: 800 }} fill={active ? '#fff' : '#94a3b8'}>
-              {p.label[0]}
-            </text>
-            <text x={233} y={y - 4} style={{ fontSize: 13, fontWeight: 800 }} fill={textColor}>
-              {p.label}
-            </text>
-            <text x={233} y={y + 13} style={{ fontSize: 11 }} fill={active ? '#64748b' : '#cbd5e1'}>
-              {detail}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
   );
 }

@@ -60,13 +60,17 @@ export interface BodyPoint {
   keywords: string[];
 }
 
+/**
+ * 신체도 표시 순서 = 위(머리)에서 아래(복부)로. 연결선이 서로 엇갈리지 않도록
+ * 지점의 y 순서와 오른쪽 설명 줄의 순서를 같게 맞춰 둔다.
+ */
 export const BODY_POINTS: BodyPoint[] = [
-  { key: 'brain', label: '뇌·신경', x: 80, y: 36, keywords: ['두통', '어지럼', '뇌', '신경'] },
-  { key: 'heart', label: '심장·혈압', x: 66, y: 95, keywords: ['고혈압', '혈압', '심장', '순환', '부정맥', '빈혈'] },
-  { key: 'lungs', label: '호흡기', x: 94, y: 95, keywords: ['흉부', '폐', '호흡', '결핵', '천식', '기관지'] },
-  { key: 'stomach', label: '위장관', x: 70, y: 140, keywords: ['위', '소화', '위장', '역류'] },
-  { key: 'liver', label: '간·대사', x: 92, y: 152, keywords: ['간', '지방간', '당뇨', '대사', '이상지질', '콜레스테롤', '비만'] },
-  { key: 'gut', label: '장', x: 76, y: 175, keywords: ['장질환', '대장', '변비', '설사', '치질'] },
+  { key: 'brain', label: '뇌·신경', x: 70, y: 32, keywords: ['두통', '어지럼', '뇌', '신경'] },
+  { key: 'lungs', label: '호흡기', x: 86, y: 92, keywords: ['흉부', '폐', '호흡', '결핵', '천식', '기관지'] },
+  { key: 'heart', label: '심장·혈압', x: 58, y: 104, keywords: ['고혈압', '혈압', '심장', '순환', '부정맥', '빈혈'] },
+  { key: 'liver', label: '간·대사', x: 86, y: 140, keywords: ['간', '지방간', '당뇨', '대사', '이상지질', '콜레스테롤', '비만'] },
+  { key: 'stomach', label: '위장관', x: 56, y: 150, keywords: ['위', '소화', '위장', '역류'] },
+  { key: 'gut', label: '장', x: 70, y: 184, keywords: ['장질환', '대장', '변비', '설사', '치질'] },
 ];
 
 /** 검진소견 텍스트를 신체 부위별로 분류 — 신체도의 활성 지점·라벨 표시용 */
