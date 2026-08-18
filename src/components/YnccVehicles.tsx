@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fileHref } from '@/lib/ids';
 import { SyncError, uploadCert } from '@/lib/sync';
 import { modeBadge, useSyncedLog } from '@/lib/useSyncedLog';
+import { useRole } from '@/lib/useRole';
 import { YNCC_VEHICLES_KEY, type YnccVehicle } from '@/lib/yncc';
 import { TD_STICKY_POS, TH_STICKY } from './SheetUI';
 
@@ -12,6 +13,15 @@ function todayStr(): string {
   const p = (n: number) => (n < 10 ? `0${n}` : String(n));
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
+
+/** 원본 문서를 반영해 둔 차량 — 최초 1회, 비어 있는 첨부 칸에만 채워 넣는다 (이미 있으면 손대지 않는다) */
+const DEFAULT_ATTACHMENTS: { plate: string; regCertFile: string; insuranceCertFile: string }[] = [
+  {
+    plate: '86저0128',
+    regCertFile: '/certs/yncc-vehicles/86저0128_자동차등록증.pdf',
+    insuranceCertFile: '/certs/yncc-vehicles/86저0128_보험증권.pdf',
+  },
+];
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -25,6 +35,7 @@ function fileToDataUrl(file: File): Promise<string> {
 /** 출입신청 — YNCC 작업차량 등록 현황 (차량번호 고정, 등록일자·등록자 수시 갱신) */
 export default function YnccVehicles() {
   const { entries, mode, add, remove } = useSyncedLog<YnccVehicle>('yncc-vehicles', YNCC_VEHICLES_KEY);
+  const { role } = useRole();
   const [plateSel, setPlateSel] = useState(''); // '' = 신규 차량
   const [plateNew, setPlateNew] = useState('');
   const [regDate, setRegDate] = useState('');
@@ -32,8 +43,39 @@ export default function YnccVehicles() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
+  const seededRef = useRef(false);
 
   useEffect(() => setRegDate(todayStr()), []);
+
+  // 원본 문서(등록증·보험증권)를 딱 한 번 반영 — 열람 전용 계정은 쓸 수 없으니 건드리지 않는다
+  useEffect(() => {
+    if (seededRef.current || mode === 'loading' || role === 'viewer') return;
+    seededRef.current = true;
+    for (const d of DEFAULT_ATTACHMENTS) {
+      const norm = (p: string) => p.replace(/\s/g, '');
+      const existing = entries.find((e) => norm(e.plate) === norm(d.plate));
+      if (existing) {
+        if (existing.regCertFile && existing.insuranceCertFile) continue;
+        void add({
+          ...existing,
+          regCertFile: existing.regCertFile ?? d.regCertFile,
+          insuranceCertFile: existing.insuranceCertFile ?? d.insuranceCertFile,
+          updatedAt: new Date().toISOString(),
+        });
+      } else {
+        void add({
+          id: `YV-seed-${d.plate}`,
+          plate: d.plate,
+          regDate: todayStr(),
+          registrant: '',
+          regCertFile: d.regCertFile,
+          insuranceCertFile: d.insuranceCertFile,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, role]);
 
   const vehicles = [...entries].sort((a, b) => a.plate.localeCompare(b.plate, 'ko'));
 
