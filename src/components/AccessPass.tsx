@@ -10,7 +10,7 @@ const TABS: { key: Tab; icon: string }[] = [
   { key: '상시차량', icon: '🚗' },
 ];
 
-/** 공무관리 › 신청현황 › 상시카드&차량 */
+/** 공무관리 › 출입신청 › LG 상시카드&차량 */
 export default function AccessPass() {
   const [tab, setTab] = useState<Tab>('상시카드');
 

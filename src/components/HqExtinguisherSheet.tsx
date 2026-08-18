@@ -86,7 +86,6 @@ export default function HqExtinguisherSheet() {
 
   const badge = modeBadge(roster.mode);
   const save = saveBadge(roster.status, roster.mode);
-  const monthCount = (extId: string) => MONTH_LABEL.filter((_, i) => isChecked(extId, i + 1)).length;
 
   return (
     <div>
@@ -108,57 +107,53 @@ export default function HqExtinguisherSheet() {
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-slate-200">
-        <table className="w-full min-w-[1680px] text-xs">
+        <table className="w-full min-w-[980px] text-xs">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-              <th className={`${TH} ${TH_STICKY} w-28`}>소화기번호</th>
-              <th className={`${TH} w-44`}>위치</th>
-              <th className={`${TH} w-44`}>품명 및 용량</th>
-              <th className={`${TH} w-24`}>제조년월</th>
-              <th className={`${TH} w-16 text-center`}>점검</th>
+              <th className={`${TH} ${TH_STICKY} w-20`}>소화기번호</th>
+              <th className={`${TH} w-32`}>위치</th>
+              <th className={`${TH} w-36`}>품명 및 용량</th>
+              <th className={`${TH} w-20`}>제조년월</th>
               {MONTH_LABEL.map((m) => (
-                <th key={m} className={`${TH} w-11 text-center`}>{m}</th>
+                <th key={m} className={`${TH} w-7 px-0 text-center`}>{m.replace('월', '')}</th>
               ))}
-              <th className={`${TH} w-56`}>비고</th>
-              <th className="w-10 px-1 py-2" aria-label="행 삭제" />
+              <th className={`${TH} w-36`}>비고</th>
+              <th className="w-8 px-1 py-2" aria-label="행 삭제" />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {roster.rows.length === 0 && (
               <tr>
-                <td colSpan={19} className="px-3 py-4 text-center text-slate-300">
+                <td colSpan={18} className="px-3 py-4 text-center text-slate-300">
                   아래 ＋ 버튼으로 소화기를 추가해 주세요
                 </td>
               </tr>
             )}
             {roster.rows.map((r) => (
               <tr key={r.id}>
-                <td className={`${TD_STICKY} px-1.5 py-1.5`}>
-                  <input aria-label="소화기번호" placeholder="예: 63688" value={r.extNo} onChange={(e) => roster.setRow(r.id, { extNo: e.target.value })} className={`${CELL} font-mono`} />
+                <td className={`${TD_STICKY} px-1 py-1.5`}>
+                  <input aria-label="소화기번호" placeholder="예: 63688" value={r.extNo} onChange={(e) => roster.setRow(r.id, { extNo: e.target.value })} className={`${CELL} px-1.5 font-mono`} />
                 </td>
-                <td className="px-1.5 py-1.5">
-                  <input aria-label="위치" placeholder="예: 2층 사무실 내부" value={r.location} onChange={(e) => roster.setRow(r.id, { location: e.target.value })} className={CELL} />
+                <td className="px-1 py-1.5">
+                  <input aria-label="위치" placeholder="예: 2층 사무실 내부" value={r.location} onChange={(e) => roster.setRow(r.id, { location: e.target.value })} className={`${CELL} px-1.5`} />
                 </td>
-                <td className="px-1.5 py-1.5">
-                  <input aria-label="품명 및 용량" placeholder="예: 분말소화기 3.3kg (ABC)" value={r.spec} onChange={(e) => roster.setRow(r.id, { spec: e.target.value })} className={CELL} />
+                <td className="px-1 py-1.5">
+                  <input aria-label="품명 및 용량" placeholder="예: 분말소화기 3.3kg (ABC)" value={r.spec} onChange={(e) => roster.setRow(r.id, { spec: e.target.value })} className={`${CELL} px-1.5`} />
                 </td>
-                <td className="px-1.5 py-1.5">
-                  <input aria-label="제조년월" placeholder="YYYY-MM" value={r.madeAt} onChange={(e) => roster.setRow(r.id, { madeAt: e.target.value })} className={`${CELL} font-mono`} />
-                </td>
-                <td className="px-2 py-1.5 text-center font-mono text-[11px] font-bold text-slate-500">
-                  {monthCount(r.id)}/12
+                <td className="px-1 py-1.5">
+                  <input aria-label="제조년월" placeholder="YYYY-MM" value={r.madeAt} onChange={(e) => roster.setRow(r.id, { madeAt: e.target.value })} className={`${CELL} px-1.5 font-mono`} />
                 </td>
                 {MONTH_LABEL.map((_, i) => {
                   const m = i + 1;
                   const checked = isChecked(r.id, m);
                   const id = hqCheckId(year, m, r.id);
                   return (
-                    <td key={m} className="px-0.5 py-1.5 text-center">
+                    <td key={m} className="px-0 py-1.5 text-center">
                       <button
                         onClick={() => void toggle(r.id, m)}
                         disabled={busy === id}
                         aria-label={`${r.extNo || r.location} ${m} 점검`}
-                        className={`flex h-5 w-5 items-center justify-center rounded border text-[10px] font-bold ${
+                        className={`mx-auto flex h-5 w-5 items-center justify-center rounded border text-[10px] font-bold ${
                           checked ? 'border-cyan-600 bg-cyan-500/20 text-cyan-700' : 'border-slate-300 text-transparent hover:border-slate-400'
                         }`}
                       >
@@ -167,8 +162,8 @@ export default function HqExtinguisherSheet() {
                     </td>
                   );
                 })}
-                <td className="px-1.5 py-1.5">
-                  <input aria-label="비고" value={r.note ?? ''} onChange={(e) => roster.setRow(r.id, { note: e.target.value })} className={CELL} />
+                <td className="px-1 py-1.5">
+                  <input aria-label="비고" value={r.note ?? ''} onChange={(e) => roster.setRow(r.id, { note: e.target.value })} className={`${CELL} px-1.5`} />
                 </td>
                 <td className="px-1 py-1.5 text-center">
                   <button aria-label="행 삭제" onClick={() => del(r)} className="text-slate-300 hover:text-red-500">

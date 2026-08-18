@@ -10,7 +10,7 @@ import { CELL, SheetToolbar, TD_STICKY, TH, TH_STICKY } from './SheetUI';
 const APPLY_TYPES: AccessCard['applyType'][] = ['신규', '연장'];
 
 /**
- * 신청현황 › 상시카드&차량 — 상시카드 시트.
+ * 출입신청 › LG 상시카드&차량 — 상시카드 시트.
  * 신규·연장을 위아래 별도 표로 구분해 관리하며,
  * 출입시작일을 입력하면 종료일(시작일 + 1년 - 1일)이 자동 입력된다.
  */

@@ -45,13 +45,18 @@ export default function NearMissReport() {
   });
 
   const [form, setForm] = useState({ ...EMPTY });
-  const [pendingPhotos, setPendingPhotos] = useState<string[]>([]); // dataURL
+  const [pendingPhotos, setPendingPhotos] = useState<string[]>([]); // dataURL (새로 첨부)
   const [localPhotos, setLocalPhotos] = useState<Record<string, string>>({}); // photoId → dataURL
   const [preview, setPreview] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const loadedPhotoIds = useRef(new Set<string>());
+  /** 수정 중인 신고의 id — null이면 새 신고 작성 */
+  const [editingId, setEditingId] = useState<string | null>(null);
+  /** 수정 중 유지할 기존 사진 (지우기 전까지) */
+  const [keepPhotoUrls, setKeepPhotoUrls] = useState<string[]>([]);
+  const [keepPhotoIds, setKeepPhotoIds] = useState<string[]>([]);
 
   useEffect(() => {
     setForm((f) => ({ ...f, datetime: nowLocal() }));
@@ -77,8 +82,9 @@ export default function NearMissReport() {
   const addPhotos = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setPhotoBusy(true);
+    const room = 5 - keepPhotoUrls.length - keepPhotoIds.length - pendingPhotos.length;
     try {
-      for (const file of Array.from(files).slice(0, 5 - pendingPhotos.length)) {
+      for (const file of Array.from(files).slice(0, room)) {
         const dataUrl = await fileToResizedDataUrl(file);
         setPendingPhotos((p) => [...p, dataUrl]);
       }
@@ -94,9 +100,10 @@ export default function NearMissReport() {
     if (!form.datetime || !form.place.trim() || !form.content.trim() || submitting) return;
     setSubmitting(true);
     try {
-      const id = `NM-${Date.now()}`;
-      const photoIds: string[] = [];
-      const photoUrls: string[] = [];
+      const editing = entries.find((x) => x.id === editingId);
+      const id = editing?.id ?? `NM-${Date.now()}`;
+      const photoIds: string[] = [...keepPhotoIds];
+      const photoUrls: string[] = [...keepPhotoUrls];
       for (let i = 0; i < pendingPhotos.length; i++) {
         if (mode === 'server') {
           try {
@@ -106,7 +113,7 @@ export default function NearMissReport() {
             // 서버 업로드 실패 시 이 사진은 로컬로라도 보관
           }
         }
-        const pid = `${id}-P${i + 1}`;
+        const pid = `${id}-P${Date.now()}-${i + 1}`;
         try {
           await putPhoto(pid, pendingPhotos[i]);
           photoIds.push(pid);
@@ -115,22 +122,46 @@ export default function NearMissReport() {
           // 사진 저장 실패 시 해당 사진만 제외
         }
       }
+      // 수정 중 사용자가 지운 기존 로컬 사진은 저장소에서도 함께 정리한다
+      for (const pid of editing?.photoIds ?? []) {
+        if (!keepPhotoIds.includes(pid)) await deletePhoto(pid).catch(() => undefined);
+      }
       const entry: NearMissEntry = {
         id,
         ...form,
         place: form.place.trim(),
         photoIds,
         photoUrls,
-        createdAt: new Date().toISOString(),
+        createdAt: editing?.createdAt ?? new Date().toISOString(),
       };
       if (!(await add(entry))) return;
       setForm({ ...EMPTY, datetime: nowLocal() });
       setPendingPhotos([]);
+      setKeepPhotoUrls([]);
+      setKeepPhotoIds([]);
+      setEditingId(null);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const startEdit = (e: NearMissEntry) => {
+    setEditingId(e.id);
+    setForm({ datetime: e.datetime, place: e.place, finder: e.finder, content: e.content, action: e.action });
+    setPendingPhotos([]);
+    setKeepPhotoUrls([...(e.photoUrls ?? [])]);
+    setKeepPhotoIds([...(e.photoIds ?? [])]);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setForm({ ...EMPTY, datetime: nowLocal() });
+    setPendingPhotos([]);
+    setKeepPhotoUrls([]);
+    setKeepPhotoIds([]);
   };
 
   const removeEntry = async (id: string) => {
@@ -139,6 +170,7 @@ export default function NearMissReport() {
     for (const pid of target?.photoIds ?? []) {
       await deletePhoto(pid).catch(() => undefined);
     }
+    if (editingId === id) cancelEdit();
     await remove(id); // 서버 모드에서는 서버가 사진(Blob)도 함께 삭제
   };
 
@@ -183,10 +215,19 @@ export default function NearMissReport() {
   return (
     <div className="grid gap-6 xl:grid-cols-5">
       {/* 작성 폼 */}
-      <form onSubmit={submit} className="xl:col-span-2 h-fit rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <form
+        onSubmit={submit}
+        className={`xl:col-span-2 h-fit rounded-xl border bg-white p-4 shadow-sm ${
+          editingId ? 'border-amber-400 ring-2 ring-amber-100' : 'border-slate-200'
+        }`}
+      >
         <div className="mb-3 flex items-center justify-between gap-2">
-          <h3 className="text-sm font-bold text-slate-700">아차사고 신고</h3>
-          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+          <h3 className="text-sm font-bold text-slate-700">{editingId ? '아차사고 수정' : '아차사고 신고'}</h3>
+          {editingId ? (
+            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">수정 중</span>
+          ) : (
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -243,8 +284,36 @@ export default function NearMissReport() {
                 e.target.value = '';
               }}
             />
-            {pendingPhotos.length > 0 && (
+            {(keepPhotoUrls.length > 0 || keepPhotoIds.length > 0 || pendingPhotos.length > 0) && (
               <div className="mt-2 flex flex-wrap gap-2">
+                {keepPhotoUrls.map((url) => (
+                  <div key={url} className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="기존 첨부 사진" className="h-16 w-16 rounded-lg border border-slate-200 object-cover" />
+                    <button
+                      type="button"
+                      aria-label="사진 제거"
+                      onClick={() => setKeepPhotoUrls((list) => list.filter((u) => u !== url))}
+                      className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-[10px] text-white"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                {keepPhotoIds.map((pid) => (
+                  <div key={pid} className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={localPhotos[pid]} alt="기존 첨부 사진" className="h-16 w-16 rounded-lg border border-slate-200 object-cover" />
+                    <button
+                      type="button"
+                      aria-label="사진 제거"
+                      onClick={() => setKeepPhotoIds((list) => list.filter((p) => p !== pid))}
+                      className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-[10px] text-white"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
                 {pendingPhotos.map((p, i) => (
                   <div key={i} className="relative">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -269,8 +338,13 @@ export default function NearMissReport() {
             disabled={submitting}
             className="rounded-lg bg-[#1f3864] px-4 py-2 text-sm font-medium text-white hover:bg-[#2a4a80] disabled:opacity-60"
           >
-            {submitting ? '저장 중…' : '신고 저장'}
+            {submitting ? '저장 중…' : editingId ? '수정 저장' : '신고 저장'}
           </button>
+          {editingId && (
+            <button type="button" onClick={cancelEdit} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
+              취소
+            </button>
+          )}
           {saved && <span className="text-sm font-medium text-green-600">저장되었습니다 ✓</span>}
         </div>
         <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
@@ -299,16 +373,26 @@ export default function NearMissReport() {
           </div>
         ) : (
           shown.map((e) => (
-            <article key={e.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <article
+              key={e.id}
+              className={`rounded-xl border bg-white p-4 shadow-sm ${
+                editingId === e.id ? 'border-amber-400 ring-2 ring-amber-100' : 'border-slate-200'
+              }`}
+            >
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="rounded bg-orange-100 px-2 py-0.5 text-xs font-bold text-orange-800">아차사고</span>
                 <span className="font-mono text-xs text-slate-500">{e.datetime.replace('T', ' ')}</span>
                 <span className="text-xs text-slate-500">📍 {e.place}</span>
                 {e.finder && <span className="text-xs text-slate-500">발견 {e.finder}</span>}
                 {canDelete && (
-                  <button onClick={() => void removeEntry(e.id)} className="ml-auto text-xs text-slate-300 hover:text-red-500">
-                    삭제
-                  </button>
+                  <span className="ml-auto flex shrink-0 items-center gap-2">
+                    <button onClick={() => startEdit(e)} className="text-xs font-semibold text-sky-600 hover:underline">
+                      수정
+                    </button>
+                    <button onClick={() => void removeEntry(e.id)} className="text-xs text-slate-300 hover:text-red-500">
+                      삭제
+                    </button>
+                  </span>
                 )}
               </div>
               <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-800">{e.content}</p>

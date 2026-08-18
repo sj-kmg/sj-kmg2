@@ -66,16 +66,16 @@ export default function VehicleExtinguisherSheet() {
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-slate-200">
-        <table className="w-full min-w-[1100px] text-xs">
+        <table className="w-full min-w-[850px] text-xs">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-              <th className={`${TH} ${TH_STICKY} w-32`}>차량번호</th>
-              <th className={`${TH} w-44`}>구분</th>
-              <th className={`${TH} w-52`}>소화기규격</th>
+              <th className={`${TH} ${TH_STICKY} w-28`}>차량번호</th>
+              <th className={`${TH} w-36`}>구분</th>
+              <th className={`${TH} w-44`}>소화기규격</th>
               <th className={`${TH} w-28 text-center`}>비치상태</th>
-              <th className={`${TH} w-32`}>확인일자</th>
-              <th className={`${TH} w-56`}>비고</th>
-              <th className="w-10 px-1 py-2" aria-label="행 삭제" />
+              <th className={`${TH} w-28`}>확인일자</th>
+              <th className={`${TH} w-36`}>비고</th>
+              <th className="w-8 px-1 py-2" aria-label="행 삭제" />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -88,14 +88,14 @@ export default function VehicleExtinguisherSheet() {
             )}
             {rows.map((r) => (
               <tr key={r.id} className={r.status === '미비치' ? 'bg-red-50/50' : ''}>
-                <td className={`${TD_STICKY_POS} ${r.status === '미비치' ? 'bg-red-50/50' : 'bg-white'} px-1.5 py-1.5`}>
-                  <input aria-label="차량번호" placeholder="예: 12가 3456" value={r.plate} onChange={(e) => setRow(r.id, { plate: e.target.value })} className={`${CELL} font-mono font-semibold`} />
+                <td className={`${TD_STICKY_POS} ${r.status === '미비치' ? 'bg-red-50/50' : 'bg-white'} px-1 py-1.5`}>
+                  <input aria-label="차량번호" placeholder="예: 12가 3456" value={r.plate} onChange={(e) => setRow(r.id, { plate: e.target.value })} className={`${CELL} px-1.5 font-mono font-semibold`} />
                 </td>
-                <td className="px-1.5 py-1.5">
-                  <input aria-label="구분" placeholder="예: 6.5톤 트럭" value={r.vehicleType} onChange={(e) => setRow(r.id, { vehicleType: e.target.value })} className={CELL} />
+                <td className="px-1 py-1.5">
+                  <input aria-label="구분" placeholder="예: 6.5톤 트럭" value={r.vehicleType} onChange={(e) => setRow(r.id, { vehicleType: e.target.value })} className={`${CELL} px-1.5`} />
                 </td>
-                <td className="px-1.5 py-1.5">
-                  <input aria-label="소화기규격" placeholder="예: 차량용 1.5kg" value={r.spec} onChange={(e) => setRow(r.id, { spec: e.target.value })} className={CELL} />
+                <td className="px-1 py-1.5">
+                  <input aria-label="소화기규격" placeholder="예: 차량용 1.5kg" value={r.spec} onChange={(e) => setRow(r.id, { spec: e.target.value })} className={`${CELL} px-1.5`} />
                 </td>
                 <td className="px-1 py-1.5">
                   <select

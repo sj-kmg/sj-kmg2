@@ -23,6 +23,7 @@ export interface WorkforceEntry {
   work: string; // 작업내용
   equipment: string; // 장비현황
   createdAt: string;
+  updatedAt?: string; // 마지막 수정 시각 (수정한 적 없으면 없음)
 }
 
 export const WORKFORCE_KEY = 'sj-workforce:v1';

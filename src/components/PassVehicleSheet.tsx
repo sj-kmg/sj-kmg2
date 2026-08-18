@@ -10,7 +10,7 @@ import { CELL, SheetToolbar, TD_STICKY, TH, TH_STICKY } from './SheetUI';
 const KINDS: PassVehicle['kind'][] = ['일반차량', '특수차량'];
 
 /**
- * 신청현황 › 상시카드&차량 — 상시차량 시트.
+ * 출입신청 › LG 상시카드&차량 — 상시차량 시트.
  * 일반차량·특수차량을 위아래 별도 표로 구분해 관리하며, 출입일자는 직접 입력한다.
  */
 export default function PassVehicleSheet() {

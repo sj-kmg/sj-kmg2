@@ -32,6 +32,8 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
   const [laborRows, setLaborRows] = useState<LaborRow[]>([{ ...EMPTY_ROW }]);
   const [filterSite, setFilterSite] = useState('');
   const [saved, setSaved] = useState(false);
+  /** 수정 중인 기록의 id — null이면 새 기록 작성 */
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     setForm((f) => ({ ...f, date: todayLocal() }));
@@ -65,22 +67,47 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
     e.preventDefault();
     if (!form.site.trim() || !form.date) return;
     const rows = laborRows.filter((r) => r.category || r.name.trim() || r.workType.trim() || r.hours.trim());
+    const editing = entries.find((x) => x.id === editingId);
     const entry: WorkforceEntry = {
-      id: `WF-${Date.now()}`,
+      id: editing?.id ?? `WF-${Date.now()}`,
       ...form,
       site: form.site.trim(),
       laborRows: rows,
-      createdAt: new Date().toISOString(),
+      createdAt: editing?.createdAt ?? new Date().toISOString(),
+      ...(editing ? { updatedAt: new Date().toISOString() } : {}),
     };
     if (!(await add(entry))) return;
     setForm({ ...EMPTY, date: form.date, site: form.site });
     setLaborRows([{ ...EMPTY_ROW }]);
+    setEditingId(null);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
+  const startEdit = (e: WorkforceEntry) => {
+    setEditingId(e.id);
+    setForm({
+      site: e.site,
+      date: e.date,
+      manager: e.manager,
+      staff: e.staff,
+      workHours: e.workHours,
+      work: e.work,
+      equipment: e.equipment,
+    });
+    setLaborRows(e.laborRows && e.laborRows.length > 0 ? e.laborRows.map((r) => ({ ...r })) : [{ ...EMPTY_ROW }]);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setForm({ ...EMPTY, date: todayLocal() });
+    setLaborRows([{ ...EMPTY_ROW }]);
+  };
+
   const removeEntry = (id: string) => {
     if (!confirm('이 작업인원 기록을 삭제할까요?')) return;
+    if (editingId === id) cancelEdit();
     void remove(id);
   };
 
@@ -113,10 +140,21 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
   return (
     <div className="grid gap-6 xl:grid-cols-5">
       {/* 작성 폼 */}
-      <form onSubmit={submit} className="xl:col-span-2 h-fit rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <form
+        onSubmit={submit}
+        className={`xl:col-span-2 h-fit rounded-xl border bg-white p-4 shadow-sm ${
+          editingId ? 'border-amber-400 ring-2 ring-amber-100' : 'border-slate-200'
+        }`}
+      >
         <div className="mb-3 flex items-center justify-between gap-2">
-          <h3 className="text-sm font-bold text-slate-700">작업인원 기록</h3>
-          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+          <h3 className="text-sm font-bold text-slate-700">
+            {editingId ? '작업인원 기록 수정' : '작업인원 기록'}
+          </h3>
+          {editingId ? (
+            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">수정 중</span>
+          ) : (
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -228,8 +266,13 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
         </div>
         <div className="mt-3 flex items-center gap-3">
           <button type="submit" className="rounded-lg bg-[#1f3864] px-4 py-2 text-sm font-medium text-white hover:bg-[#2a4a80]">
-            기록 저장
+            {editingId ? '수정 저장' : '기록 저장'}
           </button>
+          {editingId && (
+            <button type="button" onClick={cancelEdit} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
+              취소
+            </button>
+          )}
           {saved && <span className="text-sm font-medium text-green-600">저장되었습니다 ✓</span>}
         </div>
         <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
@@ -273,7 +316,12 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
           </div>
         ) : (
           shown.map((e) => (
-            <article key={e.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <article
+              key={e.id}
+              className={`rounded-xl border bg-white p-4 shadow-sm ${
+                editingId === e.id ? 'border-amber-400 ring-2 ring-amber-100' : 'border-slate-200'
+              }`}
+            >
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="rounded bg-[#1f3864] px-2 py-0.5 text-xs font-bold text-white">{e.site}</span>
                 <span className="font-mono text-xs text-slate-500">{e.date}</span>
@@ -282,9 +330,15 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
                 {laborCountOf(e) > 0 && (
                   <span className="text-xs font-semibold text-[#1f3864]">👷 인력 {laborCountOf(e)}명</span>
                 )}
-                <button onClick={() => removeEntry(e.id)} className="ml-auto text-xs text-slate-300 hover:text-red-500">
-                  삭제
-                </button>
+                {e.updatedAt && <span className="text-[10px] text-slate-400">수정됨</span>}
+                <span className="ml-auto flex shrink-0 items-center gap-2">
+                  <button onClick={() => startEdit(e)} className="text-xs font-semibold text-sky-600 hover:underline">
+                    수정
+                  </button>
+                  <button onClick={() => removeEntry(e.id)} className="text-xs text-slate-300 hover:text-red-500">
+                    삭제
+                  </button>
+                </span>
               </div>
               {e.work && <p className="mt-2 whitespace-pre-line text-sm font-medium text-slate-800">{e.work}</p>}
 

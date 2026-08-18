@@ -52,40 +52,47 @@ const MENU_INDEX: { label: string; path: string; view: string; keywords: string 
   { label: '관리감독자', path: '공무관리 › 안전교육 › 관리감독자', view: 'edu-supervisor', keywords: '교육 수료증' },
   { label: '유해화학물질', path: '공무관리 › 안전교육 › 유해화학물질', view: 'edu-chemical', keywords: '교육 화학' },
   { label: 'YNCC출입', path: '공무관리 › 안전교육 › YNCC출입', view: 'edu-yncc', keywords: '교육 출입' },
-  { label: '상시카드&차량', path: '공무관리 › 신청현황 › 상시카드&차량', view: 'card', keywords: '카드 출입증 상시차량' },
-  { label: 'YNCC차량', path: '공무관리 › 신청현황 › YNCC차량', view: 'yncc-vehicle', keywords: '차량 등록' },
+  { label: 'LG 상시카드&차량', path: '공무관리 › 출입신청 › LG 상시카드&차량', view: 'card', keywords: '카드 출입증 상시차량 LG' },
+  { label: 'YNCC차량', path: '공무관리 › 출입신청 › YNCC차량', view: 'yncc-vehicle', keywords: '차량 등록' },
   {
     label: '통합재고관리',
-    path: '공무관리 › 통합재고관리',
+    path: '공무관리 › 관리현황 › 통합재고관리',
     view: 'inventory',
     keywords: '재고 기자재 자재 물품 수량 펌프 양수기 렌치 공구 소모품 보유',
   },
   {
     label: '안전용품관리',
-    path: '공무관리 › 안전용품관리',
+    path: '공무관리 › 관리현황 › 안전용품관리',
     view: 'safety-stock',
     keywords: '안전용품 재고 수량 공기호흡기 안전대 마스크 소화기 윈치 귀덮개 안전블록',
   },
   {
     label: '장비점검',
-    path: '공무관리 › 장비점검',
+    path: '공무관리 › 관리현황 › 장비점검',
     view: 'equipment-check',
     keywords: '장비 점검 에어분배기 AIR 분배기 필터 에어필터 컴프레서',
   },
   {
     label: '차량점검내역',
-    path: '공무관리 › 차량점검내역',
+    path: '공무관리 › 관리현황 › 차량점검내역',
     view: 'vehicle-service',
     keywords: '차량 점검 정비 엔진오일 타이어 배터리 중장비 지게차',
   },
   {
     label: '산소&가스측정기',
-    path: '공무관리 › 산소&가스측정기',
+    path: '공무관리 › 관리현황 › 산소&가스측정기',
     view: 'gas-meter',
     keywords: '측정기 가스 산소 검교정 교정 detector O2 LEL',
   },
+  {
+    label: '소화기관리',
+    path: '공무관리 › 관리현황 › 소화기관리',
+    view: 'extinguisher',
+    keywords: '소화기 점검 본사 차량 비치 분말소화기',
+  },
   { label: '위험성평가', path: '위험성평가', view: 'risk-assess', keywords: '위험 평가 빈도 강도' },
   { label: '작업인원관리', path: '작업인원관리', view: 'people', keywords: '인원 출력' },
+  { label: '인력관리', path: '인력관리', view: 'labor-roster', keywords: '인력 공영 개미 여수 여천 당근 특수검진 유해화학물질 YNCC' },
   { label: '공지사항', path: '공지사항', view: 'notice', keywords: '공지' },
 ];
 
@@ -171,7 +178,7 @@ export default function SearchResults({
       }
       for (const v of await listEntriesSilently<PassVehicle>('pass-vehicles', PASS_VEHICLES_KEY)) {
         if (hit(v.plate) || hit(v.driver)) {
-          push('공무관리 › 신청현황 › 상시차량', 'card', {
+          push('공무관리 › 출입신청 › 상시차량', 'card', {
             title: v.plate,
             sub: `${v.kind} · ${v.driver}${v.endDate ? ` · 종료 ${v.endDate}` : ''}`,
             view: 'card',
@@ -180,7 +187,7 @@ export default function SearchResults({
       }
       for (const c of cards) {
         if (hit(c.name) || hit(c.loginId)) {
-          push('공무관리 › 신청현황 › 상시카드', 'card', {
+          push('공무관리 › 출입신청 › 상시카드', 'card', {
             title: c.name,
             sub: `${c.applyType}${c.endDate ? ` · 종료 ${c.endDate}` : ''}`,
             view: 'card',
@@ -189,7 +196,7 @@ export default function SearchResults({
       }
       for (const v of vehicles) {
         if (hit(v.plate) || hit(v.registrant)) {
-          push('공무관리 › 신청현황 › YNCC차량', 'yncc-vehicle', {
+          push('공무관리 › 출입신청 › YNCC차량', 'yncc-vehicle', {
             title: v.plate,
             sub: `등록자 ${v.registrant} · ${v.regDate}`,
             view: 'yncc-vehicle',

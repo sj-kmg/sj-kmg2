@@ -66,12 +66,17 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
   const [attendees, setAttendees] = useState<string[]>(['']);
   const [filterSite, setFilterSite] = useState('');
   const [saved, setSaved] = useState(false);
-  const [pendingPhotos, setPendingPhotos] = useState<string[]>([]); // dataURL
+  const [pendingPhotos, setPendingPhotos] = useState<string[]>([]); // dataURL (새로 첨부)
   const [localPhotos, setLocalPhotos] = useState<Record<string, string>>({}); // photoId → dataURL
   const [preview, setPreview] = useState<string | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const loadedPhotoIds = useRef(new Set<string>());
+  /** 수정 중인 일지의 id — null이면 새 일지 작성 */
+  const [editingId, setEditingId] = useState<string | null>(null);
+  /** 수정 중 유지할 기존 사진 (지우기 전까지) */
+  const [keepPhotoUrls, setKeepPhotoUrls] = useState<string[]>([]);
+  const [keepPhotoIds, setKeepPhotoIds] = useState<string[]>([]);
 
   useEffect(() => {
     setForm((f) => ({ ...f, date: todayStr(), time: nowTime() }));
@@ -117,8 +122,9 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
   const addPhotos = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setPhotoBusy(true);
+    const room = 5 - keepPhotoUrls.length - keepPhotoIds.length - pendingPhotos.length;
     try {
-      for (const file of Array.from(files).slice(0, 5 - pendingPhotos.length)) {
+      for (const file of Array.from(files).slice(0, room)) {
         const dataUrl = await fileToResizedDataUrl(file);
         setPendingPhotos((p) => [...p, dataUrl]);
       }
@@ -135,9 +141,10 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
     setSubmitting(true);
     try {
       const names = attendees.map((n) => n.trim()).filter(Boolean);
-      const id = `TBM-${Date.now()}`;
-      const photoIds: string[] = [];
-      const photoUrls: string[] = [];
+      const editing = entries.find((x) => x.id === editingId);
+      const id = editing?.id ?? `TBM-${Date.now()}`;
+      const photoIds: string[] = [...keepPhotoIds];
+      const photoUrls: string[] = [...keepPhotoUrls];
       for (let i = 0; i < pendingPhotos.length; i++) {
         if (mode === 'server') {
           try {
@@ -147,7 +154,7 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
             // 서버 업로드 실패 시 이 사진은 로컬로라도 보관
           }
         }
-        const pid = `${id}-P${i + 1}`;
+        const pid = `${id}-P${Date.now()}-${i + 1}`;
         try {
           await putPhoto(pid, pendingPhotos[i]);
           photoIds.push(pid);
@@ -155,6 +162,10 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
         } catch {
           // 사진 저장 실패 시 해당 사진만 제외
         }
+      }
+      // 수정 중 사용자가 지운 기존 로컬 사진은 저장소에서도 함께 정리한다
+      for (const pid of editing?.photoIds ?? []) {
+        if (!keepPhotoIds.includes(pid)) await deletePhoto(pid).catch(() => undefined);
       }
       const entry: TbmEntry = {
         id,
@@ -170,18 +181,50 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
         content: '',
         photoIds,
         photoUrls,
-        createdAt: new Date().toISOString(),
+        createdAt: editing?.createdAt ?? new Date().toISOString(),
       };
       if (!(await add(entry))) return;
       // 같은 현장에서 이어 쓰는 경우가 많아 현장·날짜는 남겨 둔다
       setForm({ ...EMPTY, date: form.date, time: nowTime(), site: form.site });
       setAttendees(['']);
       setPendingPhotos([]);
+      setKeepPhotoUrls([]);
+      setKeepPhotoIds([]);
+      setEditingId(null);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const startEdit = (e: TbmEntry) => {
+    const names = tbmAttendees(e);
+    setEditingId(e.id);
+    setForm({
+      date: e.datetime.slice(0, 10),
+      time: e.datetime.slice(11, 16),
+      site: e.site,
+      place: e.place,
+      work: e.work,
+      leader: e.leader,
+      hazard: tbmHazard(e),
+      measure: tbmMeasure(e),
+    });
+    setAttendees(names.length > 0 ? names : ['']);
+    setPendingPhotos([]);
+    setKeepPhotoUrls([...(e.photoUrls ?? [])]);
+    setKeepPhotoIds([...(e.photoIds ?? [])]);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setForm({ ...EMPTY, date: todayStr(), time: nowTime() });
+    setAttendees(['']);
+    setPendingPhotos([]);
+    setKeepPhotoUrls([]);
+    setKeepPhotoIds([]);
   };
 
   const removeEntry = async (id: string) => {
@@ -190,6 +233,7 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
     for (const pid of target?.photoIds ?? []) {
       await deletePhoto(pid).catch(() => undefined);
     }
+    if (editingId === id) cancelEdit();
     void remove(id); // 서버 모드에서는 서버가 사진(Blob)도 함께 삭제
   };
 
@@ -239,10 +283,18 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
   return (
     <div className="grid gap-6 xl:grid-cols-5">
       {/* 작성 폼 */}
-      <form onSubmit={submit} className="xl:col-span-2 h-fit rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <form
+        onSubmit={submit}
+        className={`xl:col-span-2 h-fit rounded-xl border bg-white p-4 shadow-sm ${
+          editingId ? 'border-amber-400 ring-2 ring-amber-100' : 'border-slate-200'
+        }`}
+      >
         <div className="mb-3 flex items-center justify-between gap-2">
-          <h3 className="text-sm font-bold text-slate-700">TBM 일지 작성</h3>
+          <h3 className="text-sm font-bold text-slate-700">{editingId ? 'TBM 일지 수정' : 'TBM 일지 작성'}</h3>
           <div className="flex flex-wrap items-center justify-end gap-1.5">
+            {editingId && (
+              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">수정 중</span>
+            )}
             {pending > 0 && (
               <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
                 미전송 {pending}건
@@ -376,8 +428,36 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
                 e.target.value = '';
               }}
             />
-            {pendingPhotos.length > 0 && (
+            {(keepPhotoUrls.length > 0 || keepPhotoIds.length > 0 || pendingPhotos.length > 0) && (
               <div className="mt-2 flex flex-wrap gap-2">
+                {keepPhotoUrls.map((url) => (
+                  <div key={url} className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="기존 첨부 사진" className="h-16 w-16 rounded-lg border border-slate-200 object-cover" />
+                    <button
+                      type="button"
+                      aria-label="사진 제거"
+                      onClick={() => setKeepPhotoUrls((list) => list.filter((u) => u !== url))}
+                      className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-[10px] text-white"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                {keepPhotoIds.map((pid) => (
+                  <div key={pid} className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={localPhotos[pid]} alt="기존 첨부 사진" className="h-16 w-16 rounded-lg border border-slate-200 object-cover" />
+                    <button
+                      type="button"
+                      aria-label="사진 제거"
+                      onClick={() => setKeepPhotoIds((list) => list.filter((p) => p !== pid))}
+                      className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-[10px] text-white"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
                 {pendingPhotos.map((p, i) => (
                   <div key={i} className="relative">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -402,8 +482,13 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
             disabled={submitting}
             className="w-full rounded-lg bg-[#1f3864] px-4 py-3 text-base font-bold text-white hover:bg-[#2a4a80] disabled:opacity-60 sm:w-auto sm:py-2 sm:text-sm sm:font-medium"
           >
-            {submitting ? '저장 중…' : '일지 저장'}
+            {submitting ? '저장 중…' : editingId ? '수정 저장' : '일지 저장'}
           </button>
+          {editingId && (
+            <button type="button" onClick={cancelEdit} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
+              취소
+            </button>
+          )}
           {saved && <span className="text-sm font-medium text-green-600">저장되었습니다 ✓</span>}
         </div>
         <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
@@ -449,16 +534,26 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
             const hazard = tbmHazard(e);
             const measure = tbmMeasure(e);
             return (
-              <article key={e.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <article
+                key={e.id}
+                className={`rounded-xl border bg-white p-4 shadow-sm ${
+                  editingId === e.id ? 'border-amber-400 ring-2 ring-amber-100' : 'border-slate-200'
+                }`}
+              >
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span className="rounded bg-[#1f3864] px-2 py-0.5 text-xs font-bold text-white">{e.site}</span>
                   <span className="font-mono text-xs text-slate-500">{e.datetime.replace('T', ' ')}</span>
                   {e.place && <span className="text-xs text-slate-500">🏗️ {e.place}</span>}
                   {e.leader && <span className="text-xs text-slate-500">진행 {e.leader}</span>}
                   {canDelete && (
-                    <button onClick={() => void removeEntry(e.id)} className="ml-auto text-xs text-slate-300 hover:text-red-500">
-                      삭제
-                    </button>
+                    <span className="ml-auto flex shrink-0 items-center gap-2">
+                      <button onClick={() => startEdit(e)} className="text-xs font-semibold text-sky-600 hover:underline">
+                        수정
+                      </button>
+                      <button onClick={() => void removeEntry(e.id)} className="text-xs text-slate-300 hover:text-red-500">
+                        삭제
+                      </button>
+                    </span>
                   )}
                 </div>
 
