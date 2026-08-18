@@ -6,6 +6,7 @@ import { RiskAiError, SyncError, generateRiskRows, setPasscode, uploadPhoto } fr
 import { modeBadge, useSyncedLog } from '@/lib/useSyncedLog';
 import { gradeByKey, riskLevelKey, riskProduct } from '@/lib/risk';
 import RiskEstimationGuide, { RiskResultSummary } from './RiskGuide';
+import { TD_STICKY, TH_STICKY } from './SheetUI';
 
 /** 공사업체 선택 목록 */
 const COMPANIES = [
@@ -528,7 +529,7 @@ export default function RiskAssessment() {
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
                 <th className="w-10 px-2 py-2 text-center font-semibold">순서</th>
-                <th className="min-w-32 px-2 py-2 font-semibold">작업단계</th>
+                <th className={`min-w-32 px-2 py-2 font-semibold ${TH_STICKY}`}>작업단계</th>
                 <th className="min-w-40 px-2 py-2 font-semibold">유해위험요인</th>
                 <th className="min-w-40 px-2 py-2 font-semibold">현재 안전조치</th>
                 <th className="w-40 px-2 py-2 text-center font-semibold">
@@ -549,7 +550,7 @@ export default function RiskAssessment() {
               {rows.map((row, i) => (
                 <tr key={i}>
                   <td className="px-2 py-2 text-center font-semibold text-slate-500">{i + 1}</td>
-                  <td className="px-1.5 py-2">
+                  <td className={`px-1.5 py-2 ${TD_STICKY}`}>
                     <textarea rows={3} placeholder="예: M/H Open" value={row.step} onChange={(e) => setRow(i, { step: e.target.value })} className={cellArea} />
                   </td>
                   <td className="px-1.5 py-2">

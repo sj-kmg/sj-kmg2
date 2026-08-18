@@ -13,7 +13,7 @@ import {
 import { SyncError, uploadCert } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
-import { CELL, SheetToolbar, TH } from './SheetUI';
+import { CELL, SheetToolbar, TD_STICKY_POS, TH, TH_STICKY } from './SheetUI';
 
 /** 새로 추가하는 행의 ID — 렌더 중 계산되지 않도록 모듈 함수로 분리한다 */
 function newRowId(seq: number): string {
@@ -177,7 +177,7 @@ export default function InventorySheet() {
           <table className="w-full min-w-[1280px] text-xs">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-                <th className={`${TH} w-56`}>기자재명</th>
+                <th className={`${TH} ${TH_STICKY} w-56`}>기자재명</th>
                 <th className={`${TH} w-40`}>규격</th>
                 <th className={`${TH} w-24 text-center`}>보유수량</th>
                 <th className={`${TH} w-24`}>단위</th>
@@ -197,7 +197,7 @@ export default function InventorySheet() {
               )}
               {shown.map((r) => (
                 <tr key={r.id} className={r.qty === null ? 'bg-amber-50/40' : ''}>
-                  <td className="px-1.5 py-1.5">
+                  <td className={`${TD_STICKY_POS} ${r.qty === null ? 'bg-amber-50/40' : 'bg-white'} px-1.5 py-1.5`}>
                     <input aria-label="기자재명" placeholder="예: 다이아프램 펌프" value={r.name} onChange={(e) => setRow(r.id, { name: e.target.value })} className={CELL} />
                   </td>
                   <td className="px-1.5 py-1.5">

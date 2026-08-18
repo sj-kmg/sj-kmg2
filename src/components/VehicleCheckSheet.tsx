@@ -22,7 +22,7 @@ import {
   type VehicleItem,
   type VehicleItemKind,
 } from '@/lib/vehicleCheck';
-import { CELL, SheetToolbar, TH } from './SheetUI';
+import { CELL, SheetToolbar, TD_STICKY, TH, TH_STICKY } from './SheetUI';
 
 function newId(prefix: string, seq: number): string {
   return `${prefix}-${Date.now()}-${seq}`;
@@ -300,7 +300,7 @@ export default function VehicleCheckSheet() {
           <table className="w-full text-xs" style={{ minWidth: `${560 + items.length * 132}px` }}>
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-                <th className={`${TH} sticky left-0 z-20 w-36 bg-slate-50 shadow-[2px_0_0_0_rgba(15,30,58,0.08)]`}>차량번호</th>
+                <th className={`${TH} ${TH_STICKY} w-36`}>차량번호</th>
                 <th className={`${TH} w-56`}>장비명</th>
                 {items.map((it) => (
                   <th
@@ -329,7 +329,7 @@ export default function VehicleCheckSheet() {
               {shown.map((r) => (
                 <tr key={r.id}>
                   {/* 옆으로 밀어도 어느 차량인지 보이도록 차량번호 칸을 고정한다 */}
-                  <td className="sticky left-0 z-10 bg-white px-1.5 py-1.5 shadow-[2px_0_0_0_rgba(15,30,58,0.08)]">
+                  <td className={`${TD_STICKY} px-1.5 py-1.5`}>
                     <input aria-label="차량번호" placeholder="예: 12가 3456" value={r.plate} onChange={(e) => veh.setRow(r.id, { plate: e.target.value })} className={`${CELL} font-mono font-semibold`} />
                   </td>
                   <td className="px-1.5 py-1.5">

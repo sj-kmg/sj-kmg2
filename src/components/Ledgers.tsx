@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { SafetyData } from '@/lib/types';
+import { TD_STICKY, TH_STICKY } from './SheetUI';
 
 const TABS = ['안전교육', '안전점검', '아차사고', '안전일정'] as const;
 type Tab = (typeof TABS)[number];
@@ -95,8 +96,8 @@ function Table({ head, rows }: { head: string[]; rows: React.ReactNode[][] }) {
       <table className="w-full min-w-[900px] border-collapse text-sm">
         <thead>
           <tr className="bg-slate-50 text-left text-xs text-slate-500">
-            {head.map((h) => (
-              <th key={h} className="px-3 py-2.5 font-semibold">
+            {head.map((h, i) => (
+              <th key={h} className={`px-3 py-2.5 font-semibold ${i === 0 ? TH_STICKY : ''}`}>
                 {h}
               </th>
             ))}
@@ -106,7 +107,10 @@ function Table({ head, rows }: { head: string[]; rows: React.ReactNode[][] }) {
           {rows.map((cells, i) => (
             <tr key={i} className="border-t border-slate-100 align-top hover:bg-slate-50">
               {cells.map((c, j) => (
-                <td key={j} className="max-w-64 whitespace-pre-line px-3 py-2.5 text-slate-700">
+                <td
+                  key={j}
+                  className={`max-w-64 whitespace-pre-line px-3 py-2.5 text-slate-700 ${j === 0 ? TD_STICKY : ''}`}
+                >
                   {c === null || c === '' ? <span className="text-slate-300">-</span> : c}
                 </td>
               ))}

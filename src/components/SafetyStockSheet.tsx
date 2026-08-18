@@ -14,7 +14,7 @@ import {
 } from '@/lib/safety';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
-import { CELL, SheetToolbar, TH } from './SheetUI';
+import { CELL, SheetToolbar, TD_STICKY, TH, TH_STICKY } from './SheetUI';
 
 function newId(seq: number): string {
   return `SI-${Date.now()}-${seq}`;
@@ -132,7 +132,7 @@ export default function SafetyStockSheet() {
           <table className="w-full min-w-[720px] text-xs">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-                <th className={`${TH} w-64`}>품명</th>
+                <th className={`${TH} ${TH_STICKY} w-64`}>품명</th>
                 <th className={`${TH} w-20`}>단위</th>
                 <th className={`${TH} w-28 text-center`}>수량</th>
                 <th className={`${TH} w-24 text-center`}>직전 대비</th>
@@ -152,7 +152,7 @@ export default function SafetyStockSheet() {
                 const diff = diffOf(r);
                 return (
                   <tr key={r.id}>
-                    <td className="px-1.5 py-1.5">
+                    <td className={`${TD_STICKY} px-1.5 py-1.5`}>
                       <input aria-label="품명" placeholder="예: 안전대" value={r.name} onChange={(e) => setRow(r.id, { name: e.target.value })} className={CELL} />
                     </td>
                     <td className="px-1.5 py-1.5">

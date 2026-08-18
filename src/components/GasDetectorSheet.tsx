@@ -18,7 +18,7 @@ import { NOTICE_STYLE, daysUntil, noticeLevel } from '@/lib/education';
 import { SyncError, uploadCert } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
-import { CELL, SheetToolbar, TH } from './SheetUI';
+import { CELL, SheetToolbar, TD_STICKY_POS, TH, TH_STICKY } from './SheetUI';
 import { fileHref } from '@/lib/ids';
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -160,7 +160,7 @@ export default function GasDetectorSheet() {
           <table className="w-full min-w-[1720px] text-xs">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-                <th className={`${TH} w-32`}>관리번호</th>
+                <th className={`${TH} ${TH_STICKY} w-32`}>관리번호</th>
                 <th className={`${TH} w-56`}>MODEL</th>
                 <th className={`${TH} w-52`}>용도</th>
                 <th className={`${TH} w-40`}>검교정일</th>
@@ -195,7 +195,7 @@ export default function GasDetectorSheet() {
                       </tr>
                     )}
                     <tr className={r.status !== '사용' ? 'bg-slate-50/40' : ''}>
-                      <td className="px-1.5 py-1.5">
+                      <td className={`${TD_STICKY_POS} ${r.status !== '사용' ? 'bg-slate-50/40' : 'bg-white'} px-1.5 py-1.5`}>
                         <input aria-label="관리번호" placeholder="SJ-5G-10" value={r.mgmtNo} onChange={(e) => setRow(r.id, { mgmtNo: e.target.value })} className={`${CELL} font-mono`} />
                       </td>
                       <td className="px-1.5 py-1.5">

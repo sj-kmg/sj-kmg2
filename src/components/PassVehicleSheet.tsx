@@ -5,7 +5,7 @@ import { PASS_VEHICLES_KEY, VEHICLE_NOTICE_DAYS, passVehicleSeed, type PassVehic
 import { NOTICE_STYLE, daysUntil, noticeLevel } from '@/lib/education';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
-import { CELL, SheetToolbar, TH } from './SheetUI';
+import { CELL, SheetToolbar, TD_STICKY, TH, TH_STICKY } from './SheetUI';
 
 const KINDS: PassVehicle['kind'][] = ['일반차량', '특수차량'];
 
@@ -89,7 +89,7 @@ export default function PassVehicleSheet() {
               <table className="w-full min-w-[1320px] text-xs">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-                    <th className={`${TH} w-40`}>차량번호</th>
+                    <th className={`${TH} ${TH_STICKY} w-40`}>차량번호</th>
                     <th className={`${TH} w-32`}>대표 운전자</th>
                     <th className={`${TH} w-40`}>출입시작일</th>
                     <th className={`${TH} w-40`}>출입종료일</th>
@@ -110,7 +110,7 @@ export default function PassVehicleSheet() {
                   )}
                   {list.map((r) => (
                     <tr key={r.id}>
-                      <td className="px-1.5 py-1.5">
+                      <td className={`${TD_STICKY} px-1.5 py-1.5`}>
                         <input aria-label="차량번호" placeholder="예: 12가 3456" value={r.plate} onChange={(e) => setRow(r.id, { plate: e.target.value })} className={CELL} />
                       </td>
                       <td className="px-1.5 py-1.5">

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { fileHref } from '@/lib/ids';
+import { TD_STICKY, TH_STICKY } from './SheetUI';
 import {
   EDU_COURSES,
   NOTICE_STYLE,
@@ -82,7 +83,7 @@ function SimpleTable({ course, rows, onOpen }: { course: EduCourse; rows: Roster
     <table className="w-full min-w-[720px] text-sm">
       <thead>
         <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs text-slate-500">
-          <th className="px-4 py-2.5 font-semibold">성명</th>
+          <th className={`px-4 py-2.5 font-semibold ${TH_STICKY}`}>성명</th>
           <th className="px-4 py-2.5 font-semibold">생년월일</th>
           <th className="px-4 py-2.5 font-semibold">과정</th>
           <th className="px-4 py-2.5 font-semibold">이수시간</th>
@@ -100,7 +101,7 @@ function SimpleTable({ course, rows, onOpen }: { course: EduCourse; rows: Roster
             onClick={() => onOpen(record)}
             title={record.certFile ? `${record.name} 수료증 열기` : undefined}
           >
-            <td className="px-4 py-2.5 font-semibold text-slate-800">{record.name}</td>
+            <td className={`px-4 py-2.5 font-semibold text-slate-800 ${TD_STICKY}`}>{record.name}</td>
             <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{record.birth}</td>
             <td className="px-4 py-2.5 text-xs text-slate-600">{course.courseName}</td>
             <td className="px-4 py-2.5 text-xs text-slate-600">{record.hours}</td>
@@ -122,7 +123,7 @@ function ChemicalTable({ rows, onOpen }: { rows: RosterRow[]; onOpen: (r: EduRec
       <thead>
         <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs text-slate-500">
           <th className="px-4 py-2.5 font-semibold">직책</th>
-          <th className="px-4 py-2.5 font-semibold">성명</th>
+          <th className={`px-4 py-2.5 font-semibold ${TH_STICKY}`}>성명</th>
           <th className="px-4 py-2.5 font-semibold">생년월일</th>
           <th className="px-4 py-2.5 font-semibold">집체 (안전교육원)</th>
           <th className="px-4 py-2.5 font-semibold">온라인 (화학물질안전원)</th>
@@ -140,7 +141,7 @@ function ChemicalTable({ rows, onOpen }: { rows: RosterRow[]; onOpen: (r: EduRec
             title={record.certFile ? `${record.name} 수료증 열기` : undefined}
           >
             <td className="px-4 py-2.5 text-xs text-slate-500">{record.position}</td>
-            <td className="px-4 py-2.5 font-semibold text-slate-800">{record.name}</td>
+            <td className={`px-4 py-2.5 font-semibold text-slate-800 ${TD_STICKY}`}>{record.name}</td>
             <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{record.birth}</td>
             <PassCell pass={record.offline} />
             <PassCell pass={record.online} />

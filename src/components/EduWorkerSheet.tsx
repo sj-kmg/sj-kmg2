@@ -6,7 +6,7 @@ import { SyncError, uploadCert, type LogType } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
 import { YNCC_NOTICE_DAYS, type EduSheetWorker } from '@/lib/yncc';
-import { CELL, SheetToolbar, TH } from './SheetUI';
+import { CELL, SheetToolbar, TD_STICKY_POS, TH, TH_STICKY } from './SheetUI';
 import { fileHref } from '@/lib/ids';
 
 interface Props {
@@ -151,7 +151,7 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
         <table className={`w-full ${variant === 'supervisor' ? 'min-w-[1080px]' : 'min-w-[1300px]'} text-xs`}>
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-              <th className={`${TH} w-36`}>작업자명</th>
+              <th className={`${TH} ${TH_STICKY} w-36`}>작업자명</th>
               <th className={`${TH} w-40`}>생년월일</th>
               <th className={`${TH} w-44`}>{variant === 'supervisor' ? '이수일자' : '집체교육 이수일자'}</th>
               {variant !== 'supervisor' && <th className={`${TH} w-44`}>온라인교육 이수일자</th>}
@@ -177,7 +177,7 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
               const sameDate = !!(r.offlineDate && r.onlineDate && r.offlineDate === r.onlineDate);
               return (
                 <tr key={r.id} className={sameDate ? 'bg-red-50' : ''}>
-                  <td className="px-1.5 py-1.5">
+                  <td className={`${TD_STICKY_POS} ${sameDate ? 'bg-red-50' : 'bg-white'} px-1.5 py-1.5`}>
                     <input aria-label="작업자명" placeholder="이름" value={r.name} onChange={(e) => setRow(r.id, { name: e.target.value })} className={CELL} />
                   </td>
                   <td className="px-1.5 py-1.5">

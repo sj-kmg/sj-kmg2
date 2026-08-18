@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import type { SafetyData } from '@/lib/types';
 import { gradesOf } from '@/lib/risk';
 import GradeBadge from './GradeBadge';
+import { TD_STICKY, TH_STICKY } from './SheetUI';
 
 export default function RiskTable({ data }: { data: SafetyData }) {
   const [company, setCompany] = useState('');
@@ -110,7 +111,7 @@ export default function RiskTable({ data }: { data: SafetyData }) {
               <Th>ID</Th>
               {companies.length > 0 && <Th>발주처</Th>}
               {hasFacility && <Th>설비/공정</Th>}
-              <Th>작업명</Th>
+              <Th sticky>작업명</Th>
               <Th>단계</Th>
               {hasProc && <Th>작업절차 / 세부작업</Th>}
               <Th>유해위험요인</Th>
@@ -131,7 +132,7 @@ export default function RiskTable({ data }: { data: SafetyData }) {
                 <Td className="font-mono text-xs text-slate-400">{r.id}</Td>
                 {companies.length > 0 && <Td className="whitespace-nowrap">{r.company || '-'}</Td>}
                 {hasFacility && <Td className="max-w-36">{r.facility || '-'}</Td>}
-                <Td className="max-w-44 font-medium">{r.taskName || '-'}</Td>
+                <Td sticky className="max-w-44 font-medium">{r.taskName || '-'}</Td>
                 <Td className="max-w-32 text-slate-500">{r.stage}</Td>
                 {hasProc && (
                   <Td className="max-w-52">
@@ -187,10 +188,27 @@ export default function RiskTable({ data }: { data: SafetyData }) {
   );
 }
 
-function Th({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <th className={`px-3 py-2.5 font-semibold ${className}`}>{children}</th>;
+function Th({
+  children,
+  className = '',
+  sticky = false,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  /** 옆으로 스크롤해도 이 칸(작업명 등 식별 값)이 보이도록 고정한다 */
+  sticky?: boolean;
+}) {
+  return <th className={`px-3 py-2.5 font-semibold ${sticky ? TH_STICKY : ''} ${className}`}>{children}</th>;
 }
 
-function Td({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <td className={`px-3 py-2.5 ${className}`}>{children}</td>;
+function Td({
+  children,
+  className = '',
+  sticky = false,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  sticky?: boolean;
+}) {
+  return <td className={`px-3 py-2.5 ${sticky ? TD_STICKY : ''} ${className}`}>{children}</td>;
 }

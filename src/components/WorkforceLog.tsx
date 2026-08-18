@@ -12,6 +12,7 @@ import {
   type LaborRow,
   type WorkforceEntry,
 } from '@/lib/workforce';
+import { TD_STICKY, TH_STICKY } from './SheetUI';
 
 const EMPTY_ROW: LaborRow = { category: '', name: '', workType: '', hours: '' };
 
@@ -294,7 +295,7 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
                       <tr className="bg-slate-50 text-left text-slate-500">
                         <th className="px-2 py-1.5 text-center font-semibold">번호</th>
                         <th className="px-2 py-1.5 font-semibold">구분</th>
-                        <th className="px-2 py-1.5 font-semibold">이름</th>
+                        <th className={`px-2 py-1.5 font-semibold ${TH_STICKY}`}>이름</th>
                         <th className="px-2 py-1.5 font-semibold">작업구분</th>
                         <th className="px-2 py-1.5 font-semibold">작업시간</th>
                       </tr>
@@ -304,7 +305,7 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
                         <tr key={i} className="border-t border-slate-100 text-slate-700">
                           <td className="px-2 py-1.5 text-center text-slate-400">{i + 1}</td>
                           <td className="px-2 py-1.5">{r.category || '-'}</td>
-                          <td className="px-2 py-1.5 font-medium">{r.name || '-'}</td>
+                          <td className={`px-2 py-1.5 font-medium ${TD_STICKY}`}>{r.name || '-'}</td>
                           <td className="px-2 py-1.5">{r.workType || '-'}</td>
                           <td className="px-2 py-1.5">{r.hours || '-'}</td>
                         </tr>

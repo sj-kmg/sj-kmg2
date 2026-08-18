@@ -13,7 +13,7 @@ import {
 import { SyncError, uploadCert } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
-import { CELL, SheetToolbar, TH } from './SheetUI';
+import { CELL, SheetToolbar, TD_STICKY, TH, TH_STICKY } from './SheetUI';
 import { fileHref } from '@/lib/ids';
 
 const GROUPS: HealthCheck['group'][] = ['직원', '인력'];
@@ -148,7 +148,7 @@ function Sheet({ kind, group }: { kind: HealthCheck['kind']; group: HealthCheck[
         <table className="w-full min-w-[1100px] text-xs">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-              <th className={`${TH} w-36`}>성명</th>
+              <th className={`${TH} ${TH_STICKY} w-36`}>성명</th>
               <th className={`${TH} w-40`}>생년월일</th>
               <th className={`${TH} w-40`}>검진일자</th>
               <th className={`${TH} w-40`}>갱신일자 (1년)</th>
@@ -168,7 +168,7 @@ function Sheet({ kind, group }: { kind: HealthCheck['kind']; group: HealthCheck[
             )}
             {shown.map((r) => (
               <tr key={r.id}>
-                <td className="px-1.5 py-1.5">
+                <td className={`${TD_STICKY} px-1.5 py-1.5`}>
                   <input aria-label="성명" placeholder="이름" value={r.name} onChange={(e) => setRow(r.id, { name: e.target.value })} className={CELL} />
                 </td>
                 <td className="px-1.5 py-1.5">

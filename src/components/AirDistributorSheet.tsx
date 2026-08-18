@@ -19,7 +19,7 @@ import { fileHref } from '@/lib/ids';
 import { SyncError, uploadCert } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
-import { CELL, SheetToolbar, TH } from './SheetUI';
+import { CELL, SheetToolbar, TD_STICKY_POS, TH, TH_STICKY } from './SheetUI';
 
 const META = EQUIP_META.AIR분배기;
 
@@ -148,7 +148,7 @@ export default function AirDistributorSheet() {
         <table className="w-full min-w-[1360px] text-xs">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-              <th className={`${TH} w-14 text-center`}>No</th>
+              <th className={`${TH} ${TH_STICKY} w-14 text-center`}>No</th>
               <th className={`${TH} w-56`}>설비명</th>
               <th className={`${TH} w-32`}>{META.itemLabel} 여부</th>
               <th className={`${TH} w-40`}>{META.itemLabel}일자</th>
@@ -171,7 +171,11 @@ export default function AirDistributorSheet() {
             )}
             {air.map((r) => (
               <tr key={r.id} className={r.status === '미실시' ? 'bg-amber-50/40' : ''}>
-                <td className="px-2 py-1.5 text-center font-mono text-slate-400">{r.unitNo}</td>
+                <td
+                  className={`${TD_STICKY_POS} ${r.status === '미실시' ? 'bg-amber-50/40' : 'bg-white'} px-2 py-1.5 text-center font-mono text-slate-400`}
+                >
+                  {r.unitNo}
+                </td>
                 <td className="px-1.5 py-1.5">
                   <input aria-label="설비명" value={r.name} onChange={(e) => setRow(r.id, { name: e.target.value })} className={CELL} />
                 </td>

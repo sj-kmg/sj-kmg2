@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { modeBadge, useSyncedLog } from '@/lib/useSyncedLog';
 import { YNCC_VEHICLES_KEY, type YnccVehicle } from '@/lib/yncc';
+import { TD_STICKY_POS, TH_STICKY } from './SheetUI';
 
 function todayStr(): string {
   const d = new Date();
@@ -135,7 +136,7 @@ export default function YnccVehicles() {
           <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs text-slate-500">
-                <th className="px-4 py-2.5 font-semibold">차량번호</th>
+                <th className={`px-4 py-2.5 font-semibold ${TH_STICKY}`}>차량번호</th>
                 <th className="px-4 py-2.5 font-semibold">등록일자</th>
                 <th className="px-4 py-2.5 font-semibold">차량 등록자</th>
                 <th className="px-4 py-2.5 font-semibold">최근 변경</th>
@@ -157,7 +158,11 @@ export default function YnccVehicles() {
                   onClick={() => selectPlate(v.plate)}
                   title="클릭하면 위 입력창에 불러와 갱신할 수 있습니다"
                 >
-                  <td className="px-4 py-2.5 font-bold text-slate-800">{v.plate}</td>
+                  <td
+                    className={`${TD_STICKY_POS} ${plateSel === v.plate ? 'bg-sky-50' : 'bg-white'} px-4 py-2.5 font-bold text-slate-800`}
+                  >
+                    {v.plate}
+                  </td>
                   <td className="px-4 py-2.5 font-mono text-xs text-slate-600">{v.regDate}</td>
                   <td className="px-4 py-2.5 text-slate-700">{v.registrant}</td>
                   <td className="px-4 py-2.5 font-mono text-[11px] text-slate-400">
