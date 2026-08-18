@@ -28,7 +28,10 @@ export type LogType =
   | 'inventory'
   | 'safety-items'
   | 'safety-dates'
-  | 'labor-roster';
+  | 'labor-roster'
+  | 'extinguisher-hq'
+  | 'extinguisher-hq-check'
+  | 'extinguisher-vehicle';
 
 const PASS_KEY = 'sj-sync-passcode';
 

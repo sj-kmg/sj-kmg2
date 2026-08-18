@@ -36,6 +36,11 @@ export const VIEWABLE_MENUS: MenuDef[] = [
   { key: 'safety-stock', label: '안전용품관리', types: ['safety-items', 'safety-dates'] },
   { key: 'equipment-check', label: '장비점검', types: ['equipment'] },
   { key: 'labor-roster', label: '인력관리', types: ['labor-roster'] },
+  {
+    key: 'extinguisher',
+    label: '소화기관리',
+    types: ['extinguisher-hq', 'extinguisher-hq-check', 'extinguisher-vehicle'],
+  },
 ];
 
 export const MENU_KEYS = VIEWABLE_MENUS.map((m) => m.key);

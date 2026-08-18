@@ -24,6 +24,7 @@ import InventorySheet from '@/components/InventorySheet';
 import SafetyStockSheet from '@/components/SafetyStockSheet';
 import EquipmentCheck from '@/components/EquipmentCheck';
 import LaborRoster from '@/components/LaborRoster';
+import FireExtinguisher from '@/components/FireExtinguisher';
 import SearchResults from '@/components/SearchResults';
 import AccessAdmin from '@/components/AccessAdmin';
 import GoogleAuthBox from '@/components/GoogleAuthBox';
@@ -49,6 +50,7 @@ type ViewKey =
   | 'safety-stock'
   | 'equipment-check'
   | 'labor-roster'
+  | 'extinguisher'
   | 'risk-assess'
   | 'people'
   | 'notice'
@@ -111,6 +113,7 @@ const MENU: MenuNode[] = [
       { key: 'safety-stock', label: '안전용품관리' },
       { key: 'equipment-check', label: '장비점검' },
       { key: 'labor-roster', label: '인력관리' },
+      { key: 'extinguisher', label: '소화기관리' },
     ],
   },
   { key: 'people', label: '작업인원관리', icon: '👷' },
@@ -526,6 +529,7 @@ export default function Page() {
               {view === 'safety-stock' && <SafetyStockSheet />}
               {view === 'equipment-check' && <EquipmentCheck />}
               {view === 'labor-roster' && <LaborRoster />}
+              {view === 'extinguisher' && <FireExtinguisher />}
               {view === 'access' && <AccessAdmin onChanged={session.refresh} />}
               {view === 'health-followup' && <HealthFollowup />}
               {view === 'notice' && <ComingSoon label={path[path.length - 1]} />}

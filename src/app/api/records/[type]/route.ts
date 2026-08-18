@@ -35,6 +35,9 @@ const TYPES = new Set([
   'safety-items',
   'safety-dates',
   'labor-roster',
+  'extinguisher-hq',
+  'extinguisher-hq-check',
+  'extinguisher-vehicle',
 ]);
 
 /** 기록 종류별 컬렉션 — records/{type}/entries/{id} */
