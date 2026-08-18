@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { fileHref } from '@/lib/ids';
+import { SyncError, uploadCert } from '@/lib/sync';
 import { modeBadge, useSyncedLog } from '@/lib/useSyncedLog';
 import { YNCC_VEHICLES_KEY, type YnccVehicle } from '@/lib/yncc';
 import { TD_STICKY_POS, TH_STICKY } from './SheetUI';
@@ -9,6 +11,15 @@ function todayStr(): string {
   const d = new Date();
   const p = (n: number) => (n < 10 ? `0${n}` : String(n));
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
 
 /** 출입신청 — YNCC 작업차량 등록 현황 (차량번호 고정, 등록일자·등록자 수시 갱신) */
@@ -20,6 +31,7 @@ export default function YnccVehicles() {
   const [registrant, setRegistrant] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [uploading, setUploading] = useState<string | null>(null);
 
   useEffect(() => setRegDate(todayStr()), []);
 
@@ -66,6 +78,30 @@ export default function YnccVehicles() {
       setTimeout(() => setSaved(false), 2000);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const attach = async (v: YnccVehicle, field: 'regCertFile' | 'insuranceCertFile', file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 8_000_000) {
+      alert('파일이 너무 큽니다. 8MB 이하 PDF·이미지를 첨부해 주세요.');
+      return;
+    }
+    const key = `${v.id}:${field}`;
+    setUploading(key);
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      const label = field === 'regCertFile' ? '자동차등록증' : '보험증권';
+      const url = await uploadCert(dataUrl, `${v.plate || '차량'}_${label}`);
+      await add({ ...v, [field]: url, updatedAt: new Date().toISOString() });
+    } catch (e) {
+      if (e instanceof SyncError && (e.status === 503 || e.status === 401)) {
+        alert('첨부는 배포된 사이트에서 동기화 암호를 입력한 뒤 사용할 수 있습니다.');
+      } else {
+        alert('업로드에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
+    } finally {
+      setUploading(null);
     }
   };
 
@@ -133,12 +169,14 @@ export default function YnccVehicles() {
 
         {/* 차량 전체 현황 — 입력하면 아래 내용이 바로 갱신된다 */}
         <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full min-w-[560px] text-sm">
+          <table className="w-full min-w-[820px] text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs text-slate-500">
                 <th className={`px-4 py-2.5 font-semibold ${TH_STICKY}`}>차량번호</th>
                 <th className="px-4 py-2.5 font-semibold">등록일자</th>
                 <th className="px-4 py-2.5 font-semibold">차량 등록자</th>
+                <th className="w-28 px-2 py-2.5 text-center font-semibold">차량등록증</th>
+                <th className="w-28 px-2 py-2.5 text-center font-semibold">보험증권</th>
                 <th className="px-4 py-2.5 font-semibold">최근 변경</th>
                 <th className="w-10 px-2 py-2.5" aria-label="삭제" />
               </tr>
@@ -146,7 +184,7 @@ export default function YnccVehicles() {
             <tbody className="divide-y divide-slate-100">
               {vehicles.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-300">
+                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-slate-300">
                     {mode === 'loading' ? '불러오는 중…' : '등록된 차량이 없습니다. 위 입력창에서 차량을 등록해 주세요.'}
                   </td>
                 </tr>
@@ -165,6 +203,70 @@ export default function YnccVehicles() {
                   </td>
                   <td className="px-4 py-2.5 font-mono text-xs text-slate-600">{v.regDate}</td>
                   <td className="px-4 py-2.5 text-slate-700">{v.registrant}</td>
+                  <td className="px-2 py-2.5" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-center gap-1">
+                      {v.regCertFile && (
+                        <a
+                          href={fileHref(v.regCertFile)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
+                          title={`${v.plate} 자동차등록증 열기`}
+                        >
+                          📄 보기
+                        </a>
+                      )}
+                      <label
+                        htmlFor={`yv-reg-${v.id}`}
+                        className="cursor-pointer rounded border border-dashed border-slate-300 px-1.5 py-1 text-[11px] whitespace-nowrap text-slate-500 hover:border-[#1f3864] hover:text-[#1f3864]"
+                        title="자동차등록증 첨부·교체"
+                      >
+                        {uploading === `${v.id}:regCertFile` ? '업로드중' : v.regCertFile ? '교체' : '첨부'}
+                      </label>
+                      <input
+                        id={`yv-reg-${v.id}`}
+                        type="file"
+                        accept="application/pdf,image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          void attach(v, 'regCertFile', e.target.files?.[0]);
+                          e.target.value = '';
+                        }}
+                      />
+                    </div>
+                  </td>
+                  <td className="px-2 py-2.5" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-center gap-1">
+                      {v.insuranceCertFile && (
+                        <a
+                          href={fileHref(v.insuranceCertFile)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
+                          title={`${v.plate} 보험증권 열기`}
+                        >
+                          📄 보기
+                        </a>
+                      )}
+                      <label
+                        htmlFor={`yv-ins-${v.id}`}
+                        className="cursor-pointer rounded border border-dashed border-slate-300 px-1.5 py-1 text-[11px] whitespace-nowrap text-slate-500 hover:border-[#1f3864] hover:text-[#1f3864]"
+                        title="보험증권 첨부·교체"
+                      >
+                        {uploading === `${v.id}:insuranceCertFile` ? '업로드중' : v.insuranceCertFile ? '교체' : '첨부'}
+                      </label>
+                      <input
+                        id={`yv-ins-${v.id}`}
+                        type="file"
+                        accept="application/pdf,image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          void attach(v, 'insuranceCertFile', e.target.files?.[0]);
+                          e.target.value = '';
+                        }}
+                      />
+                    </div>
+                  </td>
                   <td className="px-4 py-2.5 font-mono text-[11px] text-slate-400">
                     {v.updatedAt ? new Date(v.updatedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
                   </td>
@@ -187,7 +289,8 @@ export default function YnccVehicles() {
         </div>
         <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
           차량번호는 고정이고 등록일자·차량 등록자만 수시로 갱신됩니다. 표에서 차량을 클릭하면 위 입력창으로 불러와 바로
-          갱신할 수 있습니다.
+          갱신할 수 있습니다. 차량등록증·보험증권은 [첨부]로 올려 두면 [📄 보기]로 바로 열람할 수 있고, 갱신 시
+          [교체]로 새 파일로 바꿀 수 있습니다.
         </p>
       </div>
     </div>

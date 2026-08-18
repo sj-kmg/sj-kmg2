@@ -51,6 +51,36 @@ export function primaryGrade(grade: string): string | null {
   return [...codes].sort((a, b) => rank(a) - rank(b))[0];
 }
 
+/** 신체도 표시 지점 — 검진소견 키워드를 신체 부위에 매칭한다 */
+export interface BodyPoint {
+  key: string;
+  label: string;
+  x: number;
+  y: number;
+  keywords: string[];
+}
+
+export const BODY_POINTS: BodyPoint[] = [
+  { key: 'heart', label: '심장·혈압', x: 34, y: 62, keywords: ['고혈압', '혈압', '심장', '순환', '부정맥', '빈혈'] },
+  { key: 'lungs', label: '호흡기', x: 52, y: 62, keywords: ['흉부', '폐', '호흡', '결핵', '천식', '기관지'] },
+  { key: 'liver', label: '간·대사', x: 50, y: 98, keywords: ['간', '지방간', '당뇨', '대사', '이상지질', '콜레스테롤', '비만'] },
+  { key: 'stomach', label: '위장관', x: 32, y: 98, keywords: ['위', '소화', '장질환', '위장', '역류'] },
+];
+
+/** 검진소견 텍스트를 신체 부위별로 분류 — 신체도의 활성 지점·라벨 표시용 */
+export function matchBodyPoints(findings: string): { point: BodyPoint; text: string }[] {
+  const parts = findings.split(/,|및|\//).map((s) => s.trim()).filter(Boolean);
+  const byKey = new Map<string, { point: BodyPoint; texts: string[] }>();
+  for (const part of parts) {
+    const point = BODY_POINTS.find((p) => p.keywords.some((k) => part.includes(k)));
+    if (!point) continue;
+    const cur = byKey.get(point.key);
+    if (cur) cur.texts.push(part);
+    else byKey.set(point.key, { point, texts: [part] });
+  }
+  return [...byKey.values()].map((v) => ({ point: v.point, text: v.texts.join(', ') }));
+}
+
 /** 상담 기록 1건 */
 export interface CounselEntry {
   date: string; // 상담일자 YYYY-MM-DD

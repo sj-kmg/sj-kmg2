@@ -171,7 +171,11 @@ export function vehicleCheckSeed(): VehicleCheck[] {
     category,
     name,
     plate,
-    dates: (oilDate ? { [ENGINE_OIL_ITEM_ID]: oilDate } : {}) as Record<string, string>,
+    dates: {
+      ...(oilDate ? { [ENGINE_OIL_ITEM_ID]: oilDate } : {}),
+      // 86저 0128 — 자동차등록증·보험증권(2026-07-24~2027-07-24) 기준 정기점검·보험기간 시작일
+      ...(plate === '86저 0128' ? { 'VI-12': '2026-07-24', 'VI-13': '2026-07-24' } : {}),
+    } as Record<string, string>,
     ...(plate === '85루 1418' ? { certFile: CARRIED_FILE } : {}),
     note: '',
     updatedAt: '',

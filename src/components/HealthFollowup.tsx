@@ -2,15 +2,16 @@
 
 import { useMemo, useRef, useState } from 'react';
 import {
+  BODY_POINTS,
   FITNESS_CODES,
   FITNESS_LABEL,
-  FITNESS_TONE,
   HEALTH_FOLLOWUP_KEY,
   HEALTH_GRADE_CODES,
   HEALTH_GRADE_LABEL,
   HEALTH_GRADE_TONE,
   healthFollowupSeed,
   lastCounselDate,
+  matchBodyPoints,
   primaryGrade,
   type CounselEntry,
   type FollowupWorker,
@@ -86,7 +87,6 @@ export default function HealthFollowup() {
   };
 
   const badge = saveBadge(status, mode);
-  const label = 'mb-1 block text-[11px] font-semibold text-slate-500';
 
   return (
     <div className="w-full">
@@ -125,7 +125,6 @@ export default function HealthFollowup() {
             const last = lastCounselDate(r);
             const gradeCodes = r.grade.split(',').map((s) => s.trim()).filter(Boolean);
             const accent = HEALTH_GRADE_TONE[primaryGrade(r.grade) ?? '']?.bar ?? '#cbd5e1';
-            const fitnessTone = FITNESS_TONE[r.fitness]?.badge ?? 'bg-slate-100 text-slate-500';
             return (
               <article
                 key={r.id}
@@ -165,107 +164,113 @@ export default function HealthFollowup() {
 
                 {isOpen && (
                   <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-4">
-                    {/* 핵심 지표 카드 */}
-                    <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-                      <StatCard icon="🩺" label="건강구분" bar={accent}>
-                        <input
-                          id={`hf-grade-${r.id}`}
-                          list={`hf-grade-list-${r.id}`}
-                          placeholder="예: C2, D2"
-                          value={r.grade}
-                          onChange={(e) => setRow(r.id, { grade: e.target.value })}
-                          className={`${CELL} font-mono font-semibold`}
-                          title={HEALTH_GRADE_CODES.map((c) => HEALTH_GRADE_LABEL[c]).join('\n')}
-                        />
-                        <datalist id={`hf-grade-list-${r.id}`}>
-                          {HEALTH_GRADE_CODES.map((c) => (
-                            <option key={c} value={c}>{HEALTH_GRADE_LABEL[c]}</option>
-                          ))}
-                        </datalist>
-                      </StatCard>
-                      <StatCard icon="🦺" label="업무수행적합" bar={FITNESS_TONE[r.fitness]?.bar ?? '#94a3b8'}>
-                        <select
-                          id={`hf-fitness-${r.id}`}
-                          value={r.fitness}
-                          onChange={(e) => setRow(r.id, { fitness: e.target.value })}
-                          className={`${CELL} font-semibold`}
-                        >
-                          {FITNESS_CODES.map((c) => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
-                        </select>
-                        <span className={`mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${fitnessTone}`}>
-                          {FITNESS_LABEL[r.fitness]}
-                        </span>
-                      </StatCard>
-                      <StatCard icon="🗓️" label="재검일자" bar="#94a3b8">
-                        <input id={`hf-retest-${r.id}`} type="date" value={r.retestDate ?? ''} onChange={(e) => setRow(r.id, { retestDate: e.target.value })} className={`${CELL} font-mono`} />
-                      </StatCard>
-                      <StatCard icon="💬" label="최근 상담" bar="#94a3b8">
-                        <p className="px-0.5 py-1.5 text-sm font-bold text-slate-700">{last ?? '기록 없음'}</p>
-                      </StatCard>
-                    </div>
-
-                    {/* 인적사항 */}
-                    <div className="mt-3 grid grid-cols-1 gap-3 rounded-lg border border-slate-100 bg-white p-3 sm:grid-cols-3">
-                      <div>
-                        <label className={label} htmlFor={`hf-name-${r.id}`}>성명</label>
-                        <input id={`hf-name-${r.id}`} placeholder="이름" value={r.name} onChange={(e) => setRow(r.id, { name: e.target.value })} className={CELL} />
+                    <div className="flex flex-col gap-2.5 md:flex-row">
+                      {/* 신체도 — 검진소견을 부위별로 표시 */}
+                      <div className="flex shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-white p-2 md:w-[190px]">
+                        <BodyDiagram findings={r.findings} accent={accent} />
                       </div>
-                      <div>
-                        <label className={label} htmlFor={`hf-dept-${r.id}`}>부서명</label>
-                        <input id={`hf-dept-${r.id}`} placeholder="예: SAP팀" value={r.dept ?? ''} onChange={(e) => setRow(r.id, { dept: e.target.value })} className={CELL} />
-                      </div>
-                      <div>
-                        <label className={label} htmlFor={`hf-birth-${r.id}`}>생년월일</label>
-                        <input id={`hf-birth-${r.id}`} type="date" value={r.birth ?? ''} onChange={(e) => setRow(r.id, { birth: e.target.value })} className={CELL} />
-                      </div>
-                    </div>
 
-                    <NoteBox icon="🔎" label="검진소견 (Check Point)">
-                      <input
-                        id={`hf-findings-${r.id}`}
-                        placeholder="예: 고혈압"
-                        value={r.findings}
-                        onChange={(e) => setRow(r.id, { findings: e.target.value })}
-                        className={CELL}
-                      />
-                    </NoteBox>
+                      <div className="min-w-0 flex-1 space-y-2.5">
+                        {/* 압축 정보 */}
+                        <div className="grid grid-cols-2 gap-2 rounded-lg border border-slate-100 bg-white p-3 sm:grid-cols-3 lg:grid-cols-6">
+                          <Field label="성명">
+                            <input id={`hf-name-${r.id}`} placeholder="이름" value={r.name} onChange={(e) => setRow(r.id, { name: e.target.value })} className={CELL} />
+                          </Field>
+                          <Field label="부서명">
+                            <input id={`hf-dept-${r.id}`} placeholder="예: SAP팀" value={r.dept ?? ''} onChange={(e) => setRow(r.id, { dept: e.target.value })} className={CELL} />
+                          </Field>
+                          <Field label="생년월일">
+                            <input id={`hf-birth-${r.id}`} type="date" value={r.birth ?? ''} onChange={(e) => setRow(r.id, { birth: e.target.value })} className={`${CELL} font-mono`} />
+                          </Field>
+                          <Field label="건강구분">
+                            <input
+                              id={`hf-grade-${r.id}`}
+                              list={`hf-grade-list-${r.id}`}
+                              placeholder="예: C2, D2"
+                              value={r.grade}
+                              onChange={(e) => setRow(r.id, { grade: e.target.value })}
+                              className={`${CELL} font-mono font-semibold`}
+                              title={HEALTH_GRADE_CODES.map((c) => HEALTH_GRADE_LABEL[c]).join('\n')}
+                            />
+                            <datalist id={`hf-grade-list-${r.id}`}>
+                              {HEALTH_GRADE_CODES.map((c) => (
+                                <option key={c} value={c}>{HEALTH_GRADE_LABEL[c]}</option>
+                              ))}
+                            </datalist>
+                          </Field>
+                          <Field label="업무수행적합">
+                            <select
+                              id={`hf-fitness-${r.id}`}
+                              value={r.fitness}
+                              onChange={(e) => setRow(r.id, { fitness: e.target.value })}
+                              className={CELL}
+                              title={FITNESS_CODES.map((c) => FITNESS_LABEL[c]).join('\n')}
+                            >
+                              {FITNESS_CODES.map((c) => (
+                                <option key={c} value={c}>{c}</option>
+                              ))}
+                            </select>
+                          </Field>
+                          <Field label="재검일자">
+                            <input id={`hf-retest-${r.id}`} type="date" value={r.retestDate ?? ''} onChange={(e) => setRow(r.id, { retestDate: e.target.value })} className={`${CELL} font-mono`} />
+                          </Field>
+                        </div>
 
-                    <NoteBox icon="📋" label="사후관리 및 상담내용">
-                      <input
-                        id={`hf-action-${r.id}`}
-                        placeholder="예: 근무중 치료, 건강상담"
-                        value={r.action}
-                        onChange={(e) => setRow(r.id, { action: e.target.value })}
-                        className={CELL}
-                      />
-                    </NoteBox>
-
-                    {/* 생활습관 */}
-                    <div className="mt-3 flex flex-wrap items-end gap-4 rounded-lg border border-slate-100 bg-white p-3">
-                      <label className="flex items-center gap-1.5 text-xs text-slate-600">
-                        <input type="checkbox" checked={!!r.drinking} onChange={(e) => setRow(r.id, { drinking: e.target.checked })} className="h-3.5 w-3.5 accent-[#1f3864]" />
-                        음주
-                      </label>
-                      <label className="flex items-center gap-1.5 text-xs text-slate-600">
-                        <input type="checkbox" checked={!!r.smoking} onChange={(e) => setRow(r.id, { smoking: e.target.checked })} className="h-3.5 w-3.5 accent-[#1f3864]" />
-                        흡연
-                      </label>
-                      <div className="min-w-[8rem] flex-1">
-                        <label className={label} htmlFor={`hf-meds-${r.id}`}>복용중인 약</label>
-                        <input id={`hf-meds-${r.id}`} placeholder="예: 혈압, 당뇨" value={r.meds ?? ''} onChange={(e) => setRow(r.id, { meds: e.target.value })} className={CELL} />
-                      </div>
-                      <div className="min-w-[8rem] flex-1">
-                        <label className={label} htmlFor={`hf-note-${r.id}`}>비고</label>
-                        <input id={`hf-note-${r.id}`} value={r.note ?? ''} onChange={(e) => setRow(r.id, { note: e.target.value })} className={CELL} />
+                        {/* 소견 · 사후관리 · 생활습관 */}
+                        <div className="space-y-2 rounded-lg border border-slate-100 bg-white p-3">
+                          <div className="flex items-center gap-2">
+                            <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-slate-500">🔎 검진소견</span>
+                            <input
+                              id={`hf-findings-${r.id}`}
+                              placeholder="예: 고혈압"
+                              value={r.findings}
+                              onChange={(e) => setRow(r.id, { findings: e.target.value })}
+                              className={`${CELL} flex-1`}
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-slate-500">📋 사후관리</span>
+                            <input
+                              id={`hf-action-${r.id}`}
+                              placeholder="예: 근무중 치료, 건강상담"
+                              value={r.action}
+                              onChange={(e) => setRow(r.id, { action: e.target.value })}
+                              className={`${CELL} flex-1`}
+                            />
+                          </div>
+                          <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-2">
+                            <label className="flex items-center gap-1.5 text-xs text-slate-600">
+                              <input type="checkbox" checked={!!r.drinking} onChange={(e) => setRow(r.id, { drinking: e.target.checked })} className="h-3.5 w-3.5 accent-[#1f3864]" />
+                              음주
+                            </label>
+                            <label className="flex items-center gap-1.5 text-xs text-slate-600">
+                              <input type="checkbox" checked={!!r.smoking} onChange={(e) => setRow(r.id, { smoking: e.target.checked })} className="h-3.5 w-3.5 accent-[#1f3864]" />
+                              흡연
+                            </label>
+                            <input
+                              aria-label="복용중인 약"
+                              placeholder="복용중인 약"
+                              value={r.meds ?? ''}
+                              onChange={(e) => setRow(r.id, { meds: e.target.value })}
+                              className={`${CELL} min-w-[7rem] flex-1`}
+                            />
+                            <input
+                              aria-label="비고"
+                              placeholder="비고"
+                              value={r.note ?? ''}
+                              onChange={(e) => setRow(r.id, { note: e.target.value })}
+                              className={`${CELL} min-w-[7rem] flex-1`}
+                            />
+                          </div>
+                        </div>
                       </div>
                     </div>
 
                     {/* 상담이력 — 타임라인 */}
-                    <div className="mt-3 rounded-lg border border-slate-100 bg-white p-3">
+                    <div className="mt-2.5 rounded-lg border border-slate-100 bg-white p-3">
                       <div className="mb-2 flex items-center gap-2">
                         <p className="text-xs font-bold text-slate-600">🕐 상담이력</p>
+                        {last && <span className="text-[11px] text-slate-400">최근 {last}</span>}
                         <button
                           onClick={() => addCounsel(r)}
                           className="ml-auto rounded-md border border-[#1f3864] px-2 py-1 text-[11px] font-bold text-[#1f3864] hover:bg-[#1f3864] hover:text-white"
@@ -345,39 +350,68 @@ export default function HealthFollowup() {
   );
 }
 
-/** 핵심 지표 카드 — 아이콘 + 라벨 + 값(입력 가능) */
-function StatCard({
-  icon,
-  label,
-  bar,
-  children,
-}: {
-  icon: string;
-  label: string;
-  bar: string;
-  children: React.ReactNode;
-}) {
+/** 압축 정보 칸 — 작은 라벨 + 입력 */
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm">
-      <span aria-hidden className="absolute inset-x-0 top-0 h-0.5" style={{ background: bar }} />
-      <p className="flex items-center gap-1 text-[10px] font-semibold text-slate-400">
-        <span aria-hidden>{icon}</span>
-        {label}
-      </p>
-      <div className="mt-1.5">{children}</div>
+    <div>
+      <p className="mb-0.5 truncate text-[9px] font-semibold text-slate-400">{label}</p>
+      {children}
     </div>
   );
 }
 
-/** 서술형 항목 박스 — 아이콘 헤더 + 입력칸 */
-function NoteBox({ icon, label, children }: { icon: string; label: string; children: React.ReactNode }) {
+/** 신체도 — 검진소견을 부위별로 분류해 실루엣에 점으로 표시하고, 옆에 소견을 라벨로 붙인다 */
+function BodyDiagram({ findings, accent }: { findings: string; accent: string }) {
+  const matches = matchBodyPoints(findings);
+  const matchedKeys = new Set(matches.map((m) => m.point.key));
   return (
-    <div className="mt-3 rounded-lg border border-slate-100 bg-white p-3">
-      <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
-        <span aria-hidden>{icon}</span>
-        {label}
-      </p>
-      {children}
-    </div>
+    <svg viewBox="0 0 220 190" className="h-auto w-full max-w-[190px]" aria-label="신체 부위별 검진소견">
+      {/* 실루엣 */}
+      <circle cx="40" cy="22" r="14" className="fill-slate-200" />
+      <rect x="34" y="32" width="12" height="10" className="fill-slate-200" />
+      <rect x="15" y="40" width="50" height="72" rx="18" className="fill-slate-200" />
+      <rect x="2" y="44" width="13" height="58" rx="6" className="fill-slate-200" />
+      <rect x="65" y="44" width="13" height="58" rx="6" className="fill-slate-200" />
+      <rect x="18" y="108" width="16" height="76" rx="7" className="fill-slate-200" />
+      <rect x="46" y="108" width="16" height="76" rx="7" className="fill-slate-200" />
+
+      {BODY_POINTS.map((p) => {
+        const active = matchedKeys.has(p.key);
+        return (
+          <circle
+            key={p.key}
+            cx={p.x}
+            cy={p.y}
+            r={active ? 5 : 3}
+            fill={active ? accent : '#cbd5e1'}
+            stroke="#fff"
+            strokeWidth={1.5}
+          />
+        );
+      })}
+
+      {matches.map((m, i) => {
+        const ly = 46 + i * 30;
+        const label = m.text.length > 14 ? `${m.text.slice(0, 14)}…` : m.text;
+        return (
+          <g key={m.point.key}>
+            <line x1={m.point.x} y1={m.point.y} x2={90} y2={ly} stroke={accent} strokeWidth={1} strokeDasharray="2 2" />
+            <circle cx={90} cy={ly} r={2} fill={accent} />
+            <text x={96} y={ly - 3} style={{ fontSize: 8, fontWeight: 700 }} className="fill-slate-600">
+              {m.point.label}
+            </text>
+            <text x={96} y={ly + 7} style={{ fontSize: 7 }} className="fill-slate-400">
+              {label}
+            </text>
+          </g>
+        );
+      })}
+
+      {matches.length === 0 && (
+        <text x="110" y="95" textAnchor="middle" style={{ fontSize: 8 }} className="fill-slate-300">
+          특이 소견 없음
+        </text>
+      )}
+    </svg>
   );
 }

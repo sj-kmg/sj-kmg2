@@ -26,6 +26,8 @@ export interface YnccVehicle {
   plate: string; // 차량번호 (고정)
   regDate: string; // 등록일자 (수시 갱신)
   registrant: string; // 차량 등록자 (수시 갱신)
+  regCertFile?: string; // 자동차등록증 파일
+  insuranceCertFile?: string; // 보험증권 파일
   updatedAt: string;
 }
 
