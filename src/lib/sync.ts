@@ -14,9 +14,11 @@ export type LogType =
   | 'cards'
   | 'workplan'
   | 'annual-plan'
+  | 'annual-plan-tasks'
   | 'memo'
   | 'pass-vehicles'
   | 'health'
+  | 'health-followup'
   | 'supervisor'
   | 'detectors'
   | 'vehicle-service'
@@ -25,7 +27,8 @@ export type LogType =
   | 'equipment'
   | 'inventory'
   | 'safety-items'
-  | 'safety-dates';
+  | 'safety-dates'
+  | 'labor-roster';
 
 const PASS_KEY = 'sj-sync-passcode';
 

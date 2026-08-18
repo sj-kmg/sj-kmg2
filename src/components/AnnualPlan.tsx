@@ -1,28 +1,42 @@
-﻿'use client';
+'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ANNUAL_PLAN_KEY,
+  ANNUAL_PLAN_TASKS_KEY,
   ANYTIME_TASKS,
-  MONTHLY_TASKS,
   MONTH_LABEL,
   PERIOD_META,
   checkId,
   currentPhase,
+  monthlyTaskSeed,
   specialTasksOf,
   type AnnualTask,
+  type MonthlyPeriod,
+  type MonthlyTaskItem,
   type PlanCheck,
 } from '@/lib/annualPlan';
+import { CELL, SheetToolbar } from './SheetUI';
 import { modeBadge, useSyncedLog } from '@/lib/useSyncedLog';
+import { useSheetLog } from '@/lib/useSheetLog';
 
 /** 공무관리 › 공무연간계획 — 해당 연도의 시기별 업무를 월별로 정리 */
 export default function AnnualPlan() {
   const { entries, mode, add } = useSyncedLog<PlanCheck>('annual-plan', ANNUAL_PLAN_KEY);
+  const monthlySeed = useMemo(() => monthlyTaskSeed(), []);
+  const monthly = useSheetLog<MonthlyTaskItem>('annual-plan-tasks', ANNUAL_PLAN_TASKS_KEY, {
+    seed: monthlySeed,
+    isBlank: (r) => !r.title.trim(),
+    sort: (a, b) => (a.period === b.period ? 0 : a.period === '월초' ? -1 : 1),
+  });
+
   const [year, setYear] = useState<number | null>(null);
   const [thisMonth, setThisMonth] = useState(0);
   const [phase, setPhase] = useState<'월초' | '월말' | '중순'>('중순');
   const [busy, setBusy] = useState<string | null>(null);
   const [hideDone, setHideDone] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const seq = useRef(0);
 
   useEffect(() => {
     const d = new Date();
@@ -32,6 +46,10 @@ export default function AnnualPlan() {
   }, []);
 
   if (!year) return null;
+
+  const monthlyTasks: AnnualTask[] = monthly.rows
+    .filter((r) => r.title.trim())
+    .map((r) => ({ id: r.id, period: r.period, title: r.title, note: r.note }));
 
   const isDone = (m: number, t: AnnualTask) => entries.find((e) => e.id === checkId(year, m, t.id))?.done ?? false;
 
@@ -55,11 +73,21 @@ export default function AnnualPlan() {
     }
   };
 
+  const addMonthlyTask = (period: MonthlyPeriod) => {
+    seq.current += 1;
+    monthly.addRow({ id: `MT-${Date.now()}-${seq.current}`, period, title: '', updatedAt: '' });
+  };
+
+  const removeMonthlyTask = (t: MonthlyTaskItem) => {
+    if (t.title.trim() && !confirm(`[${t.title}] 항목을 삭제할까요? 매월 목록에서 함께 사라집니다. 되돌리기로 복구할 수 있습니다.`)) return;
+    void monthly.removeRow(t.id);
+  };
+
   // 연간 진행률 — 월별 (특정 시기 + 매월 반복) 전체 기준
   let total = 0;
   let totalDone = 0;
   for (let m = 1; m <= 12; m++) {
-    const list = [...specialTasksOf(m), ...MONTHLY_TASKS];
+    const list = [...specialTasksOf(m), ...monthlyTasks];
     total += list.length;
     totalDone += list.filter((t) => isDone(m, t)).length;
   }
@@ -110,6 +138,16 @@ export default function AnnualPlan() {
           </button>
           <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
           <button
+            onClick={() => setEditing(!editing)}
+            className={`rounded-lg border px-2.5 py-1 text-xs font-medium ${
+              editing
+                ? 'border-[#1f3864] bg-[#1f3864] text-white'
+                : 'border-slate-200 text-slate-600 hover:border-[#1f3864] hover:text-[#1f3864]'
+            }`}
+          >
+            {editing ? '편집 완료' : '✎ 월별 항목 편집'}
+          </button>
+          <button
             onClick={() => setHideDone(!hideDone)}
             className="ml-auto rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-[#1f3864] hover:text-[#1f3864]"
           >
@@ -134,14 +172,76 @@ export default function AnnualPlan() {
         </div>
       </div>
 
+      {/* 월별 반복 항목 편집 — 여기서 바꾸면 1~12월 전체 카드에 함께 반영된다 */}
+      {editing && (
+        <div className="mb-4 rounded-xl border border-[#1f3864]/30 bg-white p-4 shadow-sm">
+          <p className="mb-2 text-sm font-bold text-slate-700">매월 반복 항목 편집</p>
+          <p className="mb-3 text-[11px] leading-relaxed text-slate-400">
+            여기서 추가·수정·삭제하면 1~12월 카드 전체에 똑같이 반영됩니다. 회사 사정에 따라 매년 바뀌는 서류·업무를
+            여기서 관리하세요.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {(['월초', '월말'] as const).map((period) => (
+              <div key={period}>
+                <div className="mb-1.5 flex items-center gap-2">
+                  <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${PERIOD_META[period].badge}`}>{period}</span>
+                  <span className="text-[10px] text-slate-400">{PERIOD_META[period].hint}</span>
+                  <button
+                    onClick={() => addMonthlyTask(period)}
+                    className="ml-auto rounded-md border border-dashed border-slate-400 px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:border-[#1f3864] hover:text-[#1f3864]"
+                  >
+                    ＋ 항목 추가
+                  </button>
+                </div>
+                <ul className="space-y-1.5">
+                  {monthly.rows
+                    .filter((r) => r.period === period)
+                    .map((r) => (
+                      <li key={r.id} className="flex items-center gap-1.5">
+                        <input
+                          aria-label={`${period} 항목명`}
+                          placeholder="예: SAP 안전서류"
+                          value={r.title}
+                          onChange={(e) => monthly.setRow(r.id, { title: e.target.value })}
+                          className={CELL}
+                        />
+                        <button
+                          onClick={() => removeMonthlyTask(r)}
+                          aria-label="항목 삭제"
+                          className="shrink-0 text-slate-300 hover:text-red-500"
+                        >
+                          ✕
+                        </button>
+                      </li>
+                    ))}
+                  {monthly.rows.filter((r) => r.period === period).length === 0 && (
+                    <li className="rounded-lg border-2 border-dashed border-slate-200 py-3 text-center text-[11px] text-slate-400">
+                      등록된 항목이 없습니다
+                    </li>
+                  )}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3">
+            <SheetToolbar
+              addLabel="＋ 월초 항목 추가"
+              onUndo={() => void monthly.undo()}
+              canUndo={monthly.canUndo}
+              save={null}
+            />
+          </div>
+        </div>
+      )}
+
       {/* 월별 카드 */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         {MONTH_LABEL.map((label, i) => {
           const m = i + 1;
           const special = specialTasksOf(m);
-          const early = MONTHLY_TASKS.filter((t) => t.period === '월초');
-          const late = MONTHLY_TASKS.filter((t) => t.period === '월말');
-          const all = [...special, ...MONTHLY_TASKS];
+          const early = monthlyTasks.filter((t) => t.period === '월초');
+          const late = monthlyTasks.filter((t) => t.period === '월말');
+          const all = [...special, ...monthlyTasks];
           const done = all.filter((t) => isDone(m, t)).length;
           const current = m === thisMonth;
           return (
@@ -201,7 +301,8 @@ export default function AnnualPlan() {
 
       <p className="mt-4 text-[11px] leading-relaxed text-slate-400">
         사내 공무 연간계획 기준 — 년초·년2회(비상시 계획 및 훈련 1월·7월 / 관리감독자 평가·법규 준수평가 6월·12월)·연말·혹서기(6월)·혹한기(12월) 업무와 매월 반복되는 월초·월말 업무를
-        월별로 정리했습니다. 항목을 클릭하면 완료 처리되고 연·월별로 저장되어 매월 새로 시작됩니다.
+        월별로 정리했습니다. 항목을 클릭하면 완료 처리되고 연·월별로 저장되어 매월 새로 시작됩니다. 매월 반복 항목은
+        [✎ 월별 항목 편집]에서 추가·수정·삭제할 수 있습니다.
       </p>
     </div>
   );

@@ -20,9 +20,11 @@ const TYPES = new Set([
   'cards',
   'workplan',
   'annual-plan',
+  'annual-plan-tasks',
   'memo',
   'pass-vehicles',
   'health',
+  'health-followup',
   'supervisor',
   'detectors',
   'vehicle-service',
@@ -32,6 +34,7 @@ const TYPES = new Set([
   'inventory',
   'safety-items',
   'safety-dates',
+  'labor-roster',
 ]);
 
 /** 기록 종류별 컬렉션 — records/{type}/entries/{id} */

@@ -17,11 +17,13 @@ import YnccVehicles from '@/components/YnccVehicles';
 import AccessPass from '@/components/AccessPass';
 import AnnualPlan from '@/components/AnnualPlan';
 import HealthCheckSheet from '@/components/HealthCheckSheet';
+import HealthFollowup from '@/components/HealthFollowup';
 import GasDetectorSheet from '@/components/GasDetectorSheet';
 import VehicleCheckSheet from '@/components/VehicleCheckSheet';
 import InventorySheet from '@/components/InventorySheet';
 import SafetyStockSheet from '@/components/SafetyStockSheet';
 import EquipmentCheck from '@/components/EquipmentCheck';
+import LaborRoster from '@/components/LaborRoster';
 import SearchResults from '@/components/SearchResults';
 import AccessAdmin from '@/components/AccessAdmin';
 import GoogleAuthBox from '@/components/GoogleAuthBox';
@@ -46,6 +48,7 @@ type ViewKey =
   | 'inventory'
   | 'safety-stock'
   | 'equipment-check'
+  | 'labor-roster'
   | 'risk-assess'
   | 'people'
   | 'notice'
@@ -84,7 +87,7 @@ const MENU: MenuNode[] = [
         children: [
           { key: 'health-general', label: '일반검진' },
           { key: 'health-special', label: '특수검진' },
-          { key: 'health-followup', label: '유소견자 관리', wip: true },
+          { key: 'health-followup', label: '유소견자 관리' },
         ],
       },
       {
@@ -107,6 +110,7 @@ const MENU: MenuNode[] = [
       { key: 'inventory', label: '통합재고관리' },
       { key: 'safety-stock', label: '안전용품관리' },
       { key: 'equipment-check', label: '장비점검' },
+      { key: 'labor-roster', label: '인력관리' },
     ],
   },
   { key: 'people', label: '작업인원관리', icon: '👷' },
@@ -521,8 +525,10 @@ export default function Page() {
               {view === 'inventory' && <InventorySheet />}
               {view === 'safety-stock' && <SafetyStockSheet />}
               {view === 'equipment-check' && <EquipmentCheck />}
+              {view === 'labor-roster' && <LaborRoster />}
               {view === 'access' && <AccessAdmin onChanged={session.refresh} />}
-              {(view === 'health-followup' || view === 'notice') && <ComingSoon label={path[path.length - 1]} />}
+              {view === 'health-followup' && <HealthFollowup />}
+              {view === 'notice' && <ComingSoon label={path[path.length - 1]} />}
               {view === 'data' && (
                 <div className="mx-auto max-w-2xl py-6">
                   <h2 className="mb-2 text-xl font-bold text-slate-800">안전관리 데이터 불러오기</h2>

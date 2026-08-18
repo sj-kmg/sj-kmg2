@@ -21,9 +21,10 @@ export const VIEWABLE_MENUS: MenuDef[] = [
   { key: 'nearmiss', label: '아차사고', types: ['nearmiss'] },
   { key: 'people', label: '작업인원관리', types: ['workforce'] },
   { key: 'risk-assess', label: '위험성평가', types: ['risk'] },
-  { key: 'annual-plan', label: '공무연간계획', types: ['annual-plan'] },
+  { key: 'annual-plan', label: '공무연간계획', types: ['annual-plan', 'annual-plan-tasks'] },
   { key: 'health-general', label: '건강검진(일반)', types: ['health'] },
   { key: 'health-special', label: '건강검진(특수)', types: ['health'] },
+  { key: 'health-followup', label: '건강검진 — 유소견자 관리', types: ['health-followup'] },
   { key: 'edu-supervisor', label: '안전교육 — 관리감독자', types: ['supervisor'] },
   { key: 'edu-chemical', label: '안전교육 — 유해화학물질', types: ['chem-workers'] },
   { key: 'edu-yncc', label: '안전교육 — YNCC출입', types: ['yncc-workers'] },
@@ -34,6 +35,7 @@ export const VIEWABLE_MENUS: MenuDef[] = [
   { key: 'inventory', label: '통합재고관리', types: ['inventory'] },
   { key: 'safety-stock', label: '안전용품관리', types: ['safety-items', 'safety-dates'] },
   { key: 'equipment-check', label: '장비점검', types: ['equipment'] },
+  { key: 'labor-roster', label: '인력관리', types: ['labor-roster'] },
 ];
 
 export const MENU_KEYS = VIEWABLE_MENUS.map((m) => m.key);

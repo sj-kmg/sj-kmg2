@@ -9,7 +9,11 @@ import { bucket, bucketName } from './firebaseAdmin';
 
 const HOST = 'https://firebasestorage.googleapis.com';
 
-/** 파일을 저장하고 열람용 공개 URL을 돌려준다 */
+/**
+ * 파일을 저장하고 열람용 공개 URL을 돌려준다.
+ * `contentDisposition: inline`을 지정해, 클릭하면 다운로드되지 않고 새 탭에서 바로 열리게 한다
+ * (지정하지 않으면 브라우저·파일 형식에 따라 곧장 저장 대화상자가 뜨는 경우가 있다).
+ */
 export async function saveFile(path: string, buffer: Buffer, contentType: string): Promise<string> {
   const token = randomUUID();
   await bucket()
@@ -17,7 +21,11 @@ export async function saveFile(path: string, buffer: Buffer, contentType: string
     .save(buffer, {
       resumable: false,
       contentType,
-      metadata: { contentType, metadata: { firebaseStorageDownloadTokens: token } },
+      metadata: {
+        contentType,
+        contentDisposition: 'inline',
+        metadata: { firebaseStorageDownloadTokens: token },
+      },
     });
   return `${HOST}/v0/b/${bucketName()}/o/${encodeURIComponent(path)}?alt=media&token=${token}`;
 }
