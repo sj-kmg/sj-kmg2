@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { ScheduleRow } from '@/lib/types';
+import { holidayName } from '@/lib/holidays';
 import type { OpsData } from '@/lib/useOps';
 import { siteColor, ymd } from '@/lib/workforce';
 
@@ -94,14 +95,15 @@ export default function OpsCalendar({
           const isToday = ds === todayStr;
           const isSel = ds === selected;
           const dow = i % 7;
+          const holiday = holidayName(ds);
           return (
             <button
               key={i}
               onClick={() => onSelect(ds)}
               title={
                 active
-                  ? `${ds} · ${day!.sites.join(', ')} · ${day!.headcount}명`
-                  : `${ds} · 기록 없음`
+                  ? `${ds}${holiday ? ` · ${holiday}` : ''} · ${day!.sites.join(', ')} · ${day!.headcount}명`
+                  : `${ds}${holiday ? ` · ${holiday}` : ''} · 기록 없음`
               }
               className={`flex min-h-[46px] flex-col items-center justify-start rounded-lg border px-0.5 py-1 ${
                 isSel
@@ -116,8 +118,8 @@ export default function OpsCalendar({
                   className={`font-mono leading-none ${
                     isToday
                       ? 'flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold text-white shadow-[0_0_12px_rgba(34,211,238,0.85)] [background:linear-gradient(135deg,#22d3ee,#4b7bff)]'
-                      : dow === 0
-                        ? 'text-[11px] text-red-400'
+                      : holiday || dow === 0
+                        ? 'text-[11px] font-bold text-red-500'
                         : dow === 6
                           ? 'text-[11px] text-sky-400'
                           : 'text-[11px] text-slate-600'
@@ -165,6 +167,9 @@ export default function OpsCalendar({
         </span>
         <span className="flex items-center gap-1">
           <span className="h-1 w-1 rounded-full bg-amber-400" />일정
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="font-mono font-bold text-red-500">1</span>= 공휴일
         </span>
       </p>
     </div>

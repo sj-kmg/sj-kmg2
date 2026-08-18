@@ -24,6 +24,33 @@ export const FITNESS_LABEL: Record<string, string> = {
 };
 export const FITNESS_CODES = Object.keys(FITNESS_LABEL);
 
+/** 건강구분 코드별 배지 색상 (심각도 표시용) */
+export const HEALTH_GRADE_TONE: Record<string, { badge: string; bar: string }> = {
+  A: { badge: 'bg-emerald-50 text-emerald-700', bar: '#34d399' },
+  C1: { badge: 'bg-amber-50 text-amber-700', bar: '#fbbf24' },
+  C2: { badge: 'bg-amber-50 text-amber-700', bar: '#fbbf24' },
+  D1: { badge: 'bg-rose-50 text-rose-700', bar: '#fb7185' },
+  D2: { badge: 'bg-rose-50 text-rose-700', bar: '#fb7185' },
+  R: { badge: 'bg-purple-50 text-purple-700', bar: '#a78bfa' },
+};
+
+/** 업무수행적합여부 코드별 배지 색상 */
+export const FITNESS_TONE: Record<string, { badge: string; bar: string }> = {
+  가: { badge: 'bg-emerald-50 text-emerald-700', bar: '#34d399' },
+  나: { badge: 'bg-amber-50 text-amber-700', bar: '#fbbf24' },
+  다: { badge: 'bg-orange-50 text-orange-700', bar: '#fb923c' },
+  라: { badge: 'bg-rose-50 text-rose-700', bar: '#fb7185' },
+};
+
+/** "C2, D2"처럼 콤마로 나열된 건강구분 중 가장 심각한 코드 하나 (카드 강조색 결정용) */
+export function primaryGrade(grade: string): string | null {
+  const codes = grade.split(',').map((s) => s.trim()).filter(Boolean);
+  if (!codes.length) return null;
+  const order = ['D1', 'D2', 'R', 'C1', 'C2', 'A'];
+  const rank = (c: string) => (order.includes(c) ? order.indexOf(c) : order.length);
+  return [...codes].sort((a, b) => rank(a) - rank(b))[0];
+}
+
 /** 상담 기록 1건 */
 export interface CounselEntry {
   date: string; // 상담일자 YYYY-MM-DD
