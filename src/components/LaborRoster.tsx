@@ -116,7 +116,7 @@ export default function LaborRoster() {
         else merge(h.name, { generalHealthDate: h.checkDate, birth: h.birth });
       }
       for (const c of chem.filter((c) => c.group === '인력')) {
-        merge(c.name, { chemCert: c.certFile, birth: c.birth });
+        merge(c.name, { chemCert: c.certFile, chemDate: c.offlineDate || c.onlineDate, birth: c.birth });
       }
       for (const y of yncc.filter((y) => y.group === '인력')) {
         merge(y.name, { ynccStart: y.offlineDate || y.lastEdu, ynccEnd: y.eduExpire, birth: y.birth });
@@ -334,7 +334,21 @@ export default function LaborRoster() {
 
                       {/* 유해화학물질 첨부파일 */}
                       <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                        <p className="mb-1.5 text-xs font-bold text-slate-600">유해화학물질 첨부파일</p>
+                        <div className="mb-1.5 flex items-center gap-2">
+                          <p className="text-xs font-bold text-slate-600">유해화학물질 첨부파일</p>
+                          {r.chemDate && (
+                            <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+                              이수년도 {r.chemDate.slice(0, 4)}
+                            </span>
+                          )}
+                        </div>
+                        <input
+                          type="date"
+                          aria-label="유해화학물질 이수일자"
+                          value={r.chemDate ?? ''}
+                          onChange={(e) => setRow(r.id, { chemDate: e.target.value })}
+                          className={`${CELL} mb-2 bg-white`}
+                        />
                         <div className="flex items-center gap-1.5">
                           {r.chemCert && (
                             <a

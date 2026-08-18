@@ -17,6 +17,7 @@ export interface LaborWorker {
   specialHealthDate?: string; // 특수검진일자
   specialHealthCert?: string; // 특수검진 첨부파일 URL
   chemCert?: string; // 유해화학물질 첨부파일 URL
+  chemDate?: string; // 유해화학물질 교육 이수일자 — 이수년도 표시에 쓰인다
   ynccStart?: string; // YNCC 교육기간 시작 (이수일)
   ynccEnd?: string; // YNCC 교육기간 종료 (교육유효종료일)
   note?: string;
