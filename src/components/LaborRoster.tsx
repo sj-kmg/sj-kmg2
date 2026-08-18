@@ -1,14 +1,35 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { HEALTH_KEY, type HealthCheck } from '@/lib/health';
 import { LABOR_ROSTER_KEY, LABOR_TABS, UNASSIGNED, blankWorker, type LaborWorker } from '@/lib/laborRoster';
 import { fileHref } from '@/lib/ids';
 import { SyncError, listEntriesSilently, uploadCert } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
+import { useRole } from '@/lib/useRole';
 import { CHEM_WORKERS_KEY, YNCC_WORKERS_KEY, type EduSheetWorker } from '@/lib/yncc';
 import { LABOR_CATEGORIES, laborColor } from '@/lib/workforce';
 import { CELL } from './SheetUI';
+
+/** 롯데케미칼 #1 H-NC Effluent Line 작업(26.04.06) 개미인력 유해화학물질 이수증·수료증 원본 반영 */
+const DEFAULT_CHEM_WORKERS: {
+  name: string;
+  birth: string;
+  chemDate: string;
+  chemCert: string;
+  chemCertCompletion?: string;
+}[] = [
+  { name: '이형일', birth: '1976-12-15', chemDate: '2025-08-25', chemCert: '/certs/labor-roster/개미인력/이형일_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/이형일_수료증.jpg' },
+  { name: '곽철호', birth: '1969-08-19', chemDate: '2024-03-05', chemCert: '/certs/labor-roster/개미인력/곽철호_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/곽철호_수료증.jpg' },
+  { name: '김상민', birth: '1982-11-28', chemDate: '2026-04-03', chemCert: '/certs/labor-roster/개미인력/김상민_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/김상민_수료증.jpg' },
+  { name: '김영순', birth: '1975-12-19', chemDate: '2026-03-30', chemCert: '/certs/labor-roster/개미인력/김영순_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/김영순_수료증.jpg' },
+  { name: '김재식', birth: '1966-05-23', chemDate: '2025-01-31', chemCert: '/certs/labor-roster/개미인력/김재식_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/김재식_수료증.jpg' },
+  { name: '김재호', birth: '1969-07-12', chemDate: '2025-04-03', chemCert: '/certs/labor-roster/개미인력/김재호_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/김재호_수료증.jpg' },
+  { name: '신지훈', birth: '1994-05-01', chemDate: '2024-03-13', chemCert: '/certs/labor-roster/개미인력/신지훈_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/신지훈_수료증.jpg' },
+  { name: '유승일', birth: '1987-04-24', chemDate: '2024-06-13', chemCert: '/certs/labor-roster/개미인력/유승일_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/유승일_수료증.jpg' },
+  { name: '이상현', birth: '1971-06-20', chemDate: '2025-03-04', chemCert: '/certs/labor-roster/개미인력/이상현_이수증.jpg' },
+  { name: '이성현', birth: '1983-07-07', chemDate: '2025-02-11', chemCert: '/certs/labor-roster/개미인력/이성현_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/이성현_수료증.jpg' },
+];
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -47,14 +68,50 @@ export default function LaborRoster() {
     },
   );
 
+  const { role } = useRole();
   const [tab, setTab] = useState<string>(LABOR_CATEGORIES[0]);
   const [open, setOpen] = useState<string | null>(null);
   const [uploading, setUploading] = useState<string | null>(null);
   const [migrating, setMigrating] = useState(false);
   const [migrateNote, setMigrateNote] = useState('');
   const seq = useRef(0);
+  const seededChemRef = useRef(false);
 
   const shown = rows.filter((r) => (tab === UNASSIGNED ? !r.category : r.category === tab));
+
+  // 개미인력 유해화학물질 원본 반영 — 최초 1회, 비어 있는 값만 채운다 (열람 전용 계정은 제외)
+  useEffect(() => {
+    if (seededChemRef.current || mode === 'loading' || role === 'viewer') return;
+    seededChemRef.current = true;
+    let seq2 = 0;
+    for (const d of DEFAULT_CHEM_WORKERS) {
+      // 이름만으로는 다른 회사 소속 동명이인과 섞일 수 있어 생년월일까지 같을 때만 같은 사람으로 본다
+      const existing = rows.find((r) => r.name.trim() === d.name && (!r.birth || r.birth === d.birth));
+      if (existing) {
+        const { next, changed } = fillBlank(existing, {
+          category: existing.category || '개미인력',
+          birth: d.birth,
+          chemDate: d.chemDate,
+          chemCert: d.chemCert,
+          chemCertCompletion: d.chemCertCompletion,
+        });
+        if (changed) setRow(existing.id, next);
+      } else {
+        seq2 += 1;
+        addRow({
+          id: `LW-seed-${Date.now()}-${seq2}`,
+          category: '개미인력',
+          name: d.name,
+          birth: d.birth,
+          chemDate: d.chemDate,
+          chemCert: d.chemCert,
+          chemCertCompletion: d.chemCertCompletion,
+          updatedAt: '',
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, role]);
 
   const add = () => {
     seq.current += 1;
@@ -68,7 +125,7 @@ export default function LaborRoster() {
     void removeRow(r.id);
   };
 
-  const attachFile = async (row: LaborWorker, field: 'specialHealthCert' | 'chemCert', file: File | undefined) => {
+  const attachFile = async (row: LaborWorker, field: 'specialHealthCert' | 'chemCert' | 'chemCertCompletion', file: File | undefined) => {
     if (!file) return;
     if (file.size > 8_000_000) {
       alert('파일이 너무 큽니다. 8MB 이하 PDF·이미지를 첨부해 주세요.');
@@ -302,37 +359,15 @@ export default function LaborRoster() {
                           onChange={(e) => setRow(r.id, { specialHealthDate: e.target.value })}
                           className={`${CELL} mb-2`}
                         />
-                        <div className="flex items-center gap-1.5">
-                          {r.specialHealthCert && (
-                            <a
-                              href={fileHref(r.specialHealthCert)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
-                            >
-                              📄 보기
-                            </a>
-                          )}
-                          <label
-                            htmlFor={`lw-special-${r.id}`}
-                            className="cursor-pointer rounded border border-dashed border-slate-300 bg-white px-2 py-1 text-[11px] whitespace-nowrap text-slate-500 hover:border-[#1f3864] hover:text-[#1f3864]"
-                          >
-                            {uploading === `${r.id}-specialHealthCert` ? '업로드중' : r.specialHealthCert ? '교체' : '첨부'}
-                          </label>
-                          <input
-                            id={`lw-special-${r.id}`}
-                            type="file"
-                            accept="application/pdf,image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              void attachFile(r, 'specialHealthCert', e.target.files?.[0]);
-                              e.target.value = '';
-                            }}
-                          />
-                        </div>
+                        <AttachButtons
+                          url={r.specialHealthCert}
+                          uploading={uploading === `${r.id}-specialHealthCert`}
+                          inputId={`lw-special-${r.id}`}
+                          onFile={(file) => void attachFile(r, 'specialHealthCert', file)}
+                        />
                       </div>
 
-                      {/* 유해화학물질 첨부파일 */}
+                      {/* 유해화학물질 첨부파일 — 이수증·수료증 */}
                       <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                         <div className="mb-1.5 flex items-center gap-2">
                           <p className="text-xs font-bold text-slate-600">유해화학물질 첨부파일</p>
@@ -349,33 +384,25 @@ export default function LaborRoster() {
                           onChange={(e) => setRow(r.id, { chemDate: e.target.value })}
                           className={`${CELL} mb-2 bg-white`}
                         />
-                        <div className="flex items-center gap-1.5">
-                          {r.chemCert && (
-                            <a
-                              href={fileHref(r.chemCert)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
-                            >
-                              📄 보기
-                            </a>
-                          )}
-                          <label
-                            htmlFor={`lw-chem-${r.id}`}
-                            className="cursor-pointer rounded border border-dashed border-slate-300 bg-white px-2 py-1 text-[11px] whitespace-nowrap text-slate-500 hover:border-[#1f3864] hover:text-[#1f3864]"
-                          >
-                            {uploading === `${r.id}-chemCert` ? '업로드중' : r.chemCert ? '교체' : '첨부'}
-                          </label>
-                          <input
-                            id={`lw-chem-${r.id}`}
-                            type="file"
-                            accept="application/pdf,image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              void attachFile(r, 'chemCert', e.target.files?.[0]);
-                              e.target.value = '';
-                            }}
-                          />
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-12 shrink-0 text-[11px] text-slate-500">이수증</span>
+                            <AttachButtons
+                              url={r.chemCert}
+                              uploading={uploading === `${r.id}-chemCert`}
+                              inputId={`lw-chem-${r.id}`}
+                              onFile={(file) => void attachFile(r, 'chemCert', file)}
+                            />
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-12 shrink-0 text-[11px] text-slate-500">수료증</span>
+                            <AttachButtons
+                              url={r.chemCertCompletion}
+                              uploading={uploading === `${r.id}-chemCertCompletion`}
+                              inputId={`lw-chem-comp-${r.id}`}
+                              onFile={(file) => void attachFile(r, 'chemCertCompletion', file)}
+                            />
+                          </div>
                         </div>
                       </div>
 
@@ -424,6 +451,50 @@ export default function LaborRoster() {
         건강검진·유해화학물질·YNCC출입 메뉴의 &ldquo;인력&rdquo; 탭에 입력된 내용은 [⇩ 기존 인력 데이터 불러오기]로 이름 기준
         병합해 가져올 수 있습니다 (이미 입력된 값은 덮어쓰지 않습니다). 분류가 없는 인원은 &ldquo;{UNASSIGNED}&rdquo; 탭에서 확인할 수 있습니다.
       </p>
+    </div>
+  );
+}
+
+/** 첨부 파일 보기·첨부·교체 버튼 한 줄 */
+function AttachButtons({
+  url,
+  uploading,
+  inputId,
+  onFile,
+}: {
+  url?: string;
+  uploading: boolean;
+  inputId: string;
+  onFile: (file: File | undefined) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      {url && (
+        <a
+          href={fileHref(url)}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
+        >
+          📄 보기
+        </a>
+      )}
+      <label
+        htmlFor={inputId}
+        className="cursor-pointer rounded border border-dashed border-slate-300 bg-white px-2 py-1 text-[11px] whitespace-nowrap text-slate-500 hover:border-[#1f3864] hover:text-[#1f3864]"
+      >
+        {uploading ? '업로드중' : url ? '교체' : '첨부'}
+      </label>
+      <input
+        id={inputId}
+        type="file"
+        accept="application/pdf,image/*"
+        className="hidden"
+        onChange={(e) => {
+          onFile(e.target.files?.[0]);
+          e.target.value = '';
+        }}
+      />
     </div>
   );
 }
