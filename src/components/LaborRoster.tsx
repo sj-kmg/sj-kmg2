@@ -12,29 +12,37 @@ import { LABOR_CATEGORIES, laborColor } from '@/lib/workforce';
 import { useSortable } from '@/lib/useSortable';
 import { CELL, SortButton } from './SheetUI';
 
-/** 롯데케미칼 #1 H-NC Effluent Line 작업(26.04.06) 개미인력 유해화학물질 이수증·수료증 원본 반영 */
+/** 롯데케미칼 #1 H-NC Effluent Line 작업(26.04.06) 인력업체 유해화학물질 이수증·수료증 원본 반영 */
 const DEFAULT_CHEM_WORKERS: {
   name: string;
+  category: string;
   birth: string;
   chemDate: string;
   chemCert: string;
   chemCertCompletion?: string;
 }[] = [
-  { name: '이형일', birth: '1976-12-15', chemDate: '2025-08-25', chemCert: '/certs/labor-roster/개미인력/이형일_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/이형일_수료증.jpg' },
-  { name: '곽철호', birth: '1969-08-19', chemDate: '2024-03-05', chemCert: '/certs/labor-roster/개미인력/곽철호_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/곽철호_수료증.jpg' },
-  { name: '김상민', birth: '1982-11-28', chemDate: '2026-04-03', chemCert: '/certs/labor-roster/개미인력/김상민_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/김상민_수료증.jpg' },
-  { name: '김영순', birth: '1975-12-19', chemDate: '2026-03-30', chemCert: '/certs/labor-roster/개미인력/김영순_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/김영순_수료증.jpg' },
-  { name: '김재식', birth: '1966-05-23', chemDate: '2025-01-31', chemCert: '/certs/labor-roster/개미인력/김재식_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/김재식_수료증.jpg' },
-  { name: '김재호', birth: '1969-07-12', chemDate: '2025-04-03', chemCert: '/certs/labor-roster/개미인력/김재호_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/김재호_수료증.jpg' },
-  { name: '신지훈', birth: '1994-05-01', chemDate: '2024-03-13', chemCert: '/certs/labor-roster/개미인력/신지훈_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/신지훈_수료증.jpg' },
-  { name: '유승일', birth: '1987-04-24', chemDate: '2024-06-13', chemCert: '/certs/labor-roster/개미인력/유승일_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/유승일_수료증.jpg' },
-  { name: '이상현', birth: '1971-06-20', chemDate: '2025-03-04', chemCert: '/certs/labor-roster/개미인력/이상현_이수증.jpg' },
-  { name: '이성현', birth: '1983-07-07', chemDate: '2025-02-11', chemCert: '/certs/labor-roster/개미인력/이성현_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/이성현_수료증.jpg' },
-  { name: '임채갑', birth: '1965-02-02', chemDate: '2026-01-08', chemCert: '/certs/labor-roster/개미인력/임채갑_이수증.jpg' },
-  { name: '정재수', birth: '1987-02-15', chemDate: '2026-02-11', chemCert: '/certs/labor-roster/개미인력/정재수_이수증.jpg' },
-  { name: '정현종', birth: '1969-08-14', chemDate: '2024-02-24', chemCert: '/certs/labor-roster/개미인력/정현종_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/정현종_수료증.jpg' },
-  { name: '최준규', birth: '1979-01-12', chemDate: '2026-04-17', chemCert: '/certs/labor-roster/개미인력/최준규_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/최준규_수료증.jpg' },
-  { name: '하장훈', birth: '1973-06-01', chemDate: '2026-03-23', chemCert: '/certs/labor-roster/개미인력/하장훈_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/하장훈_수료증.jpg' },
+  { name: '이형일', category: '개미인력', birth: '1976-12-15', chemDate: '2025-08-25', chemCert: '/certs/labor-roster/개미인력/이형일_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/이형일_수료증.jpg' },
+  { name: '곽철호', category: '개미인력', birth: '1969-08-19', chemDate: '2024-03-05', chemCert: '/certs/labor-roster/개미인력/곽철호_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/곽철호_수료증.jpg' },
+  { name: '김상민', category: '개미인력', birth: '1982-11-28', chemDate: '2026-04-03', chemCert: '/certs/labor-roster/개미인력/김상민_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/김상민_수료증.jpg' },
+  { name: '김영순', category: '개미인력', birth: '1975-12-19', chemDate: '2026-03-30', chemCert: '/certs/labor-roster/개미인력/김영순_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/김영순_수료증.jpg' },
+  { name: '김재식', category: '개미인력', birth: '1966-05-23', chemDate: '2025-01-31', chemCert: '/certs/labor-roster/개미인력/김재식_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/김재식_수료증.jpg' },
+  { name: '김재호', category: '개미인력', birth: '1969-07-12', chemDate: '2025-04-03', chemCert: '/certs/labor-roster/개미인력/김재호_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/김재호_수료증.jpg' },
+  { name: '신지훈', category: '개미인력', birth: '1994-05-01', chemDate: '2024-03-13', chemCert: '/certs/labor-roster/개미인력/신지훈_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/신지훈_수료증.jpg' },
+  { name: '유승일', category: '개미인력', birth: '1987-04-24', chemDate: '2024-06-13', chemCert: '/certs/labor-roster/개미인력/유승일_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/유승일_수료증.jpg' },
+  { name: '이상현', category: '개미인력', birth: '1971-06-20', chemDate: '2025-03-04', chemCert: '/certs/labor-roster/개미인력/이상현_이수증.jpg' },
+  { name: '이성현', category: '개미인력', birth: '1983-07-07', chemDate: '2025-02-11', chemCert: '/certs/labor-roster/개미인력/이성현_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/이성현_수료증.jpg' },
+  { name: '임채갑', category: '개미인력', birth: '1965-02-02', chemDate: '2026-01-08', chemCert: '/certs/labor-roster/개미인력/임채갑_이수증.jpg' },
+  { name: '정재수', category: '개미인력', birth: '1987-02-15', chemDate: '2026-02-11', chemCert: '/certs/labor-roster/개미인력/정재수_이수증.jpg' },
+  { name: '정현종', category: '개미인력', birth: '1969-08-14', chemDate: '2024-02-24', chemCert: '/certs/labor-roster/개미인력/정현종_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/정현종_수료증.jpg' },
+  { name: '최준규', category: '개미인력', birth: '1979-01-12', chemDate: '2026-04-17', chemCert: '/certs/labor-roster/개미인력/최준규_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/최준규_수료증.jpg' },
+  { name: '하장훈', category: '개미인력', birth: '1973-06-01', chemDate: '2026-03-23', chemCert: '/certs/labor-roster/개미인력/하장훈_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/하장훈_수료증.jpg' },
+  { name: '김경식', category: '공영인력', birth: '1964-01-10', chemDate: '2024-03-21', chemCert: '/certs/labor-roster/공영인력/김경식_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/김경식_수료증.pdf' },
+  { name: '김광춘', category: '공영인력', birth: '1981-03-24', chemDate: '2026-01-24', chemCert: '/certs/labor-roster/공영인력/김광춘_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/김광춘_수료증.pdf' },
+  { name: '김학판', category: '공영인력', birth: '1959-11-15', chemDate: '2026-01-10', chemCert: '/certs/labor-roster/공영인력/김학판_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/김학판_수료증.pdf' },
+  { name: '오재정', category: '공영인력', birth: '1978-05-12', chemDate: '2024-01-18', chemCert: '/certs/labor-roster/공영인력/오재정_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/오재정_수료증.pdf' },
+  { name: '이진호', category: '공영인력', birth: '1975-11-21', chemDate: '2024-08-05', chemCert: '/certs/labor-roster/공영인력/이진호_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/이진호_수료증.pdf' },
+  { name: '임복수', category: '공영인력', birth: '1974-06-15', chemDate: '2025-02-14', chemCert: '/certs/labor-roster/공영인력/임복수_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/임복수_수료증.pdf' },
+  { name: '조운용', category: '공영인력', birth: '1964-01-02', chemDate: '2024-03-21', chemCert: '/certs/labor-roster/공영인력/조운용_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/조운용_수료증.pdf' },
 ];
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -99,7 +107,7 @@ export default function LaborRoster() {
       const existing = rows.find((r) => r.name.trim() === d.name && (!r.birth || r.birth === d.birth));
       if (existing) {
         const { next, changed } = fillBlank(existing, {
-          category: existing.category || '개미인력',
+          category: existing.category || d.category,
           birth: d.birth,
           chemDate: d.chemDate,
           chemCert: d.chemCert,
@@ -110,7 +118,7 @@ export default function LaborRoster() {
         seq2 += 1;
         addRow({
           id: `LW-seed-${Date.now()}-${seq2}`,
-          category: '개미인력',
+          category: d.category,
           name: d.name,
           birth: d.birth,
           chemDate: d.chemDate,
@@ -328,12 +336,13 @@ export default function LaborRoster() {
 
                 {isOpen && (
                   <div className="border-t border-slate-100 px-4 py-4">
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      <div>
+                    {/* 인적사항 — 칸 폭을 내용에 맞춰 좁게 잡는다 */}
+                    <div className="flex flex-wrap gap-2.5">
+                      <div className="w-28">
                         <label className={label} htmlFor={`lw-name-${r.id}`}>이름</label>
                         <input id={`lw-name-${r.id}`} placeholder="이름" value={r.name} onChange={(e) => setRow(r.id, { name: e.target.value })} className={CELL} />
                       </div>
-                      <div>
+                      <div className="w-32">
                         <label className={label} htmlFor={`lw-cat-${r.id}`}>분류</label>
                         <select
                           id={`lw-cat-${r.id}`}
@@ -347,11 +356,23 @@ export default function LaborRoster() {
                           ))}
                         </select>
                       </div>
-                      <div>
+                      <div className="w-36">
                         <label className={label} htmlFor={`lw-birth-${r.id}`}>생년월일</label>
                         <input id={`lw-birth-${r.id}`} type="date" value={r.birth ?? ''} onChange={(e) => setRow(r.id, { birth: e.target.value })} className={CELL} />
                       </div>
-                      <div>
+                      <div className="w-36">
+                        <label className={label} htmlFor={`lw-phone-${r.id}`}>휴대폰</label>
+                        <input
+                          id={`lw-phone-${r.id}`}
+                          type="tel"
+                          inputMode="tel"
+                          placeholder="010-0000-0000"
+                          value={r.phone ?? ''}
+                          onChange={(e) => setRow(r.id, { phone: e.target.value })}
+                          className={`${CELL} font-mono`}
+                        />
+                      </div>
+                      <div className="w-36">
                         <label className={label} htmlFor={`lw-general-${r.id}`}>일반검진일자</label>
                         <input
                           id={`lw-general-${r.id}`}
@@ -363,7 +384,7 @@ export default function LaborRoster() {
                       </div>
                     </div>
 
-                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                       {/* 특수검진 첨부파일 */}
                       <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                         <p className="mb-1.5 text-xs font-bold text-slate-600">특수검진 첨부파일</p>
@@ -372,7 +393,7 @@ export default function LaborRoster() {
                           aria-label="특수검진일자"
                           value={r.specialHealthDate ?? ''}
                           onChange={(e) => setRow(r.id, { specialHealthDate: e.target.value })}
-                          className={`${CELL} mb-2`}
+                          className={`${CELL} mb-2 w-36`}
                         />
                         <AttachButtons
                           url={r.specialHealthCert}
@@ -397,7 +418,7 @@ export default function LaborRoster() {
                           aria-label="유해화학물질 이수일자"
                           value={r.chemDate ?? ''}
                           onChange={(e) => setRow(r.id, { chemDate: e.target.value })}
-                          className={`${CELL} mb-2 bg-white`}
+                          className={`${CELL} mb-2 w-36 bg-white`}
                         />
                         <div className="space-y-1.5">
                           <div className="flex items-center gap-1.5">
@@ -421,32 +442,42 @@ export default function LaborRoster() {
                         </div>
                       </div>
 
-                      {/* YNCC 교육기간 */}
+                      {/* YNCC 교육기간 + 비고 — 날짜 칸은 내용 폭에 맞추고 남는 자리는 비고가 쓴다 */}
                       <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 sm:col-span-2">
-                        <p className="mb-1.5 text-xs font-bold text-slate-600">YNCC 교육기간</p>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="date"
-                            aria-label="YNCC 교육기간 시작"
-                            value={r.ynccStart ?? ''}
-                            onChange={(e) => setRow(r.id, { ynccStart: e.target.value })}
-                            className={`${CELL} bg-white`}
-                          />
-                          <span className="shrink-0 text-slate-400">~</span>
-                          <input
-                            type="date"
-                            aria-label="YNCC 교육기간 종료"
-                            value={r.ynccEnd ?? ''}
-                            onChange={(e) => setRow(r.id, { ynccEnd: e.target.value })}
-                            className={`${CELL} bg-white`}
-                          />
+                        <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+                          <div>
+                            <p className="mb-1.5 text-xs font-bold text-slate-600">YNCC 교육기간</p>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="date"
+                                aria-label="YNCC 교육기간 시작"
+                                value={r.ynccStart ?? ''}
+                                onChange={(e) => setRow(r.id, { ynccStart: e.target.value })}
+                                className={`${CELL} w-36 bg-white`}
+                              />
+                              <span className="shrink-0 text-slate-400">~</span>
+                              <input
+                                type="date"
+                                aria-label="YNCC 교육기간 종료"
+                                value={r.ynccEnd ?? ''}
+                                onChange={(e) => setRow(r.id, { ynccEnd: e.target.value })}
+                                className={`${CELL} w-36 bg-white`}
+                              />
+                            </div>
+                          </div>
+                          <div className="min-w-[10rem] flex-1">
+                            <label className="mb-1.5 block text-xs font-bold text-slate-600" htmlFor={`lw-note-${r.id}`}>
+                              비고
+                            </label>
+                            <input
+                              id={`lw-note-${r.id}`}
+                              value={r.note ?? ''}
+                              onChange={(e) => setRow(r.id, { note: e.target.value })}
+                              className={`${CELL} bg-white`}
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
-
-                    <div className="mt-3">
-                      <label className={label} htmlFor={`lw-note-${r.id}`}>비고</label>
-                      <input id={`lw-note-${r.id}`} value={r.note ?? ''} onChange={(e) => setRow(r.id, { note: e.target.value })} className={CELL} />
                     </div>
 
                     <div className="mt-3 flex justify-end">

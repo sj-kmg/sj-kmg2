@@ -13,6 +13,7 @@ export interface LaborWorker {
   category: string; // LABOR_CATEGORIES 중 하나, 미지정이면 빈 문자열
   name: string;
   birth?: string;
+  phone?: string; // 휴대폰 번호
   generalHealthDate?: string; // 일반검진일자
   specialHealthDate?: string; // 특수검진일자
   specialHealthCert?: string; // 특수검진 첨부파일 URL
