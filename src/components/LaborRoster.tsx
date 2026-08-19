@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { HEALTH_KEY, type HealthCheck } from '@/lib/health';
 import { LABOR_ROSTER_KEY, LABOR_TABS, UNASSIGNED, blankWorker, type LaborWorker } from '@/lib/laborRoster';
+import { formatPhone } from '@/lib/format';
 import { fileHref } from '@/lib/ids';
 import { SyncError, listEntriesSilently, uploadCert } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
@@ -437,7 +438,7 @@ export default function LaborRoster() {
                           inputMode="tel"
                           placeholder="010-0000-0000"
                           value={r.phone ?? ''}
-                          onChange={(e) => setRow(r.id, { phone: e.target.value })}
+                          onChange={(e) => setRow(r.id, { phone: formatPhone(e.target.value) })}
                           className={`${CELL} font-mono`}
                         />
                       </div>
@@ -445,55 +446,65 @@ export default function LaborRoster() {
 
                     {/* 검진·교육 4종 — LG화학 일반검진 · 특수검진 · 유해화학물질 · YNCC */}
                     <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                      {/* LG화학 일반검진 — 일자 + 첨부파일 */}
+                      {/* LG화학 일반검진 — 일자 + 결과표 첨부 */}
                       <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                         <p className="mb-1.5 text-xs font-bold text-slate-600">LG화학 일반검진</p>
-                        <input
-                          type="date"
-                          aria-label="LG화학 일반검진 일자"
-                          value={r.generalHealthDate ?? ''}
-                          onChange={(e) => setRow(r.id, { generalHealthDate: e.target.value })}
-                          className={`${CELL} mb-2 w-36 bg-white`}
-                        />
-                        <AttachButtons
-                          url={r.generalHealthCert}
-                          uploading={uploading === `${r.id}-generalHealthCert`}
-                          inputId={`lw-general-${r.id}`}
-                          onFile={(file) => void attachFile(r, 'generalHealthCert', file)}
-                        />
+                        <div className="mb-2 w-36">
+                          <input
+                            type="date"
+                            aria-label="LG화학 일반검진 일자"
+                            value={r.generalHealthDate ?? ''}
+                            onChange={(e) => setRow(r.id, { generalHealthDate: e.target.value })}
+                            className={`${CELL} bg-white`}
+                          />
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-12 shrink-0 text-[11px] text-slate-500">결과표</span>
+                          <AttachButtons
+                            url={r.generalHealthCert}
+                            uploading={uploading === `${r.id}-generalHealthCert`}
+                            inputId={`lw-general-${r.id}`}
+                            onFile={(file) => void attachFile(r, 'generalHealthCert', file)}
+                          />
+                        </div>
                       </div>
 
-                      {/* 특수검진 첨부파일 — 일자 없이 파일만 */}
+                      {/* 특수검진 첨부파일 — 일자 없이 확인서만 */}
                       <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                         <p className="mb-1.5 text-xs font-bold text-slate-600">특수검진 첨부파일</p>
-                        <AttachButtons
-                          url={r.specialHealthCert}
-                          uploading={uploading === `${r.id}-specialHealthCert`}
-                          inputId={`lw-special-${r.id}`}
-                          onFile={(file) => void attachFile(r, 'specialHealthCert', file)}
-                        />
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-12 shrink-0 text-[11px] text-slate-500">확인서</span>
+                          <AttachButtons
+                            url={r.specialHealthCert}
+                            uploading={uploading === `${r.id}-specialHealthCert`}
+                            inputId={`lw-special-${r.id}`}
+                            onFile={(file) => void attachFile(r, 'specialHealthCert', file)}
+                          />
+                        </div>
                       </div>
 
                       {/* 유해화학물질 — 이수년도(4자리) + 이수증·수료증 */}
                       <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                        <div className="mb-1.5 flex items-center gap-2">
-                          <p className="text-xs font-bold text-slate-600">유해화학물질 첨부파일</p>
-                          <label className="text-[11px] text-slate-500" htmlFor={`lw-chemyear-${r.id}`}>
+                        <div className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <p className="whitespace-nowrap text-xs font-bold text-slate-600">유해화학물질 첨부파일</p>
+                          <label className="whitespace-nowrap text-[11px] text-slate-500" htmlFor={`lw-chemyear-${r.id}`}>
                             이수년도
                           </label>
-                          <input
-                            id={`lw-chemyear-${r.id}`}
-                            inputMode="numeric"
-                            maxLength={4}
-                            placeholder="0000"
-                            value={r.chemDate ? r.chemDate.slice(0, 4) : ''}
-                            onChange={(e) => {
-                              const y = e.target.value.replace(/\D/g, '').slice(0, 4);
-                              // 연도만 바꾸고 월·일은 원래 값을 유지한다
-                              setRow(r.id, { chemDate: y ? `${y}${(r.chemDate ?? '').slice(4) || '-01-01'}` : '' });
-                            }}
-                            className={`${CELL} w-16 bg-white text-center`}
-                          />
+                          <div className="w-16">
+                            <input
+                              id={`lw-chemyear-${r.id}`}
+                              inputMode="numeric"
+                              maxLength={4}
+                              placeholder="0000"
+                              value={r.chemDate ? r.chemDate.slice(0, 4) : ''}
+                              onChange={(e) => {
+                                const y = e.target.value.replace(/\D/g, '').slice(0, 4);
+                                // 연도만 바꾸고 월·일은 원래 값을 유지한다
+                                setRow(r.id, { chemDate: y ? `${y}${(r.chemDate ?? '').slice(4) || '-01-01'}` : '' });
+                              }}
+                              className={`${CELL} bg-white text-center`}
+                            />
+                          </div>
                         </div>
                         <div className="space-y-1.5">
                           <div className="flex items-center gap-1.5">
@@ -521,21 +532,25 @@ export default function LaborRoster() {
                       <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                         <p className="mb-1.5 text-xs font-bold text-slate-600">YNCC 교육기간</p>
                         <div className="flex items-center gap-1.5">
-                          <input
-                            type="date"
-                            aria-label="YNCC 교육기간 시작"
-                            value={r.ynccStart ?? ''}
-                            onChange={(e) => setRow(r.id, { ynccStart: e.target.value })}
-                            className={`${CELL} w-36 bg-white`}
-                          />
+                          <div className="w-36">
+                            <input
+                              type="date"
+                              aria-label="YNCC 교육기간 시작"
+                              value={r.ynccStart ?? ''}
+                              onChange={(e) => setRow(r.id, { ynccStart: e.target.value })}
+                              className={`${CELL} bg-white`}
+                            />
+                          </div>
                           <span className="shrink-0 text-slate-400">~</span>
-                          <input
-                            type="date"
-                            aria-label="YNCC 교육기간 종료"
-                            value={r.ynccEnd ?? ''}
-                            onChange={(e) => setRow(r.id, { ynccEnd: e.target.value })}
-                            className={`${CELL} w-36 bg-white`}
-                          />
+                          <div className="w-36">
+                            <input
+                              type="date"
+                              aria-label="YNCC 교육기간 종료"
+                              value={r.ynccEnd ?? ''}
+                              onChange={(e) => setRow(r.id, { ynccEnd: e.target.value })}
+                              className={`${CELL} bg-white`}
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
