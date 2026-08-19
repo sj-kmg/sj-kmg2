@@ -22,12 +22,17 @@ const TORSO_HALF =
   'C64,444 62,451 64,455 C67,459 82,459 86,455 C89,451 88,444 86,438 ' +
   'C87,416 88,392 89,368 C90,344 93,316 96,288 C97,272 98,260 100,252 Z';
 
-/** 왼팔 — 삼각근에서 손까지. 몸통과 겹치지 않게 띄워 겨드랑이 틈이 보이도록 한다 */
+/**
+ * 왼팔 — 삼각근에서 손까지. 위쪽 끝을 어깨 안쪽까지 밀어 넣어 몸통과 겹치게 한다.
+ * (겹친 이음매는 몸통 채움에 가려져 어깨~팔이 한 덩어리로 매끄럽게 이어진다.)
+ * 아래쪽은 몸통과 떨어져 있어 겨드랑이 틈은 그대로 열려 있다.
+ */
 const ARM_HALF =
-  'M52,102 C42,106 32,110 26,118 C24,128 23,138 22,148 C20,162 18,176 17,188 ' +
-  'C15,205 12,222 10,238 C8,248 9,260 14,266 C19,271 28,270 31,263 ' +
-  'C33,256 33,248 32,240 C34,224 36,208 39,192 C41,176 43,160 45,146 ' +
-  'C47,134 49,126 50,120 C51,113 51,107 52,102 Z';
+  'M68,96 C60,97 57,98 52,101 C44,105 36,110 30,116 C26,120 24,122 24,126 ' +
+  'C22,134 21,141 21,148 ' +
+  'C20,162 18,176 17,188 C15,205 12,222 10,238 C8,248 9,260 14,266 ' +
+  'C19,271 28,270 31,263 C33,256 33,248 32,240 C34,224 36,208 39,192 ' +
+  'C41,176 43,160 45,146 C47,134 50,126 53,120 C57,112 62,103 68,96 Z';
 
 const MIRROR = 'translate(200,0) scale(-1,1)';
 
@@ -171,11 +176,23 @@ export default function BodyDiagram({ findings, accent }: { findings: string; ac
 
       {/* ── 인체 ─────────────────────────────────────────── */}
       <g>
+        {/*
+          윤곽선을 채움보다 "먼저" 그린다 — 선의 안쪽 절반이 채움에 덮여
+          어깨·목처럼 도형이 겹치는 이음매에 선이 남지 않는다 (바깥쪽 절반만 테두리로 보인다).
+        */}
+        <g fill="none" stroke="#dcf8fd" strokeOpacity="0.5" strokeWidth="2.6" strokeLinejoin="round">
+          <ellipse cx="100" cy="40" rx="25" ry="29" />
+          <path d={TORSO_HALF} />
+          <path d={TORSO_HALF} transform={MIRROR} />
+          <path d={ARM_HALF} />
+          <path d={ARM_HALF} transform={MIRROR} />
+        </g>
+
         <ellipse cx="100" cy="40" rx="25" ry="29" fill="url(#bd-body)" />
-        <path d={TORSO_HALF} fill="url(#bd-body)" />
-        <path d={TORSO_HALF} fill="url(#bd-body)" transform={MIRROR} />
         <path d={ARM_HALF} fill="url(#bd-body)" />
         <path d={ARM_HALF} fill="url(#bd-body)" transform={MIRROR} />
+        <path d={TORSO_HALF} fill="url(#bd-body)" />
+        <path d={TORSO_HALF} fill="url(#bd-body)" transform={MIRROR} />
 
         {/* 와이어프레임 메쉬 */}
         <g clipPath="url(#bd-clip)" stroke="#eafcff" fill="none" strokeWidth="0.7" opacity="0.3">
@@ -187,14 +204,6 @@ export default function BodyDiagram({ findings, accent }: { findings: string; ac
           ))}
         </g>
 
-        {/* 윤곽 — 실루엣을 또렷하게 */}
-        <g fill="none" stroke="#dcf8fd" strokeOpacity="0.5" strokeWidth="1.2">
-          <ellipse cx="100" cy="40" rx="25" ry="29" />
-          <path d={TORSO_HALF} />
-          <path d={TORSO_HALF} transform={MIRROR} />
-          <path d={ARM_HALF} />
-          <path d={ARM_HALF} transform={MIRROR} />
-        </g>
       </g>
 
       {/* 연결선 — 해당 소견이 있는 부위만 */}
