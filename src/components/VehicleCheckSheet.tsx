@@ -22,7 +22,8 @@ import {
   type VehicleItem,
   type VehicleItemKind,
 } from '@/lib/vehicleCheck';
-import { CELL, SheetToolbar, TD_STICKY, TH, TH_STICKY } from './SheetUI';
+import { useSortable } from '@/lib/useSortable';
+import { CELL, SheetToolbar, SortButton, TD_STICKY, TH, TH_STICKY } from './SheetUI';
 
 function newId(prefix: string, seq: number): string {
   return `${prefix}-${Date.now()}-${seq}`;
@@ -59,6 +60,7 @@ export default function VehicleCheckSheet() {
 
   const [cat, setCat] = useState<VehicleCategory | ''>('');
   const [manage, setManage] = useState(false);
+  const sortCtl = useSortable<VehicleCheck>();
   const [uploading, setUploading] = useState<string | null>(null);
   const [today, setToday] = useState<Date | null>(null);
   const seq = useRef(0);
@@ -66,7 +68,10 @@ export default function VehicleCheckSheet() {
   useEffect(() => setToday(new Date()), []);
 
   const items = itm.rows;
-  const shown = cat ? veh.rows.filter((r) => r.category === cat) : veh.rows;
+  const shown = sortCtl.apply(cat ? veh.rows.filter((r) => r.category === cat) : veh.rows, {
+    plate: (r) => r.plate,
+    name: (r) => r.name,
+  });
 
   /** 칸 상태 — 주기가 있는 항목만 판정 */
   const cellState = (row: VehicleCheck, item: VehicleItem) => {
@@ -300,8 +305,8 @@ export default function VehicleCheckSheet() {
           <table className="w-full text-xs" style={{ minWidth: `${560 + items.length * 132}px` }}>
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-                <th className={`${TH} ${TH_STICKY} w-36`}>차량번호</th>
-                <th className={`${TH} w-56`}>장비명</th>
+                <th className={`${TH} ${TH_STICKY} w-36`}>차량번호<SortButton ctl={sortCtl} col="plate" label="차량번호" /></th>
+                <th className={`${TH} w-56`}>장비명<SortButton ctl={sortCtl} col="name" label="장비명" /></th>
                 {items.map((it) => (
                   <th
                     key={it.id}

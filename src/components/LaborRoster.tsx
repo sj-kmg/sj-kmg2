@@ -9,7 +9,8 @@ import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { useRole } from '@/lib/useRole';
 import { CHEM_WORKERS_KEY, YNCC_WORKERS_KEY, type EduSheetWorker } from '@/lib/yncc';
 import { LABOR_CATEGORIES, laborColor } from '@/lib/workforce';
-import { CELL } from './SheetUI';
+import { useSortable } from '@/lib/useSortable';
+import { CELL, SortButton } from './SheetUI';
 
 /** 롯데케미칼 #1 H-NC Effluent Line 작업(26.04.06) 개미인력 유해화학물질 이수증·수료증 원본 반영 */
 const DEFAULT_CHEM_WORKERS: {
@@ -76,8 +77,12 @@ export default function LaborRoster() {
   const [migrateNote, setMigrateNote] = useState('');
   const seq = useRef(0);
   const seededChemRef = useRef(false);
+  const sortCtl = useSortable<LaborWorker>();
 
-  const shown = rows.filter((r) => (tab === UNASSIGNED ? !r.category : r.category === tab));
+  const shown = sortCtl.apply(
+    rows.filter((r) => (tab === UNASSIGNED ? !r.category : r.category === tab)),
+    { name: (r) => r.name, chem: (r) => r.chemDate ?? '' },
+  );
 
   // 개미인력 유해화학물질 원본 반영 — 최초 1회, 비어 있는 값만 채운다 (열람 전용 계정은 제외)
   useEffect(() => {
@@ -234,6 +239,11 @@ export default function LaborRoster() {
           >
             ↩ 되돌리기
           </button>
+          <span className="flex items-center rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-500">
+            이름<SortButton ctl={sortCtl} col="name" label="이름" />
+            <span className="mx-1.5 text-slate-300">|</span>
+            유해화학물질<SortButton ctl={sortCtl} col="chem" label="유해화학물질 이수일자" />
+          </span>
           <button
             onClick={add}
             className="rounded-lg border border-dashed border-slate-400 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-[#1f3864] hover:text-[#1f3864]"

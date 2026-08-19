@@ -6,7 +6,8 @@ import { SyncError, uploadCert, type LogType } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
 import { YNCC_NOTICE_DAYS, type EduSheetWorker } from '@/lib/yncc';
-import { CELL, SheetToolbar, TD_STICKY_POS, TH, TH_STICKY } from './SheetUI';
+import { useSortable } from '@/lib/useSortable';
+import { CELL, SheetToolbar, SortButton, TD_STICKY_POS, TH, TH_STICKY } from './SheetUI';
 import { fileHref } from '@/lib/ids';
 
 interface Props {
@@ -43,6 +44,7 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
     },
   );
 
+  const sortCtl = useSortable<EduSheetWorker>();
   const [uploading, setUploading] = useState<string | null>(null);
   const [today, setToday] = useState<Date | null>(null);
   const seq = useRef(0);
@@ -50,7 +52,7 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
   useEffect(() => setToday(new Date()), []);
 
   // 구버전 최근교육일(lastEdu)은 집체 이수일자로 보여 준다
-  const shown = rows
+  const listed = rows
     .filter((r) => r.group === group)
     .map((r) => ({ ...r, offlineDate: r.offlineDate ?? r.lastEdu ?? '' }));
 
@@ -114,6 +116,9 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
     return chemicalRenewalFromDates(r.offlineDate, r.onlineDate);
   };
 
+  // 정렬은 renewOf(갱신 도래일)가 정의된 뒤에 적용한다
+  const shown = sortCtl.apply(listed, { name: (r) => r.name, due: (r) => renewOf(r) ?? '' });
+
   const noticeDays = variant === 'supervisor' ? 90 : YNCC_NOTICE_DAYS;
 
   const dday = (r: EduSheetWorker) => {
@@ -151,7 +156,7 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
         <table className={`w-full ${variant === 'supervisor' ? 'min-w-[1080px]' : 'min-w-[1300px]'} text-xs`}>
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-              <th className={`${TH} ${TH_STICKY} w-36`}>작업자명</th>
+              <th className={`${TH} ${TH_STICKY} w-36`}>작업자명<SortButton ctl={sortCtl} col="name" label="작업자명" /></th>
               <th className={`${TH} w-40`}>생년월일</th>
               <th className={`${TH} w-44`}>{variant === 'supervisor' ? '이수일자' : '집체교육 이수일자'}</th>
               {variant !== 'supervisor' && <th className={`${TH} w-44`}>온라인교육 이수일자</th>}
@@ -160,7 +165,7 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
               ) : (
                 <th className={`${TH} w-36`}>갱신 도래일</th>
               )}
-              <th className={`${TH} w-24 text-center`}>D-day</th>
+              <th className={`${TH} w-24 text-center`}>D-day<SortButton ctl={sortCtl} col="due" label="D-day" /></th>
               <th className={`${TH} w-32 text-center`}>수료증</th>
               <th className="w-10 px-1 py-2" aria-label="행 삭제" />
             </tr>

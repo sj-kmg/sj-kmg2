@@ -13,7 +13,8 @@ import {
 import { SyncError, uploadCert } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
-import { CELL, SheetToolbar, TD_STICKY_POS, TH, TH_STICKY } from './SheetUI';
+import { useSortable } from '@/lib/useSortable';
+import { CELL, SheetToolbar, SortButton, TD_STICKY_POS, TH, TH_STICKY } from './SheetUI';
 
 /** 새로 추가하는 행의 ID — 렌더 중 계산되지 않도록 모듈 함수로 분리한다 */
 function newRowId(seq: number): string {
@@ -49,6 +50,7 @@ export default function InventorySheet() {
   const [tab, setTab] = useState(INVENTORY_CATEGORIES[0]);
   const [query, setQuery] = useState('');
   const [uploading, setUploading] = useState<string | null>(null);
+  const sortCtl = useSortable<InventoryItem>();
   const seq = useRef(0);
 
   /** 데이터에 있는 분류를 모두 탭으로 — 새 분류를 입력하면 탭이 늘어난다 */
@@ -63,11 +65,12 @@ export default function InventorySheet() {
 
   const q = query.trim().toLowerCase();
   /** 검색 중이면 분류를 건너뛰고 전체에서 찾는다 */
-  const shown = q
-    ? rows.filter((r) =>
-        [r.name, r.spec, r.note, r.category].some((v) => v?.toLowerCase().includes(q)),
-      )
-    : rows.filter((r) => r.category === activeTab);
+  const shown = sortCtl.apply(
+    q
+      ? rows.filter((r) => [r.name, r.spec, r.note, r.category].some((v) => v?.toLowerCase().includes(q)))
+      : rows.filter((r) => r.category === activeTab),
+    { name: (r) => r.name },
+  );
 
   const names = new Set(shown.map((r) => r.name.trim()).filter(Boolean));
   const qtySum = shown.reduce((n, r) => n + (r.qty ?? 0), 0);
@@ -177,7 +180,7 @@ export default function InventorySheet() {
           <table className="w-full min-w-[1280px] text-xs">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-                <th className={`${TH} ${TH_STICKY} w-56`}>기자재명</th>
+                <th className={`${TH} ${TH_STICKY} w-56`}>기자재명<SortButton ctl={sortCtl} col="name" label="기자재명" /></th>
                 <th className={`${TH} w-40`}>규격</th>
                 <th className={`${TH} w-24 text-center`}>보유수량</th>
                 <th className={`${TH} w-24`}>단위</th>

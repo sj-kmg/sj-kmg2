@@ -44,6 +44,36 @@ export const TD_STICKY = 'sticky left-0 z-10 bg-white shadow-[2px_0_0_0_rgba(15,
 /** 고정 열 — 위치만 지정 (행마다 배경이 달라지는 표에서 배경 클래스를 직접 붙일 때 쓴다) */
 export const TD_STICKY_POS = 'sticky left-0 z-10 shadow-[2px_0_0_0_rgba(15,30,58,0.08)]';
 
+/**
+ * 정렬 버튼 — 표 머리글의 이름·D-day 칸 옆에 붙인다.
+ * 누를 때마다 오름차순(▲) → 내림차순(▼) → 해제(⇅)로 돈다.
+ *   `<th className={TH}>성명 <SortButton ctl={sortCtl} col="name" label="성명" /></th>`
+ */
+export function SortButton({
+  ctl,
+  col,
+  label,
+}: {
+  ctl: { col: string | null; dir: 'asc' | 'desc'; toggle: (key: string) => void };
+  col: string;
+  label?: string;
+}) {
+  const on = ctl.col === col;
+  return (
+    <button
+      type="button"
+      onClick={() => ctl.toggle(col)}
+      aria-label={`${label ?? ''} 정렬`}
+      title={on ? (ctl.dir === 'asc' ? '오름차순 — 누르면 내림차순' : '내림차순 — 누르면 정렬 해제') : '정렬'}
+      className={`ml-1 align-middle text-[10px] leading-none ${
+        on ? 'text-[#82a6ff]' : 'text-slate-300 hover:text-slate-600'
+      }`}
+    >
+      {on ? (ctl.dir === 'asc' ? '▲' : '▼') : '⇅'}
+    </button>
+  );
+}
+
 /** 자동저장 상태 + 행 추가 + 되돌리기 */
 export function SheetToolbar({
   addLabel,

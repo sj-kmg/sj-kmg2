@@ -9,7 +9,8 @@ import {
 } from '@/lib/extinguisher';
 import { modeBadge } from '@/lib/useSyncedLog';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
-import { CELL, SheetToolbar, TD_STICKY_POS, TH, TH_STICKY } from './SheetUI';
+import { useSortable } from '@/lib/useSortable';
+import { CELL, SheetToolbar, SortButton, TD_STICKY_POS, TH, TH_STICKY } from './SheetUI';
 
 const STATUS_STYLE: Record<VehicleExtinguisher['status'], string> = {
   '비치(신규)': 'text-cyan-700',
@@ -50,6 +51,8 @@ export default function VehicleExtinguisherSheet() {
 
   const badge = modeBadge(mode);
   const save = saveBadge(status, mode);
+  const sortCtl = useSortable<VehicleExtinguisher>();
+  const shown = sortCtl.apply(rows, { plate: (r) => r.plate, checked: (r) => r.checkedAt ?? '' });
   const missing = rows.filter((r) => r.status === '미비치').length;
 
   return (
@@ -69,11 +72,11 @@ export default function VehicleExtinguisherSheet() {
         <table className="w-full min-w-[850px] text-xs">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-              <th className={`${TH} ${TH_STICKY} w-28`}>차량번호</th>
+              <th className={`${TH} ${TH_STICKY} w-28`}>차량번호<SortButton ctl={sortCtl} col="plate" label="차량번호" /></th>
               <th className={`${TH} w-36`}>구분</th>
               <th className={`${TH} w-44`}>소화기규격</th>
               <th className={`${TH} w-28 text-center`}>비치상태</th>
-              <th className={`${TH} w-28`}>확인일자</th>
+              <th className={`${TH} w-28`}>확인일자<SortButton ctl={sortCtl} col="checked" label="확인일자" /></th>
               <th className={`${TH} w-36`}>비고</th>
               <th className="w-8 px-1 py-2" aria-label="행 삭제" />
             </tr>
@@ -86,7 +89,7 @@ export default function VehicleExtinguisherSheet() {
                 </td>
               </tr>
             )}
-            {rows.map((r) => (
+            {shown.map((r) => (
               <tr key={r.id} className={r.status === '미비치' ? 'bg-red-50/50' : ''}>
                 <td className={`${TD_STICKY_POS} ${r.status === '미비치' ? 'bg-red-50/50' : 'bg-white'} px-1 py-1.5`}>
                   <input aria-label="차량번호" placeholder="예: 12가 3456" value={r.plate} onChange={(e) => setRow(r.id, { plate: e.target.value })} className={`${CELL} px-1.5 font-mono font-semibold`} />

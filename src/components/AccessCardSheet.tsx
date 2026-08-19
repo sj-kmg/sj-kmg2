@@ -5,7 +5,8 @@ import { CARDS_KEY, CARD_NOTICE_DAYS, accessCardSeed, cardEndDate, type AccessCa
 import { NOTICE_STYLE, daysUntil, noticeLevel } from '@/lib/education';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
-import { CELL, SheetToolbar, TD_STICKY, TH, TH_STICKY } from './SheetUI';
+import { useSortable } from '@/lib/useSortable';
+import { CELL, SheetToolbar, SortButton, TD_STICKY, TH, TH_STICKY } from './SheetUI';
 
 const APPLY_TYPES: AccessCard['applyType'][] = ['신규', '연장'];
 
@@ -22,6 +23,7 @@ export default function AccessCardSheet() {
     sort: (a, b) => a.name.localeCompare(b.name, 'ko'),
   });
 
+  const sortCtl = useSortable<AccessCard>();
   const [showPw, setShowPw] = useState<Record<string, boolean>>({});
   const [today, setToday] = useState<Date | null>(null);
   const seq = useRef(0);
@@ -75,7 +77,10 @@ export default function AccessCardSheet() {
 
       {/* 신규 · 연장 구분 표 */}
       {APPLY_TYPES.map((type) => {
-        const list = rows.filter((r) => r.applyType === type);
+        const list = sortCtl.apply(
+          rows.filter((r) => r.applyType === type),
+          { name: (r) => r.name, due: (r) => r.endDate },
+        );
         return (
           <section key={type} className="mb-5">
             <p className="mb-1.5 flex items-center gap-1.5">
@@ -87,10 +92,10 @@ export default function AccessCardSheet() {
               <table className="w-full min-w-[1240px] text-xs">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-                    <th className={`${TH} ${TH_STICKY} w-36`}>성명</th>
+                    <th className={`${TH} ${TH_STICKY} w-36`}>성명<SortButton ctl={sortCtl} col="name" label="성명" /></th>
                     <th className={`${TH} w-40`}>출입시작일</th>
                     <th className={`${TH} w-40`}>출입종료일 (자동)</th>
-                    <th className={`${TH} w-24 text-center`}>D-day</th>
+                    <th className={`${TH} w-24 text-center`}>D-day<SortButton ctl={sortCtl} col="due" label="D-day" /></th>
                     <th className={`${TH} w-40`}>아이디</th>
                     <th className={`${TH} w-56`}>비밀번호</th>
                     <th className={`${TH} w-52`}>비고</th>

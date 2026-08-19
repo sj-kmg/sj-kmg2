@@ -5,7 +5,8 @@ import { PASS_VEHICLES_KEY, VEHICLE_NOTICE_DAYS, passVehicleSeed, type PassVehic
 import { NOTICE_STYLE, daysUntil, noticeLevel } from '@/lib/education';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
-import { CELL, SheetToolbar, TD_STICKY, TH, TH_STICKY } from './SheetUI';
+import { useSortable } from '@/lib/useSortable';
+import { CELL, SheetToolbar, SortButton, TD_STICKY, TH, TH_STICKY } from './SheetUI';
 
 const KINDS: PassVehicle['kind'][] = ['일반차량', '특수차량'];
 
@@ -25,6 +26,7 @@ export default function PassVehicleSheet() {
     },
   );
 
+  const sortCtl = useSortable<PassVehicle>();
   const [today, setToday] = useState<Date | null>(null);
   const seq = useRef(0);
 
@@ -77,7 +79,10 @@ export default function PassVehicleSheet() {
 
       {/* 일반차량 · 특수차량 구분 표 */}
       {KINDS.map((kind) => {
-        const list = rows.filter((r) => r.kind === kind);
+        const list = sortCtl.apply(
+          rows.filter((r) => r.kind === kind),
+          { plate: (r) => r.plate, driver: (r) => r.driver, due: (r) => r.endDate },
+        );
         return (
           <section key={kind} className="mb-5">
             <p className="mb-1.5 flex items-center gap-1.5">
@@ -89,11 +94,11 @@ export default function PassVehicleSheet() {
               <table className="w-full min-w-[1320px] text-xs">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-                    <th className={`${TH} ${TH_STICKY} w-40`}>차량번호</th>
-                    <th className={`${TH} w-32`}>대표 운전자</th>
+                    <th className={`${TH} ${TH_STICKY} w-40`}>차량번호<SortButton ctl={sortCtl} col="plate" label="차량번호" /></th>
+                    <th className={`${TH} w-32`}>대표 운전자<SortButton ctl={sortCtl} col="driver" label="대표 운전자" /></th>
                     <th className={`${TH} w-40`}>출입시작일</th>
                     <th className={`${TH} w-40`}>출입종료일</th>
-                    <th className={`${TH} w-24 text-center`}>D-day</th>
+                    <th className={`${TH} w-24 text-center`}>D-day<SortButton ctl={sortCtl} col="due" label="D-day" /></th>
                     <th className={`${TH} w-56`}>단위공장</th>
                     <th className={`${TH} w-52`}>비고</th>
                     <th className={`${TH} w-28 text-center`}>구분</th>

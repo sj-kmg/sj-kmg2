@@ -15,8 +15,9 @@ import {
   type FollowupWorker,
 } from '@/lib/healthFollowup';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
+import { useSortable } from '@/lib/useSortable';
 import BodyDiagram from './BodyDiagram';
-import { CELL } from './SheetUI';
+import { CELL, SortButton } from './SheetUI';
 
 const EMPTY: Omit<FollowupWorker, 'id' | 'updatedAt'> = {
   name: '',
@@ -52,6 +53,7 @@ export default function HealthFollowup() {
   );
 
   const [open, setOpen] = useState<string | null>(null);
+  const sortCtl = useSortable<FollowupWorker>();
   const seq = useRef(0);
 
   const add = () => {
@@ -104,6 +106,11 @@ export default function HealthFollowup() {
           >
             ↩ 되돌리기
           </button>
+          <span className="flex items-center rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-500">
+            성명<SortButton ctl={sortCtl} col="name" label="성명" />
+            <span className="mx-1.5 text-slate-300">|</span>
+            재검일자<SortButton ctl={sortCtl} col="retest" label="재검일자" />
+          </span>
           <button
             onClick={add}
             className="rounded-lg border border-dashed border-slate-400 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-[#1f3864] hover:text-[#1f3864]"
@@ -119,7 +126,9 @@ export default function HealthFollowup() {
         </div>
       ) : (
         <div className="space-y-3">
-          {rows.map((r) => {
+          {sortCtl
+            .apply(rows, { name: (r) => r.name, retest: (r) => r.retestDate ?? '' })
+            .map((r) => {
             const isOpen = open === r.id;
             const last = lastCounselDate(r);
             const gradeCodes = r.grade.split(',').map((s) => s.trim()).filter(Boolean);

@@ -19,7 +19,8 @@ import { fileHref } from '@/lib/ids';
 import { SyncError, uploadCert } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
-import { CELL, SheetToolbar, TD_STICKY_POS, TH, TH_STICKY } from './SheetUI';
+import { useSortable } from '@/lib/useSortable';
+import { CELL, SheetToolbar, SortButton, TD_STICKY_POS, TH, TH_STICKY } from './SheetUI';
 
 const META = EQUIP_META.AIR분배기;
 
@@ -56,11 +57,12 @@ export default function AirDistributorSheet() {
 
   const [uploading, setUploading] = useState<string | null>(null);
   const [today, setToday] = useState<Date | null>(null);
+  const sortCtl = useSortable<EquipCheck>();
   const seq = useRef(0);
 
   useEffect(() => setToday(new Date()), []);
 
-  const air = rows.filter((r) => r.equip === 'AIR분배기');
+  const air = sortCtl.apply(rows.filter((r) => r.equip === 'AIR분배기'), { due: (r) => r.nextDue ?? '' });
   const done = air.filter((r) => r.status === '교체 완료').length;
   const notDone = air.filter((r) => r.status === '미실시').length;
   const actionSum = air.reduce((n, r) => n + (Number(r.actionCount) || 0), 0);
@@ -153,7 +155,7 @@ export default function AirDistributorSheet() {
               <th className={`${TH} w-32`}>{META.itemLabel} 여부</th>
               <th className={`${TH} w-40`}>{META.itemLabel}일자</th>
               <th className={`${TH} w-40`}>차기 교체예정일</th>
-              <th className={`${TH} w-24 text-center`}>D-day</th>
+              <th className={`${TH} w-24 text-center`}>D-day<SortButton ctl={sortCtl} col="due" label="D-day" /></th>
               <th className={`${TH} w-28 text-center`}>조치 필요</th>
               <th className={`${TH} w-28`}>담당자</th>
               <th className={`${TH} w-56`}>비고</th>

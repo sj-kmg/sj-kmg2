@@ -18,7 +18,8 @@ import { NOTICE_STYLE, daysUntil, noticeLevel } from '@/lib/education';
 import { SyncError, uploadCert } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
-import { CELL, SheetToolbar, TD_STICKY_POS, TH, TH_STICKY } from './SheetUI';
+import { useSortable } from '@/lib/useSortable';
+import { CELL, SheetToolbar, SortButton, TD_STICKY_POS, TH, TH_STICKY } from './SheetUI';
 import { fileHref } from '@/lib/ids';
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -50,6 +51,7 @@ export default function GasDetectorSheet() {
   const [uploading, setUploading] = useState<string | null>(null);
   const [today, setToday] = useState<Date | null>(null);
   const [onlyInUse, setOnlyInUse] = useState(false);
+  const sortCtl = useSortable<GasDetector>();
   const seq = useRef(0);
 
   useEffect(() => setToday(new Date()), []);
@@ -119,7 +121,10 @@ export default function GasDetectorSheet() {
     );
   };
 
-  const shown = onlyInUse ? rows.filter((r) => r.status === '사용') : rows;
+  const shown = sortCtl.apply(onlyInUse ? rows.filter((r) => r.status === '사용') : rows, {
+    mgmtNo: (r) => r.mgmtNo,
+    due: (r) => r.nextCalDate,
+  });
   const inUse = rows.filter((r) => r.status === '사용').length;
   const overdue = today
     ? rows.filter((r) => r.status === '사용' && r.nextCalDate && daysUntil(r.nextCalDate, today) < 0).length
@@ -159,12 +164,12 @@ export default function GasDetectorSheet() {
           <table className="w-full min-w-[1560px] text-xs">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-                <th className={`${TH} ${TH_STICKY} w-28`}>관리번호</th>
+                <th className={`${TH} ${TH_STICKY} w-28`}>관리번호<SortButton ctl={sortCtl} col="mgmtNo" label="관리번호" /></th>
                 <th className={`${TH} w-44`}>MODEL</th>
                 <th className={`${TH} w-44`}>용도</th>
                 <th className={`${TH} w-36`}>검교정일</th>
                 <th className={`${TH} w-36`}>차기 검교정일</th>
-                <th className={`${TH} w-20 text-center`}>D-day</th>
+                <th className={`${TH} w-20 text-center`}>D-day<SortButton ctl={sortCtl} col="due" label="D-day" /></th>
                 <th className={`${TH} w-44`}>제조사</th>
                 <th className={`${TH} w-24`}>검교정업체</th>
                 <th className={`${TH} w-24 text-center`}>상태</th>

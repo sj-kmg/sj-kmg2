@@ -6,7 +6,8 @@ import { SyncError, uploadCert } from '@/lib/sync';
 import { modeBadge, useSyncedLog } from '@/lib/useSyncedLog';
 import { useRole } from '@/lib/useRole';
 import { YNCC_VEHICLES_KEY, type YnccVehicle } from '@/lib/yncc';
-import { TD_STICKY_POS, TH_STICKY } from './SheetUI';
+import { useSortable } from '@/lib/useSortable';
+import { SortButton, TD_STICKY_POS, TH_STICKY } from './SheetUI';
 
 function todayStr(): string {
   const d = new Date();
@@ -59,6 +60,7 @@ export default function YnccVehicles() {
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
   const seededRef = useRef(false);
+  const sortCtl = useSortable<YnccVehicle>();
 
   useEffect(() => setRegDate(todayStr()), []);
 
@@ -92,7 +94,11 @@ export default function YnccVehicles() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, role]);
 
-  const vehicles = [...entries].sort((a, b) => a.plate.localeCompare(b.plate, 'ko'));
+  const vehicles = sortCtl.apply([...entries].sort((a, b) => a.plate.localeCompare(b.plate, 'ko')), {
+    plate: (v) => v.plate,
+    regDate: (v) => v.regDate,
+    registrant: (v) => v.registrant,
+  });
 
   // 기존 차량 선택 시 현재 등록 내용을 입력창에 불러온다
   const selectPlate = (plate: string) => {
@@ -229,9 +235,9 @@ export default function YnccVehicles() {
           <table className="w-full min-w-[820px] text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs text-slate-500">
-                <th className={`px-4 py-2.5 font-semibold ${TH_STICKY}`}>차량번호</th>
-                <th className="px-4 py-2.5 font-semibold">등록일자</th>
-                <th className="px-4 py-2.5 font-semibold">차량 등록자</th>
+                <th className={`px-4 py-2.5 font-semibold ${TH_STICKY}`}>차량번호<SortButton ctl={sortCtl} col="plate" label="차량번호" /></th>
+                <th className="px-4 py-2.5 font-semibold">등록일자<SortButton ctl={sortCtl} col="regDate" label="등록일자" /></th>
+                <th className="px-4 py-2.5 font-semibold">차량 등록자<SortButton ctl={sortCtl} col="registrant" label="차량 등록자" /></th>
                 <th className="w-28 px-2 py-2.5 text-center font-semibold">차량등록증</th>
                 <th className="w-28 px-2 py-2.5 text-center font-semibold">보험증권</th>
                 <th className="px-4 py-2.5 font-semibold">최근 변경</th>

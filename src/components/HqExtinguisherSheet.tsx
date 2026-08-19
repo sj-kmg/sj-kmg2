@@ -13,7 +13,8 @@ import {
 } from '@/lib/extinguisher';
 import { useSyncedLog, modeBadge } from '@/lib/useSyncedLog';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
-import { CELL, SheetToolbar, TD_STICKY, TH, TH_STICKY } from './SheetUI';
+import { useSortable } from '@/lib/useSortable';
+import { CELL, SheetToolbar, SortButton, TD_STICKY, TH, TH_STICKY } from './SheetUI';
 
 /**
  * 공무관리 › 소화기관리 › 본사 소화기 — 위치·규격·소화기번호별 월별 점검대장.
@@ -36,6 +37,7 @@ export default function HqExtinguisherSheet() {
 
   const [year, setYear] = useState(new Date().getFullYear());
   const [busy, setBusy] = useState<string | null>(null);
+  const sortCtl = useSortable<HqExtinguisher>();
 
   // 저장 이력이 전혀 없을 때만 2026년 초기 점검 이력을 등록한다 (roster 시드 등록과 별개 이력)
   const checkSeeded = useRef(false);
@@ -110,8 +112,8 @@ export default function HqExtinguisherSheet() {
         <table className="w-full min-w-[980px] text-xs">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
-              <th className={`${TH} ${TH_STICKY} w-20`}>소화기번호</th>
-              <th className={`${TH} w-32`}>위치</th>
+              <th className={`${TH} ${TH_STICKY} w-20`}>소화기번호<SortButton ctl={sortCtl} col="no" label="소화기번호" /></th>
+              <th className={`${TH} w-32`}>위치<SortButton ctl={sortCtl} col="place" label="위치" /></th>
               <th className={`${TH} w-36`}>품명 및 용량</th>
               <th className={`${TH} w-20`}>제조년월</th>
               {MONTH_LABEL.map((m) => (
@@ -129,7 +131,7 @@ export default function HqExtinguisherSheet() {
                 </td>
               </tr>
             )}
-            {roster.rows.map((r) => (
+            {sortCtl.apply(roster.rows, { no: (r) => r.extNo, place: (r) => r.location }).map((r) => (
               <tr key={r.id}>
                 <td className={`${TD_STICKY} px-1 py-1.5`}>
                   <input aria-label="소화기번호" placeholder="예: 63688" value={r.extNo} onChange={(e) => roster.setRow(r.id, { extNo: e.target.value })} className={`${CELL} px-1.5 font-mono`} />
