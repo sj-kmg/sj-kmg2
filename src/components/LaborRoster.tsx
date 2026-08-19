@@ -54,6 +54,30 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+/**
+ * 인력 명단 엑셀(명단서식)에서 뽑은 인원 — 이름·연락처만 반영한다.
+ * 주민등록번호는 민감정보라 저장하지 않는다.
+ * 이미 있는 사람은 새로 만들지 않고, 비어 있는 연락처만 채운다.
+ */
+const DEFAULT_ROSTER: { category: string; name: string; phone: string }[] = [
+  { category: '공영인력', name: '김광모', phone: '010-2767-4098' },
+  { category: '공영인력', name: '배영일', phone: '010-8847-9760' },
+  { category: '공영인력', name: '이진호', phone: '010-7258-4224' },
+];
+
+/**
+ * 첨부파일 이름에서 이수년도를 뽑는다 — 파일명에 20xx가 있으면 그 해로,
+ * 없으면 올린 시점의 연도로 본다 (예: "2026 취급자 안전교육.pdf" → 2026).
+ */
+function yearFromFileName(fileName: string): number {
+  const now = new Date().getFullYear();
+  const found = fileName.match(/20\d{2}/g);
+  if (!found) return now;
+  // 미래 연도(스캔 오인식 등)는 버리고 가장 최근 연도를 쓴다
+  const years = found.map(Number).filter((y) => y >= 2000 && y <= now + 1);
+  return years.length ? Math.max(...years) : now;
+}
+
 /** 값이 비어 있을 때만 채운다 — 이미 입력된 값은 덮어쓰지 않는다 */
 function fillBlank<T extends object>(base: T, patch: Partial<T>): { next: T; changed: boolean } {
   let changed = false;
@@ -128,6 +152,23 @@ export default function LaborRoster() {
         });
       }
     }
+
+    // 엑셀 명단 — 이름이 같으면 기존 인원으로 보고 비어 있는 연락처만 채운다
+    for (const d of DEFAULT_ROSTER) {
+      const existing = rows.find((r) => r.name.trim() === d.name);
+      if (existing) {
+        if (!existing.phone) setRow(existing.id, { ...existing, phone: d.phone });
+      } else {
+        seq2 += 1;
+        addRow({
+          id: `LW-seed-${Date.now()}-r${seq2}`,
+          category: d.category,
+          name: d.name,
+          phone: d.phone,
+          updatedAt: '',
+        });
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, role]);
 
@@ -143,7 +184,11 @@ export default function LaborRoster() {
     void removeRow(r.id);
   };
 
-  const attachFile = async (row: LaborWorker, field: 'specialHealthCert' | 'chemCert' | 'chemCertCompletion', file: File | undefined) => {
+  const attachFile = async (
+    row: LaborWorker,
+    field: 'specialHealthCert' | 'chemCert' | 'chemCertCompletion' | 'generalHealthCert',
+    file: File | undefined,
+  ) => {
     if (!file) return;
     if (file.size > 8_000_000) {
       alert('파일이 너무 큽니다. 8MB 이하 PDF·이미지를 첨부해 주세요.');
@@ -153,7 +198,12 @@ export default function LaborRoster() {
     try {
       const dataUrl = await fileToDataUrl(file);
       const url = await uploadCert(dataUrl, `${row.name || '첨부'}`);
-      setRow(row.id, { [field]: url } as Partial<LaborWorker>);
+      const patch: Partial<LaborWorker> = { [field]: url };
+      // 유해화학물질 파일을 올리면 이수년도를 자동으로 채운다 (이미 적혀 있으면 그대로 둔다)
+      if ((field === 'chemCert' || field === 'chemCertCompletion') && !row.chemDate) {
+        patch.chemDate = `${yearFromFileName(file.name)}-01-01`;
+      }
+      setRow(row.id, patch);
     } catch (e) {
       if (e instanceof SyncError && (e.status === 503 || e.status === 401)) {
         alert('첨부파일 업로드는 배포된 사이트에서 동기화 암호를 입력한 뒤 사용할 수 있습니다.');
@@ -372,29 +422,31 @@ export default function LaborRoster() {
                           className={`${CELL} font-mono`}
                         />
                       </div>
-                      <div className="w-36">
-                        <label className={label} htmlFor={`lw-general-${r.id}`}>일반검진일자</label>
-                        <input
-                          id={`lw-general-${r.id}`}
-                          type="date"
-                          value={r.generalHealthDate ?? ''}
-                          onChange={(e) => setRow(r.id, { generalHealthDate: e.target.value })}
-                          className={CELL}
-                        />
-                      </div>
                     </div>
 
+                    {/* 검진·교육 4종 — LG화학 일반검진 · 특수검진 · 유해화학물질 · YNCC */}
                     <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                      {/* 특수검진 첨부파일 */}
+                      {/* LG화학 일반검진 — 일자 + 첨부파일 */}
                       <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                        <p className="mb-1.5 text-xs font-bold text-slate-600">특수검진 첨부파일</p>
+                        <p className="mb-1.5 text-xs font-bold text-slate-600">LG화학 일반검진</p>
                         <input
                           type="date"
-                          aria-label="특수검진일자"
-                          value={r.specialHealthDate ?? ''}
-                          onChange={(e) => setRow(r.id, { specialHealthDate: e.target.value })}
-                          className={`${CELL} mb-2 w-36`}
+                          aria-label="LG화학 일반검진 일자"
+                          value={r.generalHealthDate ?? ''}
+                          onChange={(e) => setRow(r.id, { generalHealthDate: e.target.value })}
+                          className={`${CELL} mb-2 w-36 bg-white`}
                         />
+                        <AttachButtons
+                          url={r.generalHealthCert}
+                          uploading={uploading === `${r.id}-generalHealthCert`}
+                          inputId={`lw-general-${r.id}`}
+                          onFile={(file) => void attachFile(r, 'generalHealthCert', file)}
+                        />
+                      </div>
+
+                      {/* 특수검진 첨부파일 — 일자 없이 파일만 */}
+                      <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                        <p className="mb-1.5 text-xs font-bold text-slate-600">특수검진 첨부파일</p>
                         <AttachButtons
                           url={r.specialHealthCert}
                           uploading={uploading === `${r.id}-specialHealthCert`}
@@ -403,23 +455,27 @@ export default function LaborRoster() {
                         />
                       </div>
 
-                      {/* 유해화학물질 첨부파일 — 이수증·수료증 */}
+                      {/* 유해화학물질 — 이수년도(4자리) + 이수증·수료증 */}
                       <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                         <div className="mb-1.5 flex items-center gap-2">
                           <p className="text-xs font-bold text-slate-600">유해화학물질 첨부파일</p>
-                          {r.chemDate && (
-                            <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
-                              이수년도 {r.chemDate.slice(0, 4)}
-                            </span>
-                          )}
+                          <label className="text-[11px] text-slate-500" htmlFor={`lw-chemyear-${r.id}`}>
+                            이수년도
+                          </label>
+                          <input
+                            id={`lw-chemyear-${r.id}`}
+                            inputMode="numeric"
+                            maxLength={4}
+                            placeholder="0000"
+                            value={r.chemDate ? r.chemDate.slice(0, 4) : ''}
+                            onChange={(e) => {
+                              const y = e.target.value.replace(/\D/g, '').slice(0, 4);
+                              // 연도만 바꾸고 월·일은 원래 값을 유지한다
+                              setRow(r.id, { chemDate: y ? `${y}${(r.chemDate ?? '').slice(4) || '-01-01'}` : '' });
+                            }}
+                            className={`${CELL} w-16 bg-white text-center`}
+                          />
                         </div>
-                        <input
-                          type="date"
-                          aria-label="유해화학물질 이수일자"
-                          value={r.chemDate ?? ''}
-                          onChange={(e) => setRow(r.id, { chemDate: e.target.value })}
-                          className={`${CELL} mb-2 w-36 bg-white`}
-                        />
                         <div className="space-y-1.5">
                           <div className="flex items-center gap-1.5">
                             <span className="w-12 shrink-0 text-[11px] text-slate-500">이수증</span>
@@ -442,40 +498,25 @@ export default function LaborRoster() {
                         </div>
                       </div>
 
-                      {/* YNCC 교육기간 + 비고 — 날짜 칸은 내용 폭에 맞추고 남는 자리는 비고가 쓴다 */}
-                      <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 sm:col-span-2">
-                        <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
-                          <div>
-                            <p className="mb-1.5 text-xs font-bold text-slate-600">YNCC 교육기간</p>
-                            <div className="flex items-center gap-1.5">
-                              <input
-                                type="date"
-                                aria-label="YNCC 교육기간 시작"
-                                value={r.ynccStart ?? ''}
-                                onChange={(e) => setRow(r.id, { ynccStart: e.target.value })}
-                                className={`${CELL} w-36 bg-white`}
-                              />
-                              <span className="shrink-0 text-slate-400">~</span>
-                              <input
-                                type="date"
-                                aria-label="YNCC 교육기간 종료"
-                                value={r.ynccEnd ?? ''}
-                                onChange={(e) => setRow(r.id, { ynccEnd: e.target.value })}
-                                className={`${CELL} w-36 bg-white`}
-                              />
-                            </div>
-                          </div>
-                          <div className="min-w-[10rem] flex-1">
-                            <label className="mb-1.5 block text-xs font-bold text-slate-600" htmlFor={`lw-note-${r.id}`}>
-                              비고
-                            </label>
-                            <input
-                              id={`lw-note-${r.id}`}
-                              value={r.note ?? ''}
-                              onChange={(e) => setRow(r.id, { note: e.target.value })}
-                              className={`${CELL} bg-white`}
-                            />
-                          </div>
+                      {/* YNCC 교육기간 */}
+                      <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                        <p className="mb-1.5 text-xs font-bold text-slate-600">YNCC 교육기간</p>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="date"
+                            aria-label="YNCC 교육기간 시작"
+                            value={r.ynccStart ?? ''}
+                            onChange={(e) => setRow(r.id, { ynccStart: e.target.value })}
+                            className={`${CELL} w-36 bg-white`}
+                          />
+                          <span className="shrink-0 text-slate-400">~</span>
+                          <input
+                            type="date"
+                            aria-label="YNCC 교육기간 종료"
+                            value={r.ynccEnd ?? ''}
+                            onChange={(e) => setRow(r.id, { ynccEnd: e.target.value })}
+                            className={`${CELL} w-36 bg-white`}
+                          />
                         </div>
                       </div>
                     </div>

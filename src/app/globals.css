@@ -394,11 +394,15 @@ button:not(:disabled):active { transform: scale(0.97); }
 /* ============================================================
    숫자 표기
    ============================================================ */
+/*
+   화면 글꼴은 하나로 통일한다 — 예전에는 숫자에만 모노 글꼴(JetBrains Mono)을 썼는데,
+   그 글꼴의 0은 가운데 점이 있어 작은 크기에서 8과 헷갈렸다 (휴대폰 번호 오독).
+   .font-mono는 이제 본문과 같은 글꼴을 쓰되, 숫자 폭만 고정해 표의 자릿수를 맞춘다.
+*/
 .font-mono {
-  font-family: var(--font-tech-mono), ui-monospace, "SFMono-Regular", monospace !important;
-  font-weight: 500;
+  font-family: inherit !important;
   letter-spacing: 0.01em;
-  font-variant-numeric: tabular-nums slashed-zero;
+  font-variant-numeric: tabular-nums;
 }
 .hud-num {
   color: #ffffff;

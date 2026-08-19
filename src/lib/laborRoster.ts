@@ -14,7 +14,8 @@ export interface LaborWorker {
   name: string;
   birth?: string;
   phone?: string; // 휴대폰 번호
-  generalHealthDate?: string; // 일반검진일자
+  generalHealthDate?: string; // LG화학 일반검진 일자
+  generalHealthCert?: string; // LG화학 일반검진 첨부파일 URL
   specialHealthDate?: string; // 특수검진일자
   specialHealthCert?: string; // 특수검진 첨부파일 URL
   chemCert?: string; // 유해화학물질 교육이수증 첨부파일 URL

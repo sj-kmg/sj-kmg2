@@ -1,17 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, JetBrains_Mono } from "next/font/google";
+import { Geist } from "next/font/google";
 import "./globals.css";
 import PwaSetup from "@/components/PwaSetup";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-/* 숫자·날짜·D-day용 모노 폰트 — 0/O, 1/l 구분이 명확해 가독성이 높다 */
-const techMono = JetBrains_Mono({
-  variable: "--font-tech-mono",
-  weight: ["500", "700"],
   subsets: ["latin"],
 });
 
@@ -46,7 +39,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={`${geistSans.variable} ${techMono.variable} h-full antialiased`}>
+    <html lang="ko" className={`${geistSans.variable} h-full antialiased`}>
       <head>
         {/*
           설치 안내(beforeinstallprompt)는 화면이 그려지기 전에 먼저 발생할 수 있어
