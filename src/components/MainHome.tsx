@@ -88,9 +88,9 @@ export default function MainHome({
           title="현장·인원 캘린더"
           icon="📅"
           hint="날짜 선택"
-          className="col-span-12 xl:col-span-4"
+          className="col-span-12 xl:col-span-4 xl:h-[430px]"
         >
-          <OpsCalendar ops={ops} schedule={data?.schedule ?? []} selected={date} onSelect={setDate} />
+          <OpsCalendar selected={date} onSelect={setDate} />
         </Panel>
 
         <Panel
@@ -98,7 +98,7 @@ export default function MainHome({
           icon="🏗️"
           hint={isToday ? 'LIVE' : '조회'}
           live={isToday}
-          className="col-span-12 xl:col-span-8"
+          className="col-span-12 h-[430px] xl:col-span-8"
         >
           <SiteBoard
             ops={ops}
@@ -109,11 +109,11 @@ export default function MainHome({
           />
         </Panel>
 
-        <Panel title="투입 인원 추세" icon="📈" className="col-span-12 xl:col-span-6">
+        <Panel title="투입 인원 추세" icon="📈" className="col-span-12 h-[260px] xl:col-span-6">
           <OpsTrend ops={ops} date={date} onSelect={setDate} />
         </Panel>
 
-        <Panel title="오늘의 날씨" icon="⛅" className="col-span-12 xl:col-span-6">
+        <Panel title="오늘의 날씨" icon="⛅" className="col-span-12 h-[260px] xl:col-span-6">
           <WeatherPanel />
         </Panel>
 
@@ -121,7 +121,7 @@ export default function MainHome({
         <Panel
           title="안전교육 현황"
           icon="🎓"
-          className="col-span-12 md:col-span-6"
+          className="col-span-12 h-[320px] md:col-span-6"
           action={
             onOpenEducation && (
               <button onClick={onOpenEducation} className="text-[11px] font-semibold text-blue-700 hover:underline">
@@ -132,12 +132,12 @@ export default function MainHome({
         >
           <EducationStatusPanel />
         </Panel>
-        <Panel title="공무관리 현황" icon="🗂️" className="col-span-12 md:col-span-6">
+        <Panel title="공무관리 현황" icon="🗂️" className="col-span-12 h-[320px] md:col-span-6">
           <GeneralAffairsPanel />
         </Panel>
 
         {/* ── 참고 정보 (비중 축소) ─────────────────────────── */}
-        <Panel title="공지사항" icon="📢" muted className="col-span-12 md:col-span-6 xl:col-span-4">
+        <Panel title="공지사항" icon="📢" muted className="col-span-12 h-[240px] md:col-span-6 xl:col-span-4">
           <div className="flex h-full min-h-20 items-center justify-center rounded-lg border-2 border-dashed border-slate-200 px-3 py-4 text-center">
             <p className="text-xs text-slate-400">
               공지사항이 표시될 영역입니다
@@ -145,10 +145,10 @@ export default function MainHome({
             </p>
           </div>
         </Panel>
-        <Panel title="알림메세지" icon="🔔" muted className="col-span-12 md:col-span-6 xl:col-span-4">
+        <Panel title="알림메세지" icon="🔔" muted className="col-span-12 h-[240px] md:col-span-6 xl:col-span-4">
           <NoticesPanel compact />
         </Panel>
-        <Panel title="중대재해 발생현황" icon="🚨" muted className="col-span-12 xl:col-span-4">
+        <Panel title="중대재해 발생현황" icon="🚨" muted className="col-span-12 h-[240px] xl:col-span-4">
           <AccidentsPanel compact />
         </Panel>
       </div>
@@ -261,7 +261,8 @@ function Panel({
         <span aria-hidden className="mx-1 h-px min-w-4 flex-1 bg-gradient-to-r from-slate-200 to-transparent" />
         {action && <span className="shrink-0">{action}</span>}
       </header>
-      <div className="flex-1 px-4 pb-4">{children}</div>
+      {/* min-h-0이 있어야 flex 안에서 실제로 스크롤이 걸린다 (없으면 내용만큼 늘어난다) */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">{children}</div>
     </section>
   );
 }

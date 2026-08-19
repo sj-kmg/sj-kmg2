@@ -1,10 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import type { ScheduleRow } from '@/lib/types';
+import { useState } from 'react';
 import { holidayName } from '@/lib/holidays';
-import type { OpsData } from '@/lib/useOps';
-import { siteColor, ymd } from '@/lib/workforce';
+import { ymd } from '@/lib/workforce';
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -17,13 +15,9 @@ function pad2(n: number): string {
  * 날짜를 고르면 아래 [현장 운영 보드]·[인원 배치]가 그 날짜 기준으로 바뀐다.
  */
 export default function OpsCalendar({
-  ops,
-  schedule,
   selected,
   onSelect,
 }: {
-  ops: OpsData;
-  schedule: ScheduleRow[];
   selected: string;
   onSelect: (date: string) => void;
 }) {
@@ -42,7 +36,6 @@ export default function OpsCalendar({
   ];
   while (cells.length % 7 !== 0) cells.push(null);
 
-  const planned = useMemo(() => new Set(schedule.map((s) => s.date)), [schedule]);
   const dstr = (d: number) => `${ym.y}-${pad2(ym.m + 1)}-${pad2(d)}`;
   const todayStr = ymd(now);
 
@@ -82,7 +75,7 @@ export default function OpsCalendar({
         {DOW.map((d, i) => (
           <div
             key={d}
-            className={`pb-1 text-[10px] font-bold ${i === 0 ? 'text-red-400' : i === 6 ? 'text-sky-400' : 'text-slate-400'}`}
+            className={`pb-1 text-[10px] font-bold ${i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'text-slate-400'}`}
           >
             {d}
           </div>
@@ -90,43 +83,30 @@ export default function OpsCalendar({
         {cells.map((d, i) => {
           if (d === null) return <div key={i} />;
           const ds = dstr(d);
-          const day = ops.byDate.get(ds);
-          const active = (day?.entries.length ?? 0) > 0;
           const isToday = ds === todayStr;
           const isSel = ds === selected;
           const dow = i % 7;
           const holiday = holidayName(ds);
+          /* 날짜 색은 요일·공휴일로만 정한다 — 오늘이든 고른 날이든 바뀌지 않는다 */
+          const dayColor = holiday || dow === 0 ? 'text-red-500' : dow === 6 ? 'text-blue-500' : 'text-slate-600';
           return (
             <button
               key={i}
               onClick={() => onSelect(ds)}
-              title={
-                active
-                  ? `${ds}${holiday ? ` · ${holiday}` : ''} · ${day!.sites.join(', ')} · ${day!.headcount}명`
-                  : `${ds}${holiday ? ` · ${holiday}` : ''} · 기록 없음`
-              }
-              className={`flex min-h-[34px] flex-col items-center justify-center rounded-lg border px-0.5 py-1 ${
+              title={`${ds}${holiday ? ` · ${holiday}` : ''}`}
+              className={`flex min-h-[34px] items-center justify-center rounded-lg border px-0.5 py-1 ${
                 isSel
                   ? 'border-blue-500/70 bg-blue-500/15 shadow-[0_0_16px_-4px_rgba(75,123,255,0.8)]'
-                  : active
-                    ? 'border-slate-200 bg-slate-50 hover:border-slate-300'
-                    : 'border-transparent hover:bg-slate-100'
+                  : 'border-transparent hover:bg-slate-100'
               }`}
             >
-              <span className="flex items-center gap-0.5">
-                <span
-                  className={`font-mono leading-none ${
-                    isToday
-                      ? 'flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold text-white shadow-[0_0_12px_rgba(34,211,238,0.85)] [background:linear-gradient(135deg,#22d3ee,#4b7bff)]'
-                      : holiday || dow === 0
-                        ? 'text-[11px] font-bold text-red-500'
-                        : dow === 6
-                          ? 'text-[11px] text-sky-400'
-                          : 'text-[11px] text-slate-600'
-                  }`}
-                >
-                  {d}
-                </span>
+              {/* 오늘은 테두리로만 표시해 요일·공휴일 색을 가리지 않는다 */}
+              <span
+                className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1 font-mono text-[11px] font-bold leading-none ${dayColor} ${
+                  isToday ? 'ring-2 ring-cyan-400 ring-offset-1 ring-offset-transparent' : ''
+                }`}
+              >
+                {d}
               </span>
             </button>
           );
@@ -135,11 +115,11 @@ export default function OpsCalendar({
 
       <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-slate-100 pt-2 text-[10px] text-slate-400">
         <span className="flex items-center gap-1">
-          <span
-            aria-hidden
-            className="h-3 w-3 rounded-full [background:linear-gradient(135deg,#22d3ee,#4b7bff)]"
-          />
+          <span aria-hidden className="h-3 w-3 rounded-full ring-2 ring-cyan-400" />
           오늘
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="font-bold text-blue-500">6</span>= 토요일
         </span>
         <span className="flex items-center gap-1">
           <span className="font-mono font-bold text-red-500">1</span>= 공휴일
