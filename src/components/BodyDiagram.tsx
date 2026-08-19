@@ -3,84 +3,33 @@
 import { BODY_POINTS, matchBodyPoints } from '@/lib/healthFollowup';
 
 /**
- * 유소견자 신체도 — 마네킹풍 인체(이목구비·손가락·발가락 포함)에 검진소견 부위를
- * 표시하고, 오른쪽에 장기 그림·부위명·소견을 줄로 잇는다.
+ * 유소견자 신체도 — 이목구비 없는 인체 모형(참고 이미지의 와이어프레임 메쉬 방식)에
+ * 검진소견 부위를 표시하고, 오른쪽에 장기 그림·부위명·소견을 줄로 잇는다.
  *
  * 좌표계: 인체는 중심선 x=100 기준 좌우 대칭이라 왼쪽 절반만 그리고 transform으로
- * 뒤집어 붙인다. 색 그라데이션은 userSpaceOnUse라 몸·손·발이 하나로 이어져 보인다.
+ * 뒤집어 붙인다. 손·발은 손가락·발가락 없이 둥근 덩어리로 실루엣에 이어 그린다.
  */
 
-/** 몸통 왼쪽 절반 — 목→어깨→팔(손목까지)→몸통→다리(발목까지), 중심선으로 닫는다 */
-const BODY_HALF =
-  'M100,68 L87,70 C87,78 86,86 81,91 C69,95 54,100 43,110 C34,116 28,125 27,136 ' +
-  'C24,152 21,166 19,178 C16,194 13,212 11,228 C10,235 13,240 18,240 ' +
-  'C23,240 27,238 29,235 C30,231 30,228 31,224 C33,208 37,190 42,172 ' +
-  'C46,154 49,136 52,124 C53,118 55,115 57,113 C59,127 60,141 61,155 ' +
-  'C62,169 63,181 64,193 C65,201 66,209 66,217 C65,229 61,239 58,249 ' +
-  'C58,269 59,291 60,311 C61,325 62,335 63,345 C64,367 65,393 66,413 ' +
-  'C66,423 67,431 68,437 C68,443 72,446 77,446 C82,446 85,443 85,437 ' +
-  'C85,415 86,391 87,367 C88,343 90,315 93,288 C95,270 97,258 100,254 Z';
+/**
+ * 몸통 왼쪽 절반 — 목→어깨→겨드랑이→옆구리→다리→발, 중심선으로 닫는다.
+ * 팔은 일부러 따로 그린다 (한 덩어리로 그리면 겨드랑이 틈이 메워져 붙어 보인다).
+ */
+const TORSO_HALF =
+  'M100,64 L91,66 C91,74 90,80 86,86 C74,90 62,94 52,101 C51,106 51,112 53,118 ' +
+  'C56,120 58,121 60,124 C60,136 59,146 58,156 C58,170 60,182 62,194 ' +
+  'C64,202 66,210 66,218 C65,230 60,240 58,250 C58,270 59,292 60,312 ' +
+  'C61,326 62,336 63,346 C64,368 65,394 66,414 C66,424 67,432 68,438 ' +
+  'C64,444 62,451 64,455 C67,459 82,459 86,455 C89,451 88,444 86,438 ' +
+  'C87,416 88,392 89,368 C90,344 93,316 96,288 C97,272 98,260 100,252 Z';
 
-/** 왼손 — 손바닥 + 네 손가락 + 엄지 */
-function Hand({ fill }: { fill: string }) {
-  const fingers = [
-    { x: 7.5, top: 246, bottom: 266 },
-    { x: 13.6, top: 244, bottom: 271 },
-    { x: 19.7, top: 244, bottom: 274 },
-    { x: 25.8, top: 246, bottom: 269 },
-  ];
-  return (
-    <g fill={fill}>
-      <rect x="7" y="228" width="25" height="26" rx="9" />
-      {fingers.map((f) => (
-        <rect key={f.x} x={f.x} y={f.top} width="5.3" height={f.bottom - f.top} rx="2.6" />
-      ))}
-      <ellipse cx="34" cy="243" rx="4.6" ry="8.6" transform="rotate(25 34 243)" />
-    </g>
-  );
-}
+/** 왼팔 — 삼각근에서 손까지. 몸통과 겹치지 않게 띄워 겨드랑이 틈이 보이도록 한다 */
+const ARM_HALF =
+  'M52,102 C42,106 32,110 26,118 C24,128 23,138 22,148 C20,162 18,176 17,188 ' +
+  'C15,205 12,222 10,238 C8,248 9,260 14,266 C19,271 28,270 31,263 ' +
+  'C33,256 33,248 32,240 C34,224 36,208 39,192 C41,176 43,160 45,146 ' +
+  'C47,134 49,126 50,120 C51,113 51,107 52,102 Z';
 
-/** 왼발 — 발등 + 다섯 발가락 (엄지가 안쪽) */
-function Foot({ fill }: { fill: string }) {
-  const toes = [
-    { cx: 85, cy: 452, rx: 4.2, ry: 3.8 },
-    { cx: 78, cy: 454, rx: 3.5, ry: 3.3 },
-    { cx: 72, cy: 454, rx: 3.1, ry: 3 },
-    { cx: 67, cy: 453, rx: 2.8, ry: 2.7 },
-    { cx: 63, cy: 452, rx: 2.4, ry: 2.4 },
-  ];
-  return (
-    <g fill={fill}>
-      <path d="M67,430 C64,438 62,445 63,449 C64,453 70,454 76,454 C83,454 88,453 88,449 C88,444 87,437 85,430 Z" />
-      {toes.map((t) => (
-        <ellipse key={t.cx} cx={t.cx} cy={t.cy} rx={t.rx} ry={t.ry} />
-      ))}
-    </g>
-  );
-}
-
-/** 근육 결 — 마네킹의 굴곡을 얇은 선으로 (왼쪽 절반, 대칭 복제) */
-const BODY_LINES = [
-  'M81,94 C88,100 95,102 100,102',
-  'M60,118 C70,135 88,141 100,139',
-  'M100,161 L84,160',
-  'M100,181 L84,180',
-  'M100,201 L85,200',
-  'M35,132 C31,158 26,186 22,212',
-  'M63,352 C71,357 81,357 87,352',
-  'M74,272 C72,298 71,322 70,344',
-  'M69,372 C68,394 68,414 68,430',
-];
-
-/** 얼굴 — 왼쪽 절반만 정의하고 대칭 복제한다 (코·입 가운데는 따로) */
-const FACE_HALF = {
-  brow: 'M83,35 C87,31.5 93,31.5 96.5,34',
-  eye: 'M84.5,42.5 C88,38.8 94,38.8 97,42.5 C94,45.6 88,45.6 84.5,42.5 Z',
-  pupilX: 90.7,
-  nose: 'M100,58 C96.8,59.4 94.6,58.2 94.6,55.6',
-  mouth: 'M100,67.5 C97,68.2 93.8,67.4 91.6,65.6',
-  earCx: 74.2,
-};
+const MIRROR = 'translate(200,0) scale(-1,1)';
 
 /** 장기 그림 — 32×32 기준, 해부 일러스트 색상 */
 const ORGAN: Record<string, React.ReactNode> = {
@@ -172,12 +121,23 @@ const ORGAN: Record<string, React.ReactNode> = {
   ),
 };
 
+/** 세로 메쉬 — 중심에서 멀수록 바깥으로 휘어 몸의 굴곡을 따라간다 */
+const MESH_V = Array.from({ length: 19 }, (_, i) => {
+  const x = 12 + i * 10;
+  const bow = (x - 100) * 0.14;
+  return `M${x},0 Q${(x + bow).toFixed(1)},240 ${x},470`;
+});
+/** 가로 메쉬 — 원통을 두른 것처럼 아래로 처지는 링 */
+const MESH_H = Array.from({ length: 30 }, (_, i) => {
+  const y = 6 + i * 16;
+  return `M0,${y} Q100,${y + 7} 200,${y}`;
+});
+
 const ROW_Y = [45, 120, 195, 270, 345, 420];
 const BADGE_X = 248;
 const BADGE_R = 22;
 const RAIL_X = 208;
 const TEXT_X = 280;
-const MIRROR = 'translate(200,0) scale(-1,1)';
 
 export default function BodyDiagram({ findings, accent }: { findings: string; accent: string }) {
   const matched = new Map(matchBodyPoints(findings).map((m) => [m.point.key, m.text]));
@@ -185,75 +145,55 @@ export default function BodyDiagram({ findings, accent }: { findings: string; ac
   return (
     <svg viewBox="0 0 440 480" className="h-auto w-full" aria-label="신체 부위별 검진소견">
       <defs>
-        {/* userSpaceOnUse — 몸·손·발이 같은 색 흐름으로 이어지게 한다 */}
-        <linearGradient id="bd-body" gradientUnits="userSpaceOnUse" x1="35" y1="10" x2="165" y2="460">
-          <stop offset="0%" stopColor="#79b6c6" />
-          <stop offset="32%" stopColor="#4a8ba1" />
-          <stop offset="70%" stopColor="#2f6a80" />
-          <stop offset="100%" stopColor="#1f4a5e" />
-        </linearGradient>
-        <linearGradient id="bd-sheen" gradientUnits="userSpaceOnUse" x1="30" y1="0" x2="115" y2="0">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.22" />
-          <stop offset="60%" stopColor="#ffffff" stopOpacity="0.04" />
-          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+        <linearGradient id="bd-body" gradientUnits="userSpaceOnUse" x1="40" y1="10" x2="160" y2="465">
+          <stop offset="0%" stopColor="#a6e2e6" />
+          <stop offset="45%" stopColor="#7fc7d2" />
+          <stop offset="100%" stopColor="#5aa3b4" />
         </linearGradient>
         <radialGradient id="bd-glow" cx="50%" cy="42%" r="58%">
-          <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.12" />
+          <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.05" />
           <stop offset="100%" stopColor="#22d3ee" stopOpacity="0" />
         </radialGradient>
         <filter id="bd-dim">
           <feColorMatrix type="saturate" values="0.12" />
         </filter>
+        {/* 메쉬를 몸 안쪽에만 그리기 위한 클립 */}
+        <clipPath id="bd-clip">
+          <ellipse cx="100" cy="40" rx="25" ry="29" />
+          <path d={TORSO_HALF} />
+          <path d={TORSO_HALF} transform={MIRROR} />
+          <path d={ARM_HALF} />
+          <path d={ARM_HALF} transform={MIRROR} />
+        </clipPath>
       </defs>
 
-      <ellipse cx="100" cy="235" rx="118" ry="228" fill="url(#bd-glow)" />
+      <ellipse cx="100" cy="235" rx="96" ry="215" fill="url(#bd-glow)" />
 
       {/* ── 인체 ─────────────────────────────────────────── */}
       <g>
-        <ellipse cx="100" cy="44" rx="27" ry="32" fill="url(#bd-body)" />
-        <ellipse cx={FACE_HALF.earCx} cy="46" rx="3.6" ry="7" fill="url(#bd-body)" />
-        <ellipse cx={200 - FACE_HALF.earCx} cy="46" rx="3.6" ry="7" fill="url(#bd-body)" />
-        <path d={BODY_HALF} fill="url(#bd-body)" />
-        <path d={BODY_HALF} fill="url(#bd-body)" transform={MIRROR} />
-        <Hand fill="url(#bd-body)" />
-        <g transform={MIRROR}>
-          <Hand fill="url(#bd-body)" />
-        </g>
-        <Foot fill="url(#bd-body)" />
-        <g transform={MIRROR}>
-          <Foot fill="url(#bd-body)" />
-        </g>
+        <ellipse cx="100" cy="40" rx="25" ry="29" fill="url(#bd-body)" />
+        <path d={TORSO_HALF} fill="url(#bd-body)" />
+        <path d={TORSO_HALF} fill="url(#bd-body)" transform={MIRROR} />
+        <path d={ARM_HALF} fill="url(#bd-body)" />
+        <path d={ARM_HALF} fill="url(#bd-body)" transform={MIRROR} />
 
-        {/* 광택 */}
-        <ellipse cx="90" cy="38" rx="15" ry="20" fill="url(#bd-sheen)" />
-        <path d={BODY_HALF} fill="url(#bd-sheen)" />
-
-        {/* 근육 결 */}
-        <g stroke="#d8f3fb" strokeOpacity="0.17" strokeWidth="1" fill="none" strokeLinecap="round">
-          <path d="M100,102 L100,250" strokeOpacity="0.13" />
-          {BODY_LINES.map((d) => (
+        {/* 와이어프레임 메쉬 */}
+        <g clipPath="url(#bd-clip)" stroke="#eafcff" fill="none" strokeWidth="0.7" opacity="0.3">
+          {MESH_V.map((d) => (
             <path key={d} d={d} />
           ))}
-          {BODY_LINES.map((d) => (
-            <path key={`m-${d}`} d={d} transform={MIRROR} />
+          {MESH_H.map((d) => (
+            <path key={d} d={d} />
           ))}
         </g>
 
-        {/* 이목구비 */}
-        <g>
-          <path d={FACE_HALF.eye} fill="#12303c" opacity="0.85" />
-          <path d={FACE_HALF.eye} fill="#12303c" opacity="0.85" transform={MIRROR} />
-          <circle cx={FACE_HALF.pupilX} cy="42.5" r="2" fill="#e8f6fb" opacity="0.75" />
-          <circle cx={200 - FACE_HALF.pupilX} cy="42.5" r="2" fill="#e8f6fb" opacity="0.75" />
-          <g stroke="#12303c" strokeOpacity="0.6" fill="none" strokeLinecap="round">
-            <path d={FACE_HALF.brow} strokeWidth="2.6" />
-            <path d={FACE_HALF.brow} strokeWidth="2.6" transform={MIRROR} />
-            <path d="M100,46 L100,58" strokeWidth="1.4" strokeOpacity="0.4" />
-            <path d={FACE_HALF.nose} strokeWidth="1.4" />
-            <path d={FACE_HALF.nose} strokeWidth="1.4" transform={MIRROR} />
-            <path d={FACE_HALF.mouth} strokeWidth="1.8" />
-            <path d={FACE_HALF.mouth} strokeWidth="1.8" transform={MIRROR} />
-          </g>
+        {/* 윤곽 — 실루엣을 또렷하게 */}
+        <g fill="none" stroke="#dcf8fd" strokeOpacity="0.5" strokeWidth="1.2">
+          <ellipse cx="100" cy="40" rx="25" ry="29" />
+          <path d={TORSO_HALF} />
+          <path d={TORSO_HALF} transform={MIRROR} />
+          <path d={ARM_HALF} />
+          <path d={ARM_HALF} transform={MIRROR} />
         </g>
       </g>
 
@@ -267,7 +207,7 @@ export default function BodyDiagram({ findings, accent }: { findings: string; ac
             stroke={accent}
             strokeWidth={1.4}
             strokeDasharray="4 4"
-            opacity={0.8}
+            opacity={0.85}
           />
         ) : null,
       )}
@@ -277,11 +217,11 @@ export default function BodyDiagram({ findings, accent }: { findings: string; ac
         const on = matched.has(p.key);
         return on ? (
           <g key={`dot-${p.key}`}>
-            <circle cx={p.x} cy={p.y} r={12} fill={accent} opacity={0.24} />
-            <circle cx={p.x} cy={p.y} r={6} fill={accent} stroke="#08111f" strokeWidth={2} />
+            <circle cx={p.x} cy={p.y} r={12} fill={accent} opacity={0.26} />
+            <circle cx={p.x} cy={p.y} r={6} fill={accent} stroke="#0d3b47" strokeWidth={2} />
           </g>
         ) : (
-          <circle key={`dot-${p.key}`} cx={p.x} cy={p.y} r={3.6} fill="#0a2230" opacity={0.45} />
+          <circle key={`dot-${p.key}`} cx={p.x} cy={p.y} r={2.8} fill="#2f7183" opacity={0.35} />
         );
       })}
 
