@@ -7,26 +7,29 @@ import { ymd } from '@/lib/workforce';
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
 /**
- * 최근 2주 투입 추세 — 날짜별 총 인원(막대)과 가동 현장 수(점)를 함께 본다.
+ * 투입 추세 — 오늘을 가운데 두고 지난 날짜와 앞으로의 날짜를 함께 본다.
+ * 기준이 늘 오늘이라 어느 날짜를 골라도 그래프가 흔들리지 않는다.
  * 막대를 누르면 그 날짜로 보드가 이동한다.
  */
 export default function OpsTrend({
   ops,
   date,
   onSelect,
-  days = 14,
+  days = 15,
 }: {
   ops: OpsData;
   date: string;
   onSelect: (d: string) => void;
   days?: number;
 }) {
+  const today = ymd(new Date());
   const series = useMemo(() => {
-    const base = new Date(`${date}T00:00:00`);
-    const anchor = Number.isNaN(base.getTime()) ? new Date() : base;
+    // 오늘이 한가운데 오도록 앞뒤로 나눈다 (15일이면 지난 7일 + 오늘 + 앞으로 7일)
+    const half = Math.floor(days / 2);
+    const anchor = new Date(`${today}T00:00:00`);
     return Array.from({ length: days }, (_, i) => {
       const d = new Date(anchor);
-      d.setDate(d.getDate() - (days - 1 - i));
+      d.setDate(d.getDate() - half + i);
       const key = ymd(d);
       const day = ops.byDate.get(key);
       return {
@@ -35,9 +38,10 @@ export default function OpsTrend({
         label: String(d.getDate()),
         head: day?.headcount ?? 0,
         sites: day?.sites.length ?? 0,
+        future: key > today,
       };
     });
-  }, [ops.byDate, date, days]);
+  }, [ops.byDate, today, days]);
 
   const max = Math.max(...series.map((s) => s.head), 1);
   const active = series.filter((s) => s.head > 0);
@@ -66,6 +70,7 @@ export default function OpsTrend({
       <div className="flex flex-1 items-end gap-[3px]" style={{ minHeight: '92px' }}>
         {series.map((s) => {
           const sel = s.key === date;
+          const isToday = s.key === today;
           const h = s.head === 0 ? 3 : Math.max((s.head / max) * 100, 8);
           return (
             <button
@@ -88,10 +93,12 @@ export default function OpsTrend({
                   height: `${h}%`,
                   background: sel
                     ? 'linear-gradient(180deg, #7aa2ff, #4b7bff)'
-                    : s.head === 0
-                      ? 'var(--surface-3)'
-                      : 'linear-gradient(180deg, rgba(75,123,255,0.75), rgba(75,123,255,0.18))',
-                  boxShadow: sel ? '0 0 14px -2px rgba(75,123,255,0.9)' : 'none',
+                    : isToday
+                      ? 'linear-gradient(180deg, #22d3ee, #4b7bff)'
+                      : s.head === 0
+                        ? 'var(--surface-3)'
+                        : `linear-gradient(180deg, rgba(75,123,255,${s.future ? 0.35 : 0.75}), rgba(75,123,255,0.18))`,
+                  boxShadow: sel || isToday ? '0 0 14px -2px rgba(75,123,255,0.9)' : 'none',
                 }}
               />
             </button>
@@ -105,13 +112,15 @@ export default function OpsTrend({
           <span
             key={s.key}
             className={`min-w-0 flex-1 text-center font-mono text-[8px] ${
-              s.key === date
-                ? 'font-bold text-slate-700'
-                : s.dow === 0
-                  ? 'text-red-400'
-                  : s.dow === 6
-                    ? 'text-sky-400'
-                    : 'text-slate-400'
+              s.key === today
+                ? 'font-bold text-cyan-600'
+                : s.key === date
+                  ? 'font-bold text-slate-700'
+                  : s.dow === 0
+                    ? 'text-red-400'
+                    : s.dow === 6
+                      ? 'text-sky-400'
+                      : 'text-slate-400'
             }`}
           >
             {s.label}
@@ -119,7 +128,8 @@ export default function OpsTrend({
         ))}
       </div>
       <p className="mt-1.5 text-[10px] text-slate-400">
-        막대 = 총 투입 인원 · 최근 {days}일 ({DOW[series[0].dow]}~{DOW[series[series.length - 1].dow]})
+        막대 = 총 투입 인원 · 오늘 기준 앞뒤 {Math.floor(days / 2)}일 ({DOW[series[0].dow]}~
+        {DOW[series[series.length - 1].dow]})
       </p>
     </div>
   );

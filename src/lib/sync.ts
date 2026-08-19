@@ -131,6 +131,33 @@ export async function uploadCert(dataUrl: string, name: string): Promise<string>
   return data.url;
 }
 
+/** 첨부서류에서 읽어 낸 값 — 확인되지 않은 항목은 null */
+export interface DocFields {
+  docType: string | null;
+  personName: string | null;
+  birth: string | null;
+  issuedAt: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  plate: string | null;
+  note: string | null;
+}
+
+/**
+ * 첨부서류 자동 판독 — 올린 파일에서 성명·생년월일·일자 등을 읽어 온다.
+ * 판독은 어디까지나 입력을 돕는 보조 수단이라, 실패하면 조용히 null을 돌려주고
+ * 화면은 평소대로 수동 입력으로 진행한다 (첨부 자체는 이미 끝난 상태).
+ */
+export async function extractDocFields(dataUrl: string, hint?: string): Promise<DocFields | null> {
+  try {
+    const res = await call('/api/doc-extract', { method: 'POST', body: JSON.stringify({ dataUrl, hint }) });
+    const data = (await res.json()) as { fields?: DocFields };
+    return data.fields ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** AI가 생성한 위험성평가 항목 */
 export interface AiRiskRow {
   step: string;

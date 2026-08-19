@@ -5,7 +5,7 @@ import { HEALTH_KEY, type HealthCheck } from '@/lib/health';
 import { LABOR_ROSTER_KEY, LABOR_TABS, UNASSIGNED, blankWorker, type LaborWorker } from '@/lib/laborRoster';
 import { formatPhone } from '@/lib/format';
 import { fileHref } from '@/lib/ids';
-import { SyncError, listEntriesSilently, uploadCert } from '@/lib/sync';
+import { SyncError, extractDocFields, listEntriesSilently, uploadCert } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { useRole } from '@/lib/useRole';
 import { CHEM_WORKERS_KEY, YNCC_WORKERS_KEY, type EduSheetWorker } from '@/lib/yncc';
@@ -218,12 +218,36 @@ export default function LaborRoster() {
     try {
       const dataUrl = await fileToDataUrl(file);
       const url = await uploadCert(dataUrl, `${row.name || '첨부'}`);
-      const patch: Partial<LaborWorker> = { [field]: url };
-      // 유해화학물질 파일을 올리면 이수년도를 자동으로 채운다 (이미 적혀 있으면 그대로 둔다)
-      if ((field === 'chemCert' || field === 'chemCertCompletion') && !row.chemDate) {
-        patch.chemDate = `${yearFromFileName(file.name)}-01-01`;
+      setRow(row.id, { [field]: url } as Partial<LaborWorker>);
+
+      // 서류를 읽어 비어 있는 칸을 채운다 — 사람이 적어 둔 값은 건드리지 않는다
+      const HINT: Record<typeof field, string> = {
+        chemCert: '유해화학물질 안전교육 이수증',
+        chemCertCompletion: '유해화학물질 안전교육 수료증',
+        specialHealthCert: '특수건강진단 확인서',
+        generalHealthCert: 'LG화학 일반건강진단 결과표',
+      };
+      const f = await extractDocFields(dataUrl, HINT[field]);
+      // 판독 중 사용자가 직접 고쳤을 수 있으므로 최신 값을 다시 확인한다
+      const cur = rowsRef.current.find((x) => x.id === row.id) ?? row;
+      const auto: Partial<LaborWorker> = {};
+      if (f?.birth && !cur.birth) auto.birth = f.birth;
+      if (field === 'chemCert' || field === 'chemCertCompletion') {
+        // 이수년도 — 서류에서 읽은 이수일자를 쓰고, 못 읽으면 파일명의 연도로 대신한다
+        if (!cur.chemDate) auto.chemDate = f?.issuedAt ?? `${yearFromFileName(file.name)}-01-01`;
       }
-      setRow(row.id, patch);
+      if (field === 'specialHealthCert' && f?.issuedAt && !cur.specialHealthDate) {
+        auto.specialHealthDate = f.issuedAt;
+      }
+      if (field === 'generalHealthCert' && f?.issuedAt && !cur.generalHealthDate) {
+        auto.generalHealthDate = f.issuedAt;
+      }
+      if (Object.keys(auto).length > 0) setRow(row.id, auto);
+
+      // 서류의 이름이 다르면 사람이 확인하도록 알린다 (값은 바꾸지 않는다)
+      if (f?.personName && cur.name.trim() && f.personName.replace(/\s/g, '') !== cur.name.replace(/\s/g, '')) {
+        alert(`첨부한 서류의 이름은 "${f.personName}"입니다.\n지금 기록은 "${cur.name}"이니 확인해 주세요.`);
+      }
     } catch (e) {
       if (e instanceof SyncError && (e.status === 503 || e.status === 401)) {
         alert('첨부파일 업로드는 배포된 사이트에서 동기화 암호를 입력한 뒤 사용할 수 있습니다.');

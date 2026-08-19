@@ -105,7 +105,7 @@ export default function OpsCalendar({
                   ? `${ds}${holiday ? ` · ${holiday}` : ''} · ${day!.sites.join(', ')} · ${day!.headcount}명`
                   : `${ds}${holiday ? ` · ${holiday}` : ''} · 기록 없음`
               }
-              className={`flex min-h-[46px] flex-col items-center justify-start rounded-lg border px-0.5 py-1 ${
+              className={`flex min-h-[34px] flex-col items-center justify-center rounded-lg border px-0.5 py-1 ${
                 isSel
                   ? 'border-blue-500/70 bg-blue-500/15 shadow-[0_0_16px_-4px_rgba(75,123,255,0.8)]'
                   : active
@@ -127,25 +127,7 @@ export default function OpsCalendar({
                 >
                   {d}
                 </span>
-                {planned.has(ds) && <span aria-label="일정" className="h-1 w-1 rounded-full bg-amber-400" />}
               </span>
-
-              {/* 현장 색점 */}
-              {active && (
-                <span className="mt-1 flex h-1.5 items-center gap-0.5">
-                  {day!.sites.slice(0, 4).map((s) => (
-                    <span key={s} className="h-1.5 w-1.5 rounded-full" style={{ background: siteColor(s) }} />
-                  ))}
-                  {day!.sites.length > 4 && <span className="text-[8px] leading-none text-slate-400">+</span>}
-                </span>
-              )}
-
-              {/* 투입 인원 */}
-              {active && day!.headcount > 0 && (
-                <span className="mt-0.5 font-mono text-[10px] font-bold leading-none text-slate-500">
-                  {day!.headcount}
-                </span>
-              )}
             </button>
           );
         })}
@@ -158,15 +140,6 @@ export default function OpsCalendar({
             className="h-3 w-3 rounded-full [background:linear-gradient(135deg,#22d3ee,#4b7bff)]"
           />
           오늘
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />색점 = 현장
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="font-mono font-bold text-slate-500">18</span>= 투입 인원
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="h-1 w-1 rounded-full bg-amber-400" />일정
         </span>
         <span className="flex items-center gap-1">
           <span className="font-mono font-bold text-red-500">1</span>= 공휴일
