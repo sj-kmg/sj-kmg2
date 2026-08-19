@@ -217,24 +217,23 @@ export default function HealthFollowup() {
 
                         {/* 소견 · 사후관리 · 생활습관 */}
                         <div className="space-y-2 rounded-lg border border-slate-100 bg-white p-3">
-                          <div className="flex items-center gap-2">
-                            <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-slate-500">🔎 검진소견</span>
+                          {/* 검진소견·사후관리를 한 줄에 나란히 둔다 */}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="shrink-0 text-[11px] font-semibold text-slate-500">🔎 검진소견</span>
                             <input
                               id={`hf-findings-${r.id}`}
                               placeholder="예: 고혈압"
                               value={r.findings}
                               onChange={(e) => setRow(r.id, { findings: e.target.value })}
-                              className={`${CELL} flex-1`}
+                              className={`${CELL} min-w-[8rem] flex-1`}
                             />
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="w-[4.5rem] shrink-0 text-[11px] font-semibold text-slate-500">📋 사후관리</span>
+                            <span className="shrink-0 text-[11px] font-semibold text-slate-500">📋 사후관리</span>
                             <input
                               id={`hf-action-${r.id}`}
                               placeholder="예: 근무중 치료, 건강상담"
                               value={r.action}
                               onChange={(e) => setRow(r.id, { action: e.target.value })}
-                              className={`${CELL} flex-1`}
+                              className={`${CELL} min-w-[8rem] flex-1`}
                             />
                           </div>
                           <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-2">
