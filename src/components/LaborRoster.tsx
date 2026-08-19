@@ -55,14 +55,13 @@ function fileToDataUrl(file: File): Promise<string> {
 }
 
 /**
- * 인력 명단 엑셀(명단서식)에서 뽑은 인원 — 이름·연락처만 반영한다.
- * 주민등록번호는 민감정보라 저장하지 않는다.
- * 이미 있는 사람은 새로 만들지 않고, 비어 있는 연락처만 채운다.
+ * 인력 명단 엑셀(명단서식)에서 뽑은 신규 인원 — 이름·생년월일·연락처만 반영한다.
+ * 주민등록번호 전체는 민감정보라 저장하지 않고, 앞 6자리에서 생년월일만 뽑아 쓴다.
+ * 이름이 이미 있는 사람은 아예 건너뛴다 (기존 기록을 건드리지 않는다).
  */
-const DEFAULT_ROSTER: { category: string; name: string; phone: string }[] = [
-  { category: '공영인력', name: '김광모', phone: '010-2767-4098' },
-  { category: '공영인력', name: '배영일', phone: '010-8847-9760' },
-  { category: '공영인력', name: '이진호', phone: '010-7258-4224' },
+const DEFAULT_ROSTER: { category: string; name: string; birth: string; phone: string }[] = [
+  // 배영일·이진호는 이미 등록돼 있어 넣지 않는다 (이름이 겹치면 건너뛴다)
+  { category: '공영인력', name: '김광모', birth: '1978-09-25', phone: '010-2767-4098' },
 ];
 
 /**
@@ -115,60 +114,80 @@ export default function LaborRoster() {
   const seq = useRef(0);
   const seededChemRef = useRef(false);
   const sortCtl = useSortable<LaborWorker>();
+  // 최초 반영 처리에서 최신 목록을 보기 위한 참조 (state는 그 시점에 아직 비어 있을 수 있다)
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
 
   const shown = sortCtl.apply(
     rows.filter((r) => (tab === UNASSIGNED ? !r.category : r.category === tab)),
     { name: (r) => r.name, chem: (r) => r.chemDate ?? '' },
   );
 
-  // 개미인력 유해화학물질 원본 반영 — 최초 1회, 비어 있는 값만 채운다 (열람 전용 계정은 제외)
+  /*
+   * 원본 자료 최초 반영 — 이미 있는 사람은 절대 다시 만들지 않는다.
+   *
+   * 예전에는 여기서 화면 상태(rows)를 그대로 봤는데, 목록이 채워지는 것보다
+   * 이 처리가 먼저 돌아 "아무도 없다"고 판단해 이미 있는 사람을 또 만들었다.
+   * 그래서 (1) 항상 최신 목록을 가리키는 ref를 쓰고, (2) 목록이 채워진 뒤에
+   * 돌도록 한 박자 미루고, (3) 이번 처리 중에 새로 만든 이름도 기억해
+   * 뒤 단계에서 중복으로 만들지 않게 한다.
+   */
   useEffect(() => {
     if (seededChemRef.current || mode === 'loading' || role === 'viewer') return;
     seededChemRef.current = true;
-    let seq2 = 0;
-    for (const d of DEFAULT_CHEM_WORKERS) {
-      // 이름만으로는 다른 회사 소속 동명이인과 섞일 수 있어 생년월일까지 같을 때만 같은 사람으로 본다
-      const existing = rows.find((r) => r.name.trim() === d.name && (!r.birth || r.birth === d.birth));
-      if (existing) {
-        const { next, changed } = fillBlank(existing, {
-          category: existing.category || d.category,
-          birth: d.birth,
-          chemDate: d.chemDate,
-          chemCert: d.chemCert,
-          chemCertCompletion: d.chemCertCompletion,
-        });
-        if (changed) setRow(existing.id, next);
-      } else {
-        seq2 += 1;
-        addRow({
-          id: `LW-seed-${Date.now()}-${seq2}`,
-          category: d.category,
-          name: d.name,
-          birth: d.birth,
-          chemDate: d.chemDate,
-          chemCert: d.chemCert,
-          chemCertCompletion: d.chemCertCompletion,
-          updatedAt: '',
-        });
-      }
-    }
 
-    // 엑셀 명단 — 이름이 같으면 기존 인원으로 보고 비어 있는 연락처만 채운다
-    for (const d of DEFAULT_ROSTER) {
-      const existing = rows.find((r) => r.name.trim() === d.name);
-      if (existing) {
-        if (!existing.phone) setRow(existing.id, { ...existing, phone: d.phone });
-      } else {
+    const timer = setTimeout(() => {
+      const norm = (s: string) => s.replace(/\s/g, '');
+      const added = new Set<string>();
+      const findByName = (name: string) =>
+        rowsRef.current.find((r) => norm(r.name) === norm(name));
+      let seq2 = 0;
+
+      for (const d of DEFAULT_CHEM_WORKERS) {
+        if (added.has(norm(d.name))) continue;
+        const existing = findByName(d.name);
+        if (existing) {
+          const { next, changed } = fillBlank(existing, {
+            category: existing.category || d.category,
+            birth: d.birth,
+            chemDate: d.chemDate,
+            chemCert: d.chemCert,
+            chemCertCompletion: d.chemCertCompletion,
+          });
+          if (changed) setRow(existing.id, next);
+        } else {
+          seq2 += 1;
+          added.add(norm(d.name));
+          addRow({
+            id: `LW-seed-${Date.now()}-${seq2}`,
+            category: d.category,
+            name: d.name,
+            birth: d.birth,
+            chemDate: d.chemDate,
+            chemCert: d.chemCert,
+            chemCertCompletion: d.chemCertCompletion,
+            updatedAt: '',
+          });
+        }
+      }
+
+      // 엑셀 명단 — 이름이 겹치면 건너뛰고, 신규 인원만 이름·생년월일·연락처로 등록한다
+      for (const d of DEFAULT_ROSTER) {
+        if (added.has(norm(d.name)) || findByName(d.name)) continue;
         seq2 += 1;
+        added.add(norm(d.name));
         addRow({
           id: `LW-seed-${Date.now()}-r${seq2}`,
           category: d.category,
           name: d.name,
+          birth: d.birth,
           phone: d.phone,
           updatedAt: '',
         });
       }
-    }
+    }, 0);
+
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, role]);
 
