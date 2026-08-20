@@ -46,6 +46,12 @@ export function useSheetLog<T extends { id: string }>(type: LogType, localKey: s
 
   /** 저장 대기·진행 중인 행 — 이 동안에는 서버 목록으로 덮어쓰지 않는다 */
   const pending = useRef<Set<string>>(new Set());
+  /**
+   * 행별 편집 횟수 — "저장을 보내는 사이에 또 고쳤는지" 판단한다.
+   * 이게 없으면 저장이 끝나는 순간 대기 표시가 풀려, 저장 중에 새로 입력한
+   * 글자가 서버 값으로 덮여 사라진다 (입력이 지워지는 현상의 원인).
+   */
+  const editSeq = useRef<Map<string, number>>(new Map());
   /** 아직 저장 대상이 아닌 새 빈 행 */
   const drafts = useRef<Set<string>>(new Set());
   const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -68,13 +74,14 @@ export function useSheetLog<T extends { id: string }>(type: LogType, localKey: s
     return cmp ? [...list].sort(cmp) : list;
   }, []);
 
-  // 서버·로컬 목록 → 화면 (저장 대기 중이거나 작성 중인 행은 보존)
+  // 서버·로컬 목록 → 화면 (작성 중이거나 저장 대기 중인 행은 화면 값을 그대로 둔다)
   useEffect(() => {
     if (mode === 'loading') return;
-    if (pending.current.size > 0) return;
     setRows((prev) => {
-      const keep = prev.filter((r) => drafts.current.has(r.id));
-      return sortRows([...entries, ...keep]);
+      // 지금 입력 중인 행은 서버 값으로 덮지 않는다 — 덮으면 방금 친 글자가 사라진다
+      const keep = prev.filter((r) => drafts.current.has(r.id) || pending.current.has(r.id));
+      const keepIds = new Set(keep.map((r) => r.id));
+      return sortRows([...entries.filter((e) => !keepIds.has(e.id)), ...keep]);
     });
   }, [entries, mode, sortRows, setRows]);
 
@@ -125,7 +132,14 @@ export function useSheetLog<T extends { id: string }>(type: LogType, localKey: s
       }
       drafts.current.delete(id);
       setStatus('saving');
+      // 보내기 직전의 편집 횟수를 기억해 둔다
+      const sentAt = editSeq.current.get(id) ?? 0;
       const ok = await add({ ...row, updatedAt: new Date().toISOString() });
+
+      // 보내는 사이에 또 고쳤다면 대기 상태를 유지한다.
+      // 여기서 대기를 풀면 뒤이어 도착한 서버 목록이 방금 친 글자를 덮어써 버린다.
+      if ((editSeq.current.get(id) ?? 0) !== sentAt) return;
+
       pending.current.delete(id);
       if (!ok) {
         setStatus('error');
@@ -157,6 +171,7 @@ export function useSheetLog<T extends { id: string }>(type: LogType, localKey: s
   const setRow = useCallback(
     (id: string, patch: Partial<T>) => {
       snapshot();
+      editSeq.current.set(id, (editSeq.current.get(id) ?? 0) + 1);
       setRows((cur) => cur.map((r) => (r.id === id ? { ...r, ...patch } : r)));
       scheduleSave(id);
     },
@@ -184,6 +199,7 @@ export function useSheetLog<T extends { id: string }>(type: LogType, localKey: s
       }
       pending.current.delete(id);
       drafts.current.delete(id);
+      editSeq.current.delete(id);
       setRows((cur) => cur.filter((r) => r.id !== id));
       setStatus('saving');
       await remove(id);
