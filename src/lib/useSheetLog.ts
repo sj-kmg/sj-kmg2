@@ -246,8 +246,18 @@ export function useSheetLog<T extends { id: string }>(type: LogType, localKey: s
     setTimeout(() => setStatus((s) => (s === 'saved' ? 'idle' : s)), 1500);
   }, [add, remove, setRows]);
 
+  /**
+   * 지금 이 순간의 행 목록 — 렌더를 기다리지 않고 바로 읽는다.
+   *
+   * 화면에 그려진 `rows`는 다시 그려질 때까지 이전 값이라, 목록이 막 들어온
+   * 직후에 읽으면 "아무것도 없다"고 잘못 보게 된다. 이미 있는 사람을 찾아
+   * 중복 등록을 막는 것처럼 최신 목록이 꼭 필요한 곳에서는 이걸 쓴다.
+   */
+  const getRows = useCallback(() => rowsRef.current, []);
+
   return {
     rows,
+    getRows,
     mode,
     status,
     setRow,

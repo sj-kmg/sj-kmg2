@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { HEALTH_KEY, type HealthCheck } from '@/lib/health';
 import { LABOR_ROSTER_KEY, LABOR_TABS, UNASSIGNED, blankWorker, type LaborWorker } from '@/lib/laborRoster';
 import { formatPhone } from '@/lib/format';
-import { fileHref } from '@/lib/ids';
+import { fileHref, nameId } from '@/lib/ids';
 import { SyncError, extractDocFields, listEntriesSilently, uploadCert } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { useRole } from '@/lib/useRole';
@@ -43,15 +43,17 @@ const DEFAULT_WORKERS: {
   { name: '정현종', category: '개미인력', birth: '1969-08-14', chemDate: '2024-02-24', chemCert: '/certs/labor-roster/개미인력/정현종_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/정현종_수료증.jpg' },
   { name: '최준규', category: '개미인력', birth: '1979-01-12', chemDate: '2026-04-17', chemCert: '/certs/labor-roster/개미인력/최준규_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/최준규_수료증.jpg' },
   { name: '하장훈', category: '개미인력', birth: '1973-06-01', chemDate: '2026-03-23', chemCert: '/certs/labor-roster/개미인력/하장훈_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/하장훈_수료증.jpg' },
-  { name: '김경식', category: '공영인력', birth: '1964-01-10', chemDate: '2024-03-21', chemCert: '/certs/labor-roster/공영인력/김경식_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/김경식_수료증.pdf' },
-  { name: '김광춘', category: '공영인력', birth: '1981-03-24', chemDate: '2026-01-24', chemCert: '/certs/labor-roster/공영인력/김광춘_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/김광춘_수료증.pdf' },
-  { name: '김학판', category: '공영인력', birth: '1959-11-15', chemDate: '2026-01-10', chemCert: '/certs/labor-roster/공영인력/김학판_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/김학판_수료증.pdf' },
-  { name: '오재정', category: '공영인력', birth: '1978-05-12', chemDate: '2024-01-18', chemCert: '/certs/labor-roster/공영인력/오재정_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/오재정_수료증.pdf' },
-  { name: '이진호', category: '공영인력', birth: '1975-11-21', chemDate: '2024-08-05', chemCert: '/certs/labor-roster/공영인력/이진호_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/이진호_수료증.pdf' },
-  { name: '임복수', category: '공영인력', birth: '1974-06-15', chemDate: '2025-02-14', chemCert: '/certs/labor-roster/공영인력/임복수_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/임복수_수료증.pdf' },
-  { name: '조운용', category: '공영인력', birth: '1964-01-02', chemDate: '2024-03-21', chemCert: '/certs/labor-roster/공영인력/조운용_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/조운용_수료증.pdf' },
+  { name: '김경식', category: '공영인력', birth: '1964-01-10', chemDate: '2024-03-21', chemCert: '/certs/labor-roster/공영인력/김경식_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/김경식_수료증.pdf', specialHealthDate: '2026-01-17', specialHealthCert: '/certs/labor-roster/공영인력/김경식_특검확인서.pdf' },
+  { name: '김광춘', category: '공영인력', birth: '1981-03-24', chemDate: '2026-01-24', chemCert: '/certs/labor-roster/공영인력/김광춘_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/김광춘_수료증.pdf', specialHealthDate: '2026-04-10', specialHealthCert: '/certs/labor-roster/공영인력/김광춘_특검확인서.pdf' },
+  { name: '김학판', category: '공영인력', birth: '1959-11-15', chemDate: '2026-01-10', chemCert: '/certs/labor-roster/공영인력/김학판_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/김학판_수료증.pdf', specialHealthDate: '2026-04-10', specialHealthCert: '/certs/labor-roster/공영인력/김학판_특검확인서.pdf' },
+  { name: '오재정', category: '공영인력', birth: '1978-05-12', chemDate: '2024-01-18', chemCert: '/certs/labor-roster/공영인력/오재정_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/오재정_수료증.pdf', specialHealthDate: '2026-04-11', specialHealthCert: '/certs/labor-roster/공영인력/오재정_특검확인서.pdf' },
+  { name: '이진호', category: '공영인력', birth: '1975-11-21', chemDate: '2024-08-05', chemCert: '/certs/labor-roster/공영인력/이진호_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/이진호_수료증.pdf', specialHealthDate: '2026-01-16', specialHealthCert: '/certs/labor-roster/공영인력/이진호_특검확인서.pdf' },
+  { name: '임복수', category: '공영인력', birth: '1974-06-15', chemDate: '2025-02-14', chemCert: '/certs/labor-roster/공영인력/임복수_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/임복수_수료증.pdf', specialHealthDate: '2026-04-11', specialHealthCert: '/certs/labor-roster/공영인력/임복수_특검확인서.pdf' },
+  { name: '조운용', category: '공영인력', birth: '1964-01-02', chemDate: '2024-03-21', chemCert: '/certs/labor-roster/공영인력/조운용_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/조운용_수료증.pdf', specialHealthDate: '2026-01-16', specialHealthCert: '/certs/labor-roster/공영인력/조운용_특검확인서.pdf' },
+  { name: '배영일', category: '공영인력', birth: '1963-11-27', chemDate: '2024-02-13', chemCert: '/certs/labor-roster/공영인력/배영일_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/배영일_수료증.pdf', specialHealthDate: '2026-01-16', specialHealthCert: '/certs/labor-roster/공영인력/배영일_특검확인서.pdf' },
+  { name: '이승훈', category: '공영인력', birth: '1976-01-05', chemDate: '2025-01-18', chemCert: '/certs/labor-roster/공영인력/이승훈_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/이승훈_수료증.pdf', specialHealthDate: '2026-07-28', specialHealthCert: '/certs/labor-roster/공영인력/이승훈_특검확인서.pdf' },
   { name: '김우영', category: '당근인력', birth: '1972-01-19', phone: '010-8244-4302', chemDate: '2026-01-28', chemCert: '/certs/labor-roster/당근인력/김우영_이수증.pdf', chemCertCompletion: '/certs/labor-roster/당근인력/김우영_수료증.pdf' },
-  { name: '김효종', category: '당근인력', birth: '1975-10-30', phone: '010-8531-5641', chemDate: '2026-02-19', chemCert: '/certs/labor-roster/당근인력/김효종_이수증.pdf', chemCertCompletion: '/certs/labor-roster/당근인력/김효종_수료증.pdf', specialHealthDate: '2026-04-30', specialHealthCert: '/certs/labor-roster/당근인력/김효종_특검확인서.jpg' },
+  { name: '김효종', category: '당근인력', birth: '1975-10-30', phone: '010-8531-5641', chemDate: '2026-02-19', chemCert: '/certs/labor-roster/당근인력/김효종_이수증.pdf', chemCertCompletion: '/certs/labor-roster/당근인력/김효종_수료증.pdf' },
   { name: '문기영', category: '당근인력', birth: '1981-01-19', phone: '010-7334-1016', chemDate: '2026-03-25', chemCert: '/certs/labor-roster/당근인력/문기영_이수증.pdf', specialHealthDate: '2026-05-02', specialHealthCert: '/certs/labor-roster/당근인력/문기영_특검확인서.jpg' },
   { name: '문병곤', category: '당근인력', birth: '1962-03-27', chemDate: '2024-08-01', chemCert: '/certs/labor-roster/당근인력/문병곤_이수증.pdf', specialHealthDate: '2026-04-30', specialHealthCert: '/certs/labor-roster/당근인력/문병곤_특검확인서.jpg' },
   { name: '박은식', category: '당근인력', birth: '1986-03-15', phone: '010-4181-4440', chemDate: '2025-10-16', chemCert: '/certs/labor-roster/당근인력/박은식_이수증.pdf', chemCertCompletion: '/certs/labor-roster/당근인력/박은식_수료증.pdf', specialHealthDate: '2026-05-04', specialHealthCert: '/certs/labor-roster/당근인력/박은식_특검확인서.jpg' },
@@ -97,6 +99,42 @@ function yearFromFileName(fileName: string): number {
   return years.length ? Math.max(...years) : now;
 }
 
+/**
+ * 잘못 붙였던 첨부를 다시 거둬들이는 목록.
+ * 이미 저장된 기록에도 남아 있으므로, 화면을 열 때 한 번 훑어 지운다.
+ */
+const RETRACTED: { name: string; cert: string }[] = [
+  // 김효종 서류(건강진단 개인표)에는 검진일자가 적혀 있지 않아 보류하기로 했다
+  { name: '김효종', cert: '/certs/labor-roster/당근인력/김효종_특검확인서.jpg' },
+];
+
+/** 이름 비교용 — 띄어쓰기는 무시한다 ("김 우영"과 "김우영"은 같은 사람) */
+function normName(s: string): string {
+  return (s ?? '').replace(/\s/g, '');
+}
+
+/** 사람을 알아보는 값들 — 이 칸들이 채워진 정도로 "내용이 많은 기록"을 가린다 */
+const CONTENT_KEYS: (keyof LaborWorker)[] = [
+  'category',
+  'birth',
+  'phone',
+  'generalHealthDate',
+  'generalHealthCert',
+  'specialHealthDate',
+  'specialHealthCert',
+  'chemDate',
+  'chemCert',
+  'chemCertCompletion',
+  'ynccStart',
+  'ynccEnd',
+  'note',
+];
+
+/** 채워진 칸 수 — 중복된 기록 중 어느 쪽을 남길지 정하는 기준 */
+function filledCount(r: LaborWorker): number {
+  return CONTENT_KEYS.reduce((n, k) => (r[k] ? n + 1 : n), 0);
+}
+
 /** 값이 비어 있을 때만 채운다 — 이미 입력된 값은 덮어쓰지 않는다 */
 function fillBlank<T extends object>(base: T, patch: Partial<T>): { next: T; changed: boolean } {
   let changed = false;
@@ -116,7 +154,7 @@ function fillBlank<T extends object>(base: T, patch: Partial<T>): { next: T; cha
  * 인원별로 특수검진 첨부파일·유해화학물질 첨부파일·YNCC 교육기간·일반검진일자를 한곳에서 본다.
  */
 export default function LaborRoster() {
-  const { rows, mode, status, setRow, addRow, removeRow, undo, canUndo } = useSheetLog<LaborWorker>(
+  const { rows, getRows, mode, status, setRow, addRow, removeRow, undo, canUndo } = useSheetLog<LaborWorker>(
     'labor-roster',
     LABOR_ROSTER_KEY,
     {
@@ -134,83 +172,138 @@ export default function LaborRoster() {
   const seq = useRef(0);
   const seededRef = useRef(false);
   const sortCtl = useSortable<LaborWorker>();
-  // 최초 반영 처리에서 최신 목록을 보기 위한 참조 (state는 그 시점에 아직 비어 있을 수 있다)
-  const rowsRef = useRef(rows);
-  rowsRef.current = rows;
 
   const shown = sortCtl.apply(
     rows.filter((r) => (tab === UNASSIGNED ? !r.category : r.category === tab)),
     { name: (r) => r.name, chem: (r) => r.chemDate ?? '' },
   );
 
-  /*
-   * 원본 자료 최초 반영 — 이미 있는 사람은 절대 다시 만들지 않는다.
+  /**
+   * 같은 이름이 이미 있는지 — 있으면 그 기록을 돌려준다 (자기 자신은 제외).
+   * "한 사람 = 한 줄"을 지키기 위해 새로 만들기 전에 반드시 이걸로 확인한다.
+   */
+  const findByName = (name: string, exceptId?: string) => {
+    const key = normName(name);
+    if (!key) return undefined;
+    return getRows().find((r) => r.id !== exceptId && normName(r.name) === key);
+  };
+
+  /**
+   * 이름이 겹치는 기록 합치기.
    *
-   * 예전에는 여기서 화면 상태(rows)를 그대로 봤는데, 목록이 채워지는 것보다
-   * 이 처리가 먼저 돌아 "아무도 없다"고 판단해 이미 있는 사람을 또 만들었다.
-   * 그래서 (1) 항상 최신 목록을 가리키는 ref를 쓰고, (2) 목록이 채워진 뒤에
-   * 돌도록 한 박자 미루고, (3) 이번 처리 중에 새로 만든 이름도 기억해
-   * 뒤 단계에서 중복으로 만들지 않게 한다.
+   * 남기는 쪽은 "채워진 칸이 가장 많은" 기록이고, 지우는 쪽에만 들어 있던 값은
+   * 남기는 기록의 빈 칸으로 옮겨 담아 내용을 잃지 않는다.
+   * 단, 생년월일이 서로 다르면 동명이인으로 보고 그대로 둔다.
+   */
+  const mergeDuplicates = async () => {
+    const groups = new Map<string, LaborWorker[]>();
+    for (const r of getRows()) {
+      const key = normName(r.name);
+      if (!key) continue;
+      groups.set(key, [...(groups.get(key) ?? []), r]);
+    }
+
+    const merged: string[] = [];
+    for (const list of Array.from(groups.values())) {
+      if (list.length < 2) continue;
+      // 생년월일이 둘 다 적혀 있는데 서로 다르면 다른 사람 — 합치지 않는다
+      if (new Set(list.map((r) => r.birth).filter(Boolean)).size > 1) continue;
+
+      const ordered = [...list].sort(
+        (a, b) => filledCount(b) - filledCount(a) || a.id.localeCompare(b.id),
+      );
+      const [keep, ...drop] = ordered;
+      let next = keep;
+      for (const d of drop) {
+        const patch = Object.fromEntries(CONTENT_KEYS.map((k) => [k, d[k]])) as Partial<LaborWorker>;
+        next = fillBlank(next, patch).next;
+      }
+      if (JSON.stringify(next) !== JSON.stringify(keep)) setRow(keep.id, next);
+      for (const d of drop) await removeRow(d.id);
+      merged.push(keep.name);
+    }
+
+    if (merged.length > 0) {
+      setMigrateNote(
+        `이름이 겹쳐 두 번 이상 등록돼 있던 ${merged.length}명(${merged.join(', ')})을 한 건으로 합쳤습니다. ` +
+          '내용이 적은 쪽을 지우고, 그쪽에만 있던 값은 남은 기록의 빈 칸으로 옮겼습니다. ' +
+          '되돌리려면 [↩ 되돌리기]를 누르세요.',
+      );
+    }
+  };
+
+  /** 이름 입력을 마쳤을 때 — 이미 있는 사람이면 만들지 않고 기존 기록으로 보낸다 */
+  const guardDuplicateName = (r: LaborWorker) => {
+    const dup = findByName(r.name, r.id);
+    if (!dup) return;
+    alert(
+      `"${dup.name}" 님은 이미 ${dup.category || UNASSIGNED}에 등록돼 있습니다.\n` +
+        '같은 사람을 두 번 만들지 않도록 이 칸의 이름을 비웠습니다.\n기존 기록을 열어 수정해 주세요.',
+    );
+    setRow(r.id, { name: '' });
+    setTab(dup.category || UNASSIGNED);
+    setOpen(dup.id);
+  };
+
+  /*
+   * 화면을 열 때 한 번 도는 정리 — 순서가 중요하다.
+   *
+   *  1) 거둬들일 첨부 지우기
+   *  2) 원본 자료 반영 (이미 있는 사람은 새로 만들지 않고 빈 칸만 채운다)
+   *  3) 이름이 겹치는 기록 합치기 (내용이 적은 쪽을 지운다)
+   *
+   * 중복이 생겼던 이유: 기록을 알아보는 값이 "이름"이 아니라 만들어질 때 찍힌
+   * 시각 기반 ID였다. 기기가 다르거나 목록이 아직 안 들어온 순간에 만들면
+   * 같은 사람이 다른 ID로 하나 더 생기고, 그 뒤로는 아무도 알아채지 못했다.
+   * 그래서 (1) 새로 만드는 기록은 이름에서 뽑은 고정 ID를 쓰고,
+   * (2) 이미 생긴 중복은 아래 3)에서 합치고, (3) 이름 입력칸에서 중복을 막는다.
    */
   useEffect(() => {
     if (seededRef.current || mode === 'loading' || role === 'viewer') return;
     seededRef.current = true;
 
     const timer = setTimeout(() => {
-      const norm = (s: string) => s.replace(/\s/g, '');
-      const added = new Set<string>();
-      const findByName = (name: string) =>
-        rowsRef.current.find((r) => norm(r.name) === norm(name));
-      let seq2 = 0;
-
-      for (const d of DEFAULT_WORKERS) {
-        if (added.has(norm(d.name))) continue;
-        const existing = findByName(d.name);
-        if (existing) {
-          const { next, changed } = fillBlank(existing, {
-            category: existing.category || d.category,
-            birth: d.birth,
-            phone: d.phone,
-            chemDate: d.chemDate,
-            chemCert: d.chemCert,
-            chemCertCompletion: d.chemCertCompletion,
-            specialHealthDate: d.specialHealthDate,
-            specialHealthCert: d.specialHealthCert,
-          });
-          if (changed) setRow(existing.id, next);
-        } else {
-          seq2 += 1;
-          added.add(norm(d.name));
-          addRow({
-            id: `LW-seed-${Date.now()}-${seq2}`,
-            category: d.category,
-            name: d.name,
-            birth: d.birth,
-            phone: d.phone,
-            chemDate: d.chemDate,
-            chemCert: d.chemCert,
-            chemCertCompletion: d.chemCertCompletion,
-            specialHealthDate: d.specialHealthDate,
-            specialHealthCert: d.specialHealthCert,
-            updatedAt: '',
-          });
+      // 1) 거둬들이기 — 보류한 첨부가 저장돼 있으면 지운다
+      for (const t of RETRACTED) {
+        const cur = findByName(t.name);
+        if (cur?.specialHealthCert === t.cert) {
+          setRow(cur.id, { specialHealthCert: '', specialHealthDate: '' });
         }
       }
 
-      // 엑셀 명단 — 이름이 겹치면 건너뛰고, 신규 인원만 이름·생년월일·연락처로 등록한다
-      for (const d of DEFAULT_ROSTER) {
-        if (added.has(norm(d.name)) || findByName(d.name)) continue;
-        seq2 += 1;
-        added.add(norm(d.name));
-        addRow({
-          id: `LW-seed-${Date.now()}-r${seq2}`,
-          category: d.category,
-          name: d.name,
+      // 2) 원본 자료 반영
+      const added = new Set<string>();
+      const seedRow = (d: (typeof DEFAULT_WORKERS)[number] | (typeof DEFAULT_ROSTER)[number]) => {
+        if (added.has(normName(d.name))) return;
+        const patch: Partial<LaborWorker> = {
           birth: d.birth,
-          phone: d.phone,
-          updatedAt: '',
-        });
-      }
+          phone: 'phone' in d ? d.phone : undefined,
+          chemDate: 'chemDate' in d ? d.chemDate : undefined,
+          chemCert: 'chemCert' in d ? d.chemCert : undefined,
+          chemCertCompletion: 'chemCertCompletion' in d ? d.chemCertCompletion : undefined,
+          specialHealthDate: 'specialHealthDate' in d ? d.specialHealthDate : undefined,
+          specialHealthCert: 'specialHealthCert' in d ? d.specialHealthCert : undefined,
+        };
+        const existing = findByName(d.name);
+        if (existing) {
+          const { next, changed } = fillBlank(existing, {
+            ...patch,
+            category: existing.category || d.category,
+          });
+          if (changed) setRow(existing.id, next);
+          return;
+        }
+        added.add(normName(d.name));
+        // 이름에서 뽑은 고정 ID — 어느 기기에서 몇 번을 돌려도 같은 기록을 가리킨다
+        addRow({ id: nameId('LW', d.name), category: d.category, name: d.name, ...patch, updatedAt: '' });
+      };
+
+      for (const d of DEFAULT_WORKERS) seedRow(d);
+      // 엑셀 명단 — 이름이 겹치면 건너뛰고, 신규 인원만 이름·생년월일·연락처로 등록한다
+      for (const d of DEFAULT_ROSTER) seedRow(d);
+
+      // 3) 이미 쌓여 있던 중복 합치기
+      void mergeDuplicates();
     }, 0);
 
     return () => clearTimeout(timer);
@@ -254,7 +347,7 @@ export default function LaborRoster() {
       };
       const f = await extractDocFields(dataUrl, HINT[field]);
       // 판독 중 사용자가 직접 고쳤을 수 있으므로 최신 값을 다시 확인한다
-      const cur = rowsRef.current.find((x) => x.id === row.id) ?? row;
+      const cur = getRows().find((x) => x.id === row.id) ?? row;
       const auto: Partial<LaborWorker> = {};
       if (f?.birth && !cur.birth) auto.birth = f.birth;
       if (field === 'chemCert' || field === 'chemCertCompletion') {
@@ -320,7 +413,7 @@ export default function LaborRoster() {
       let filled = 0;
       const batchStamp = Date.now();
       for (const [name, patch] of patchByName) {
-        const existing = rows.find((r) => r.name.trim() === name);
+        const existing = findByName(name);
         if (existing) {
           const { next, changed } = fillBlank(existing, patch);
           if (changed) {
@@ -459,7 +552,7 @@ export default function LaborRoster() {
                     <div className="flex flex-wrap gap-2.5">
                       <div className="w-28">
                         <label className={label} htmlFor={`lw-name-${r.id}`}>이름</label>
-                        <input id={`lw-name-${r.id}`} placeholder="이름" value={r.name} onChange={(e) => setRow(r.id, { name: e.target.value })} className={CELL} />
+                        <input id={`lw-name-${r.id}`} placeholder="이름" value={r.name} onChange={(e) => setRow(r.id, { name: e.target.value })} onBlur={() => guardDuplicateName(r)} className={CELL} />
                       </div>
                       <div className="w-32">
                         <label className={label} htmlFor={`lw-cat-${r.id}`}>분류</label>

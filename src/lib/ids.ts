@@ -20,6 +20,29 @@ export function seedId(prefix: string, index: number, hint = ''): string {
 }
 
 /**
+ * 이름처럼 "같으면 같은 기록이어야 하는" 값으로 만드는 **고정** ID.
+ *
+ * 시각(Date.now)으로 ID를 만들면 같은 사람이라도 기기·접속마다 다른 ID가 나와,
+ * 서버에는 같은 이름의 기록이 여러 벌 쌓인다 (인력 명부가 중복되던 원인).
+ * 이름에서 ID를 뽑으면 어디서 몇 번을 돌려도 같은 ID가 나와, 새로 만드는 대신 덮어쓴다.
+ *
+ * 서버가 ID에 `[A-Za-z0-9_-]`만 허용하므로 한글을 그대로 쓸 수 없어 해시로 바꾼다.
+ */
+export function nameId(prefix: string, name: string): string {
+  const key = name.replace(/\s/g, '');
+  // FNV-1a 계열 32비트 해시를 두 벌 돌려 16자리로 — 명부 규모에서 충돌은 사실상 없다
+  let a = 0x811c9dc5;
+  let b = 0x01000193;
+  for (let i = 0; i < key.length; i += 1) {
+    const c = key.charCodeAt(i);
+    a = Math.imul(a ^ c, 0x01000193) >>> 0;
+    b = Math.imul(b ^ (c + i), 0x85ebca6b) >>> 0;
+  }
+  const hex = a.toString(16).padStart(8, '0') + b.toString(16).padStart(8, '0');
+  return `${prefix}-${hex}`.slice(0, 64);
+}
+
+/**
  * 첨부파일 링크 주소.
  *
  * 첨부 경로는 두 가지가 섞여 있다.
