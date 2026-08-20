@@ -13,14 +13,20 @@ import { LABOR_CATEGORIES, laborColor } from '@/lib/workforce';
 import { useSortable } from '@/lib/useSortable';
 import { CELL, SortButton } from './SheetUI';
 
-/** 롯데케미칼 #1 H-NC Effluent Line 작업(26.04.06) 인력업체 유해화학물질 이수증·수료증 원본 반영 */
-const DEFAULT_CHEM_WORKERS: {
+/**
+ * 롯데케미칼 #1 H-NC Effluent Line 작업(26.04.06) 인력업체 원본 서류 반영.
+ * 유해화학물질 이수증·수료증, 배치전건강진단(특수검진) 확인서를 인원별로 나눠 붙였다.
+ */
+const DEFAULT_WORKERS: {
   name: string;
   category: string;
   birth: string;
+  phone?: string;
   chemDate: string;
   chemCert: string;
   chemCertCompletion?: string;
+  specialHealthDate?: string;
+  specialHealthCert?: string;
 }[] = [
   { name: '이형일', category: '개미인력', birth: '1976-12-15', chemDate: '2025-08-25', chemCert: '/certs/labor-roster/개미인력/이형일_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/이형일_수료증.jpg' },
   { name: '곽철호', category: '개미인력', birth: '1969-08-19', chemDate: '2024-03-05', chemCert: '/certs/labor-roster/개미인력/곽철호_이수증.jpg', chemCertCompletion: '/certs/labor-roster/개미인력/곽철호_수료증.jpg' },
@@ -44,6 +50,19 @@ const DEFAULT_CHEM_WORKERS: {
   { name: '이진호', category: '공영인력', birth: '1975-11-21', chemDate: '2024-08-05', chemCert: '/certs/labor-roster/공영인력/이진호_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/이진호_수료증.pdf' },
   { name: '임복수', category: '공영인력', birth: '1974-06-15', chemDate: '2025-02-14', chemCert: '/certs/labor-roster/공영인력/임복수_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/임복수_수료증.pdf' },
   { name: '조운용', category: '공영인력', birth: '1964-01-02', chemDate: '2024-03-21', chemCert: '/certs/labor-roster/공영인력/조운용_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/조운용_수료증.pdf' },
+  { name: '김우영', category: '당근인력', birth: '1972-01-19', phone: '010-8244-4302', chemDate: '2026-01-28', chemCert: '/certs/labor-roster/당근인력/김우영_이수증.pdf', chemCertCompletion: '/certs/labor-roster/당근인력/김우영_수료증.pdf' },
+  { name: '김효종', category: '당근인력', birth: '1975-10-30', phone: '010-8531-5641', chemDate: '2026-02-19', chemCert: '/certs/labor-roster/당근인력/김효종_이수증.pdf', chemCertCompletion: '/certs/labor-roster/당근인력/김효종_수료증.pdf', specialHealthDate: '2026-04-30', specialHealthCert: '/certs/labor-roster/당근인력/김효종_특검확인서.jpg' },
+  { name: '문기영', category: '당근인력', birth: '1981-01-19', phone: '010-7334-1016', chemDate: '2026-03-25', chemCert: '/certs/labor-roster/당근인력/문기영_이수증.pdf', specialHealthDate: '2026-05-02', specialHealthCert: '/certs/labor-roster/당근인력/문기영_특검확인서.jpg' },
+  { name: '문병곤', category: '당근인력', birth: '1962-03-27', chemDate: '2024-08-01', chemCert: '/certs/labor-roster/당근인력/문병곤_이수증.pdf', specialHealthDate: '2026-04-30', specialHealthCert: '/certs/labor-roster/당근인력/문병곤_특검확인서.jpg' },
+  { name: '박은식', category: '당근인력', birth: '1986-03-15', phone: '010-4181-4440', chemDate: '2025-10-16', chemCert: '/certs/labor-roster/당근인력/박은식_이수증.pdf', chemCertCompletion: '/certs/labor-roster/당근인력/박은식_수료증.pdf', specialHealthDate: '2026-05-04', specialHealthCert: '/certs/labor-roster/당근인력/박은식_특검확인서.jpg' },
+  { name: '박종훈', category: '당근인력', birth: '1986-10-08', phone: '010-6409-5860', chemDate: '2026-01-16', chemCert: '/certs/labor-roster/당근인력/박종훈_이수증.pdf', chemCertCompletion: '/certs/labor-roster/당근인력/박종훈_수료증.pdf', specialHealthDate: '2026-04-30', specialHealthCert: '/certs/labor-roster/당근인력/박종훈_특검확인서.jpg' },
+  { name: '박준영', category: '당근인력', birth: '1962-10-19', chemDate: '2025-10-15', chemCert: '/certs/labor-roster/당근인력/박준영_이수증.pdf', specialHealthDate: '2026-04-30', specialHealthCert: '/certs/labor-roster/당근인력/박준영_특검확인서.jpg' },
+  { name: '박창환', category: '당근인력', birth: '1973-01-20', phone: '010-8210-3935', chemDate: '2025-02-12', chemCert: '/certs/labor-roster/당근인력/박창환_이수증.pdf', chemCertCompletion: '/certs/labor-roster/당근인력/박창환_수료증.pdf' },
+  { name: '백두재', category: '당근인력', birth: '1971-04-03', phone: '010-5936-1190', chemDate: '2025-11-11', chemCert: '/certs/labor-roster/당근인력/백두재_이수증.pdf', chemCertCompletion: '/certs/labor-roster/당근인력/백두재_수료증.pdf', specialHealthDate: '2026-05-02', specialHealthCert: '/certs/labor-roster/당근인력/백두재_특검확인서.jpg' },
+  { name: '서광철', category: '당근인력', birth: '1970-11-17', phone: '010-6697-1056', chemDate: '2025-05-16', chemCert: '/certs/labor-roster/당근인력/서광철_이수증.pdf', chemCertCompletion: '/certs/labor-roster/당근인력/서광철_수료증.pdf', specialHealthDate: '2026-05-02', specialHealthCert: '/certs/labor-roster/당근인력/서광철_특검확인서.jpg' },
+  { name: '이정동', category: '당근인력', birth: '1969-02-07', phone: '010-6223-6033', chemDate: '2025-01-15', chemCert: '/certs/labor-roster/당근인력/이정동_이수증.pdf', specialHealthDate: '2026-04-30', specialHealthCert: '/certs/labor-roster/당근인력/이정동_특검확인서.jpg' },
+  { name: '홍덕현', category: '당근인력', birth: '1988-01-15', chemDate: '2024-02-19', chemCert: '/certs/labor-roster/당근인력/홍덕현_이수증.pdf', chemCertCompletion: '/certs/labor-roster/당근인력/홍덕현_수료증.pdf', specialHealthDate: '2026-05-02', specialHealthCert: '/certs/labor-roster/당근인력/홍덕현_특검확인서.jpg' },
+  { name: '황성만', category: '당근인력', birth: '1981-01-23', chemDate: '2026-02-07', chemCert: '/certs/labor-roster/당근인력/황성만_이수증.pdf', chemCertCompletion: '/certs/labor-roster/당근인력/황성만_수료증.pdf', specialHealthDate: '2026-05-02', specialHealthCert: '/certs/labor-roster/당근인력/황성만_특검확인서.jpg' },
 ];
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -113,7 +132,7 @@ export default function LaborRoster() {
   const [migrating, setMigrating] = useState(false);
   const [migrateNote, setMigrateNote] = useState('');
   const seq = useRef(0);
-  const seededChemRef = useRef(false);
+  const seededRef = useRef(false);
   const sortCtl = useSortable<LaborWorker>();
   // 최초 반영 처리에서 최신 목록을 보기 위한 참조 (state는 그 시점에 아직 비어 있을 수 있다)
   const rowsRef = useRef(rows);
@@ -134,8 +153,8 @@ export default function LaborRoster() {
    * 뒤 단계에서 중복으로 만들지 않게 한다.
    */
   useEffect(() => {
-    if (seededChemRef.current || mode === 'loading' || role === 'viewer') return;
-    seededChemRef.current = true;
+    if (seededRef.current || mode === 'loading' || role === 'viewer') return;
+    seededRef.current = true;
 
     const timer = setTimeout(() => {
       const norm = (s: string) => s.replace(/\s/g, '');
@@ -144,16 +163,19 @@ export default function LaborRoster() {
         rowsRef.current.find((r) => norm(r.name) === norm(name));
       let seq2 = 0;
 
-      for (const d of DEFAULT_CHEM_WORKERS) {
+      for (const d of DEFAULT_WORKERS) {
         if (added.has(norm(d.name))) continue;
         const existing = findByName(d.name);
         if (existing) {
           const { next, changed } = fillBlank(existing, {
             category: existing.category || d.category,
             birth: d.birth,
+            phone: d.phone,
             chemDate: d.chemDate,
             chemCert: d.chemCert,
             chemCertCompletion: d.chemCertCompletion,
+            specialHealthDate: d.specialHealthDate,
+            specialHealthCert: d.specialHealthCert,
           });
           if (changed) setRow(existing.id, next);
         } else {
@@ -164,9 +186,12 @@ export default function LaborRoster() {
             category: d.category,
             name: d.name,
             birth: d.birth,
+            phone: d.phone,
             chemDate: d.chemDate,
             chemCert: d.chemCert,
             chemCertCompletion: d.chemCertCompletion,
+            specialHealthDate: d.specialHealthDate,
+            specialHealthCert: d.specialHealthCert,
             updatedAt: '',
           });
         }
