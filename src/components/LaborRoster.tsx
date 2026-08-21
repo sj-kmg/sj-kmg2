@@ -120,9 +120,19 @@ const RETRACTED: { name: string; cert: string }[] = [
   { name: '김효종', cert: '/certs/labor-roster/당근인력/김효종_특검확인서.jpg' },
 ];
 
-/** 이름 비교용 — 띄어쓰기는 무시한다 ("김 우영"과 "김우영"은 같은 사람) */
+/**
+ * 같은 사람인데 서류마다 이름이 다르게 적혀 있는 경우 — 왼쪽 이름을 오른쪽 이름으로 본다.
+ * 이렇게 묶어 두지 않으면 다른 메뉴에서 이름을 불러올 때 한 사람이 두 줄로 생긴다.
+ */
+const NAME_ALIAS: Record<string, string> = {
+  // 여수인력 — 특검확인서·건설기초는 "김명동", 유해화학물질 서류만 "진명동"으로 되어 있다
+  진명동: '김명동',
+};
+
+/** 이름 비교용 — 띄어쓰기는 무시하고, 같은 사람의 다른 표기는 한쪽으로 모은다 */
 function normName(s: string): string {
-  return (s ?? '').replace(/\s/g, '');
+  const key = (s ?? '').replace(/\s/g, '');
+  return NAME_ALIAS[key] ?? key;
 }
 
 /** 사람을 알아보는 값들 — 이 칸들이 채워진 정도로 "내용이 많은 기록"을 가린다 */
