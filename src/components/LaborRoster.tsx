@@ -22,8 +22,9 @@ const DEFAULT_WORKERS: {
   category: string;
   birth: string;
   phone?: string;
-  chemDate: string;
-  chemCert: string;
+  /** 유해화학물질 서류가 아직 없는 인원도 있어 선택값으로 둔다 */
+  chemDate?: string;
+  chemCert?: string;
   chemCertCompletion?: string;
   specialHealthDate?: string;
   specialHealthCert?: string;
@@ -66,6 +67,16 @@ const DEFAULT_WORKERS: {
   { name: '이정동', category: '당근인력', birth: '1969-02-07', phone: '010-6223-6033', chemDate: '2025-01-15', chemCert: '/certs/labor-roster/당근인력/이정동_이수증.pdf', specialHealthDate: '2026-04-30', specialHealthCert: '/certs/labor-roster/당근인력/이정동_특검확인서.jpg' },
   { name: '홍덕현', category: '당근인력', birth: '1988-01-15', chemDate: '2024-02-19', chemCert: '/certs/labor-roster/당근인력/홍덕현_이수증.pdf', chemCertCompletion: '/certs/labor-roster/당근인력/홍덕현_수료증.pdf', specialHealthDate: '2026-05-02', specialHealthCert: '/certs/labor-roster/당근인력/홍덕현_특검확인서.jpg' },
   { name: '황성만', category: '당근인력', birth: '1981-01-23', chemDate: '2026-02-07', chemCert: '/certs/labor-roster/당근인력/황성만_이수증.pdf', chemCertCompletion: '/certs/labor-roster/당근인력/황성만_수료증.pdf', specialHealthDate: '2026-05-02', specialHealthCert: '/certs/labor-roster/당근인력/황성만_특검확인서.jpg' },
+  // 여수·여천인력 — 배치전건강진단(특수검진) 확인서만 받은 상태. 유해화학물질 서류는 아직 없다.
+  { name: '권경길', category: '여수인력', birth: '1959-03-02', specialHealthDate: '2026-04-24', specialHealthCert: '/certs/labor-roster/여수인력/권경길_특검확인서.pdf' },
+  { name: '김명동', category: '여수인력', birth: '1972-02-29', specialHealthDate: '2026-04-25', specialHealthCert: '/certs/labor-roster/여수인력/김명동_특검확인서.pdf' },
+  { name: '김병식', category: '여수인력', birth: '1961-08-11', specialHealthDate: '2026-04-25', specialHealthCert: '/certs/labor-roster/여수인력/김병식_특검확인서.pdf' },
+  { name: '이진홍', category: '여수인력', birth: '1964-05-26', specialHealthDate: '2026-04-25', specialHealthCert: '/certs/labor-roster/여수인력/이진홍_특검확인서.pdf' },
+  { name: '임상하', category: '여수인력', birth: '1992-10-27', specialHealthDate: '2026-04-25', specialHealthCert: '/certs/labor-roster/여수인력/임상하_특검확인서.pdf' },
+  { name: '한옥수', category: '여수인력', birth: '1959-01-26', specialHealthDate: '2026-04-29', specialHealthCert: '/certs/labor-roster/여수인력/한옥수_특검확인서.pdf' },
+  { name: '김도만', category: '여천인력', birth: '1960-08-16', specialHealthDate: '2026-04-29', specialHealthCert: '/certs/labor-roster/여천인력/김도만_특검확인서.pdf' },
+  { name: '김야곤', category: '여천인력', birth: '1955-03-14', specialHealthDate: '2026-04-29', specialHealthCert: '/certs/labor-roster/여천인력/김야곤_특검확인서.pdf' },
+  { name: '박래현', category: '여천인력', birth: '1985-03-12', specialHealthDate: '2026-04-29', specialHealthCert: '/certs/labor-roster/여천인력/박래현_특검확인서.pdf' },
 ];
 
 function fileToDataUrl(file: File): Promise<string> {
