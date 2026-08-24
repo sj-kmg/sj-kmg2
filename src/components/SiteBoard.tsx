@@ -3,10 +3,13 @@
 import { useState } from 'react';
 import type { OpsData } from '@/lib/useOps';
 import {
+  dateLabelOf,
+  datesOf,
   laborColor,
   laborCountOf,
   siteColor,
   staffNames,
+  workDaysOf,
   type WorkforceEntry,
 } from '@/lib/workforce';
 
@@ -96,6 +99,7 @@ export default function SiteBoard({
             <SiteCard
               key={e.id}
               entry={e}
+              onDate={date}
               tbmDone={day.tbmSites.has(e.site)}
               open={openId === e.id}
               onToggle={() => setOpenId(openId === e.id ? null : e.id)}
@@ -110,12 +114,15 @@ export default function SiteBoard({
 
 function SiteCard({
   entry: e,
+  onDate,
   tbmDone,
   open,
   onToggle,
   onOpenTbm,
 }: {
   entry: WorkforceEntry;
+  /** 지금 보고 있는 날짜 — 여러 날짜에 걸친 기록이면 몇 일차인지 보여 준다 */
+  onDate: string;
   tbmDone: boolean;
   open: boolean;
   onToggle: () => void;
@@ -126,6 +133,9 @@ function SiteCard({
   const laborN = laborCountOf(e);
   const total = staff.length + laborN;
   const color = siteColor(e.site);
+  /** 여러 날에 걸친 작업이면 "3/5일차"로 표시 — 매일 따로 적은 기록이 아님을 알 수 있게 한다 */
+  const spanDays = workDaysOf(e);
+  const dayNo = spanDays > 1 ? datesOf(e).indexOf(onDate) + 1 : 0;
   /** 장비현황은 자유 입력이라 쉼표로 나눠 항목별로 보여 준다 */
   const equipment = (e.equipment ?? '')
     .split(/[,·/]/)
@@ -148,6 +158,14 @@ function SiteCard({
         {/* 1줄: 현장 · 시간 · TBM · 총원 */}
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
           <span className="text-sm font-bold text-slate-800">{e.site}</span>
+          {dayNo > 0 && (
+            <span
+              className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-500"
+              title={`${dateLabelOf(e)} 연속 작업`}
+            >
+              {dayNo}/{spanDays}일차
+            </span>
+          )}
           {e.workHours && <span className="font-mono text-[11px] text-slate-400">🕐 {e.workHours}</span>}
           {tbmDone ? (
             <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">

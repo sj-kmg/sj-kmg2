@@ -5,10 +5,14 @@ import type { SafetyData } from '@/lib/types';
 import { useSyncedLog, modeBadge } from '@/lib/useSyncedLog';
 import {
   LABOR_CATEGORIES,
+  MAX_WORK_DAYS,
   WORKFORCE_KEY,
+  dateLabelOf,
+  endDateOf,
   laborCountOf,
   laborSummary,
   todayLocal,
+  workDaysOf,
   type LaborRow,
   type WorkforceEntry,
 } from '@/lib/workforce';
@@ -19,6 +23,7 @@ const EMPTY_ROW: LaborRow = { category: '', name: '', workType: '', hours: '' };
 const EMPTY = {
   site: '',
   date: '',
+  endDate: '',
   manager: '',
   staff: '',
   workHours: '',
@@ -57,6 +62,17 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
 
   const totalWorkers = useMemo(() => shown.reduce((sum, e) => sum + laborCountOf(e), 0), [shown]);
 
+  /** 지정한 기간 안내 — 잘못 넣은 경우도 여기서 바로 알려 준다 */
+  const rangeHint = useMemo(() => {
+    const end = form.endDate.trim();
+    if (!end || !form.date) return '여러 날 이어지는 작업이면 종료일까지 지정하세요 (비워 두면 하루).';
+    if (end < form.date) return '⚠ 종료일이 시작일보다 앞섭니다.';
+    const days = workDaysOf(form);
+    if (days === 1) return '시작일과 종료일이 같아 하루 작업으로 기록됩니다.';
+    if (days > MAX_WORK_DAYS) return `⚠ 기간이 너무 깁니다 (${days}일). ${MAX_WORK_DAYS}일 이내로 지정해 주세요.`;
+    return `${days}일간 작업 — 이 기간의 모든 날짜에 같은 현장·인원이 표시됩니다.`;
+  }, [form]);
+
   const set = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -66,18 +82,29 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.site.trim() || !form.date) return;
+    const end = form.endDate.trim();
+    if (end && end < form.date) {
+      alert('작업 종료일이 시작일보다 앞섭니다.\n기간을 다시 지정해 주세요.');
+      return;
+    }
+    if (workDaysOf(form) > MAX_WORK_DAYS) {
+      alert(`작업기간이 너무 깁니다 (${workDaysOf(form)}일).\n${MAX_WORK_DAYS}일 이내로 지정해 주세요.`);
+      return;
+    }
     const rows = laborRows.filter((r) => r.category || r.name.trim() || r.workType.trim() || r.hours.trim());
     const editing = entries.find((x) => x.id === editingId);
     const entry: WorkforceEntry = {
       id: editing?.id ?? `WF-${Date.now()}`,
       ...form,
+      // 하루짜리는 종료일을 남기지 않는다 (예전 기록과 같은 모양으로 둔다)
+      endDate: end && end > form.date ? end : '',
       site: form.site.trim(),
       laborRows: rows,
       createdAt: editing?.createdAt ?? new Date().toISOString(),
       ...(editing ? { updatedAt: new Date().toISOString() } : {}),
     };
     if (!(await add(entry))) return;
-    setForm({ ...EMPTY, date: form.date, site: form.site });
+    setForm({ ...EMPTY, date: form.date, endDate: form.endDate, site: form.site });
     setLaborRows([{ ...EMPTY_ROW }]);
     setEditingId(null);
     setSaved(true);
@@ -89,6 +116,7 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
     setForm({
       site: e.site,
       date: e.date,
+      endDate: e.endDate ?? '',
       manager: e.manager,
       staff: e.staff,
       workHours: e.workHours,
@@ -112,12 +140,12 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
   };
 
   const exportCsv = () => {
-    const head = ['작업일시', '현장명', '현장소장', '직원', '작업시간', '작업내용', '장비현황', '인력인원', '인력내역'];
+    const head = ['작업시작일', '작업종료일', '작업일수', '현장명', '현장소장', '직원', '작업시간', '작업내용', '장비현황', '인력인원', '인력내역'];
     const esc = (s: string) => `"${(s ?? '').replace(/"/g, '""')}"`;
     const rows = [...entries]
       .sort((a, b) => a.date.localeCompare(b.date))
       .map((e) =>
-        [e.date, e.site, e.manager, e.staff, e.workHours, e.work, e.equipment, String(laborCountOf(e)), laborSummary(e)]
+        [e.date, endDateOf(e), String(workDaysOf(e)), e.site, e.manager, e.staff, e.workHours, e.work, e.equipment, String(laborCountOf(e)), laborSummary(e)]
           .map(esc)
           .join(','),
       );
@@ -157,7 +185,7 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
           )}
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div>
+          <div className="col-span-2">
             <label className={label} htmlFor="wf-site">현장명 *</label>
             <input id="wf-site" required list="wf-sites" placeholder="예: 여천NCC" value={form.site} onChange={set('site')} className={input} />
             <datalist id="wf-sites">
@@ -166,9 +194,33 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
               ))}
             </datalist>
           </div>
-          <div>
-            <label className={label} htmlFor="wf-date">작업일시 *</label>
-            <input id="wf-date" type="date" required value={form.date} onChange={set('date')} className={input} />
+          {/* 작업기간 — 날짜칸 두 개가 나란히 들어가야 해서 한 줄을 다 쓴다 */}
+          <div className="col-span-2">
+            <label className={label} htmlFor="wf-date">작업기간 *</label>
+            <div className="flex items-center gap-1.5">
+              <input
+                id="wf-date"
+                type="date"
+                required
+                value={form.date}
+                onChange={set('date')}
+                aria-label="작업 시작일"
+                className={input}
+              />
+              <span className="shrink-0 text-xs text-slate-400">~</span>
+              <input
+                id="wf-end-date"
+                type="date"
+                value={form.endDate}
+                min={form.date || undefined}
+                onChange={set('endDate')}
+                aria-label="작업 종료일 (하루면 비워 둡니다)"
+                className={input}
+              />
+            </div>
+            <p className="mt-1 text-[10px] text-slate-400">
+              {rangeHint}
+            </p>
           </div>
           <div>
             <label className={label} htmlFor="wf-manager">현장소장</label>
@@ -324,7 +376,7 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
             >
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="rounded bg-[#1f3864] px-2 py-0.5 text-xs font-bold text-white">{e.site}</span>
-                <span className="font-mono text-xs text-slate-500">{e.date}</span>
+                <span className="font-mono text-xs text-slate-500">{dateLabelOf(e)}</span>
                 {e.workHours && <span className="text-xs text-slate-500">🕐 {e.workHours}</span>}
                 {e.manager && <span className="text-xs text-slate-500">소장 {e.manager}</span>}
                 {laborCountOf(e) > 0 && (
