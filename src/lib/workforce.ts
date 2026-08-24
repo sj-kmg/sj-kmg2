@@ -10,6 +10,21 @@ export interface LaborRow {
   hours: string; // 작업시간
 }
 
+/**
+ * 기간 중 특정 날짜만 다르게 잡을 때 쓰는 값.
+ * 적어 두지 않은 항목은 기록의 기본값을 그대로 따른다.
+ */
+export interface DayOverride {
+  /** 그날은 작업하지 않음 (주말·우천 휴무 등) — 달력·집계에서 아예 빠진다 */
+  off?: boolean;
+  staff?: string;
+  workHours?: string;
+  work?: string;
+  equipment?: string;
+  /** 그날만 다른 인력 구성 (빈 배열이면 "그날은 인력 없음") */
+  laborRows?: LaborRow[];
+}
+
 export interface WorkforceEntry {
   id: string;
   site: string; // 현장명
@@ -19,6 +34,8 @@ export interface WorkforceEntry {
    * 비어 있거나 시작일과 같으면 하루짜리 작업이다 (예전 기록은 이 값이 없다).
    */
   endDate?: string;
+  /** 기간 중 따로 지정한 날 — 키는 YYYY-MM-DD */
+  overrides?: Record<string, DayOverride>;
   manager: string; // 현장소장
   staff: string; // 직원
   laborRows?: LaborRow[]; // 인력 목록
@@ -160,4 +177,58 @@ export function dateLabelOf(e: DateRange): string {
   // 같은 해면 뒤쪽은 월-일만 보여 짧게 쓴다
   const tail = last.slice(0, 4) === e.date.slice(0, 4) ? last.slice(5) : last;
   return `${e.date} ~ ${tail} (${workDaysOf(e)}일)`;
+}
+
+/* ── 기간 중 특정 날짜만 다르게 지정하기 ─────────────────────────── */
+
+/** 그 날짜에 따로 지정한 내용 (없으면 undefined) */
+export function dayOverrideOf(e: WorkforceEntry, date: string): DayOverride | undefined {
+  return e.overrides?.[date];
+}
+
+/** 그날은 쉬는 날로 지정했는지 */
+export function isOffDay(e: WorkforceEntry, date: string): boolean {
+  return dayOverrideOf(e, date)?.off === true;
+}
+
+/** 실제로 작업하는 날짜만 (휴무로 지정한 날은 뺀다) */
+export function workingDatesOf(e: WorkforceEntry): string[] {
+  return datesOf(e).filter((d) => !isOffDay(e, d));
+}
+
+/** 따로 지정한 날이 하나라도 있는지 — 목록 배지에 쓴다 */
+export function hasOverrides(e: WorkforceEntry): boolean {
+  return Object.keys(e.overrides ?? {}).length > 0;
+}
+
+/** 휴무로 지정한 날 수 */
+export function offDayCount(e: WorkforceEntry): number {
+  return datesOf(e).filter((d) => isOffDay(e, d)).length;
+}
+
+/** 지정한 내용이 하나라도 들어 있는지 — 빈 껍데기는 저장하지 않는다 */
+export function isMeaningfulOverride(o: DayOverride | undefined): boolean {
+  if (!o) return false;
+  if (o.off) return true;
+  if ((o.staff ?? '').trim() || (o.workHours ?? '').trim()) return true;
+  if ((o.work ?? '').trim() || (o.equipment ?? '').trim()) return true;
+  return Array.isArray(o.laborRows);
+}
+
+/**
+ * 그 날짜 기준으로 실제 적용되는 기록.
+ * 기간 중 따로 지정한 날은 그 값으로 바꿔 돌려주고, 아니면 원본 그대로다.
+ * (달력·현장보드·인원 집계는 모두 이 결과를 기준으로 센다)
+ */
+export function entryOnDate(e: WorkforceEntry, date: string): WorkforceEntry {
+  const o = dayOverrideOf(e, date);
+  if (!o) return e;
+  return {
+    ...e,
+    staff: o.staff ?? e.staff,
+    workHours: o.workHours ?? e.workHours,
+    work: o.work ?? e.work,
+    equipment: o.equipment ?? e.equipment,
+    ...(o.laborRows ? { laborRows: o.laborRows, laborCount: undefined, laborNames: undefined } : {}),
+  };
 }

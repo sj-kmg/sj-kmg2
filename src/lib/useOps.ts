@@ -6,10 +6,11 @@ import { listEntriesSilently } from './sync';
 import { TBM_KEY, tbmDate, type TbmEntry } from './tbm';
 import {
   WORKFORCE_KEY,
-  datesOf,
+  entryOnDate,
   headcountOf,
   laborCountOf,
   staffCountOf,
+  workingDatesOf,
   type WorkforceEntry,
 } from './workforce';
 
@@ -111,14 +112,16 @@ export function useOps(): OpsData {
     };
 
     for (const e of workforce) {
-      // 여러 날 이어지는 작업은 그 기간의 모든 날에 똑같이 올린다
-      for (const d of datesOf(e)) {
+      // 여러 날 이어지는 작업은 그 기간의 모든 날에 올린다 (휴무로 지정한 날은 뺀다).
+      // 특정 날짜만 다르게 지정했으면 그날은 그 내용으로 센다.
+      for (const d of workingDatesOf(e)) {
+        const onDay = entryOnDate(e, d);
         const day = dayFor(d);
-        day.entries.push(e);
+        day.entries.push(onDay);
         if (e.site && !day.sites.includes(e.site)) day.sites.push(e.site);
-        day.staff += staffCountOf(e);
-        day.labor += laborCountOf(e);
-        day.headcount += headcountOf(e);
+        day.staff += staffCountOf(onDay);
+        day.labor += laborCountOf(onDay);
+        day.headcount += headcountOf(onDay);
       }
     }
     for (const t of tbm) {

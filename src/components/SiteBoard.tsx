@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { OpsData } from '@/lib/useOps';
 import {
   dateLabelOf,
-  datesOf,
+  workingDatesOf,
   laborColor,
   laborCountOf,
   siteColor,
@@ -133,9 +133,13 @@ function SiteCard({
   const laborN = laborCountOf(e);
   const total = staff.length + laborN;
   const color = siteColor(e.site);
-  /** 여러 날에 걸친 작업이면 "3/5일차"로 표시 — 매일 따로 적은 기록이 아님을 알 수 있게 한다 */
-  const spanDays = workDaysOf(e);
-  const dayNo = spanDays > 1 ? datesOf(e).indexOf(onDate) + 1 : 0;
+  /**
+   * 여러 날에 걸친 작업이면 "3/5일차"로 표시 — 매일 따로 적은 기록이 아님을 알 수 있게 한다.
+   * 휴무로 지정한 날은 세지 않으므로 "3/4일차"처럼 실제 작업일 기준으로 나온다.
+   */
+  const workDates = workingDatesOf(e);
+  const spanDays = workDates.length;
+  const dayNo = workDaysOf(e) > 1 ? workDates.indexOf(onDate) + 1 : 0;
   /** 장비현황은 자유 입력이라 쉼표로 나눠 항목별로 보여 준다 */
   const equipment = (e.equipment ?? '')
     .split(/[,·/]/)

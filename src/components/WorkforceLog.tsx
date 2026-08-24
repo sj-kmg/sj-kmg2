@@ -8,17 +8,104 @@ import {
   MAX_WORK_DAYS,
   WORKFORCE_KEY,
   dateLabelOf,
+  datesOf,
   endDateOf,
+  hasOverrides,
+  isMeaningfulOverride,
   laborCountOf,
   laborSummary,
+  offDayCount,
   todayLocal,
   workDaysOf,
+  workingDatesOf,
+  type DayOverride,
   type LaborRow,
   type WorkforceEntry,
 } from '@/lib/workforce';
 import { TD_STICKY, TH_STICKY } from './SheetUI';
 
 const EMPTY_ROW: LaborRow = { category: '', name: '', workType: '', hours: '' };
+
+const ROW_INPUT =
+  'w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 focus:border-[#1f3864] focus:outline-none';
+
+const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+
+/** "04-08 (수)" 의 요일 부분 */
+function dowOf(date: string): string {
+  const d = new Date(`${date}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? '' : DOW[d.getDay()];
+}
+
+/** 그날 무엇을 바꿨는지 짧게 — "인력·시간" 같은 배지 문구 */
+function overrideSummary(o: DayOverride | undefined): string {
+  if (!o) return '';
+  const parts = [
+    o.laborRows && '인력',
+    (o.staff ?? '').trim() && '직원',
+    (o.workHours ?? '').trim() && '시간',
+    (o.work ?? '').trim() && '내용',
+    (o.equipment ?? '').trim() && '장비',
+  ].filter(Boolean);
+  return parts.length ? `${parts.join('·')} 변경` : '변경';
+}
+const GRID = 'grid grid-cols-[2rem_5.5rem_1fr_1fr_5.5rem_1.5rem] items-center gap-1.5';
+
+/** 인력 목록 편집 — 기본 인력과 "그날만 다른 인력" 양쪽에서 같이 쓴다 */
+function LaborRowsEditor({
+  rows,
+  onChange,
+  idPrefix,
+}: {
+  rows: LaborRow[];
+  onChange: (next: LaborRow[]) => void;
+  idPrefix: string;
+}) {
+  const setRow = (i: number, k: keyof LaborRow, v: string) =>
+    onChange(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
+
+  return (
+    <div className="space-y-1.5">
+      <div className={`${GRID} px-0.5 text-[10px] font-semibold text-slate-400`}>
+        <span className="text-center">번호</span>
+        <span>구분</span>
+        <span>인력이름</span>
+        <span>작업구분</span>
+        <span>작업시간</span>
+        <span />
+      </div>
+      {rows.map((r, i) => (
+        <div key={`${idPrefix}-${i}`} className={GRID}>
+          <span className="text-center text-sm font-semibold text-slate-500">{i + 1}</span>
+          <select
+            value={r.category}
+            onChange={(e) => setRow(i, 'category', e.target.value)}
+            className={ROW_INPUT}
+            aria-label={`인력 ${i + 1} 구분`}
+          >
+            <option value="">선택</option>
+            {LABOR_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <input value={r.name} onChange={(e) => setRow(i, 'name', e.target.value)} placeholder="이름" className={ROW_INPUT} aria-label={`인력 ${i + 1} 이름`} />
+          <input value={r.workType} onChange={(e) => setRow(i, 'workType', e.target.value)} placeholder="예: 밀폐감시" className={ROW_INPUT} aria-label={`인력 ${i + 1} 작업구분`} />
+          <input value={r.hours} onChange={(e) => setRow(i, 'hours', e.target.value)} placeholder="8h" className={ROW_INPUT} aria-label={`인력 ${i + 1} 작업시간`} />
+          <button
+            type="button"
+            onClick={() => onChange(rows.length > 1 ? rows.filter((_, j) => j !== i) : [{ ...EMPTY_ROW }])}
+            className="text-center text-slate-300 hover:text-red-500"
+            aria-label={`인력 ${i + 1} 행 삭제`}
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const EMPTY = {
   site: '',
@@ -35,6 +122,10 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
   const { entries, mode, add, remove } = useSyncedLog<WorkforceEntry>('workforce', WORKFORCE_KEY);
   const [form, setForm] = useState({ ...EMPTY });
   const [laborRows, setLaborRows] = useState<LaborRow[]>([{ ...EMPTY_ROW }]);
+  /** 기간 중 따로 지정한 날 (YYYY-MM-DD → 그날 내용) */
+  const [overrides, setOverrides] = useState<Record<string, DayOverride>>({});
+  /** 지금 펼쳐 놓은 날짜 */
+  const [openDay, setOpenDay] = useState<string | null>(null);
   const [filterSite, setFilterSite] = useState('');
   const [saved, setSaved] = useState(false);
   /** 수정 중인 기록의 id — null이면 새 기록 작성 */
@@ -62,6 +153,50 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
 
   const totalWorkers = useMemo(() => shown.reduce((sum, e) => sum + laborCountOf(e), 0), [shown]);
 
+  /** 기간에 들어가는 날짜들 — 날짜별 조정 목록을 그린다 */
+  const rangeDates = useMemo(() => {
+    if (!form.date) return [];
+    const end = form.endDate.trim();
+    if (end && end < form.date) return [];
+    const list = datesOf(form);
+    return list.length > MAX_WORK_DAYS ? [] : list;
+  }, [form]);
+
+  /** 그날만 다르게 지정한 내용 — 값이 빈 문자열이면 "지정 안 함"으로 되돌린다 */
+  const setOverride = (date: string, patch: Partial<DayOverride>) =>
+    setOverrides((cur) => {
+      const next: DayOverride = { ...cur[date] };
+      for (const [k, v] of Object.entries(patch) as [keyof DayOverride, unknown][]) {
+        if (v === undefined || v === '') delete next[k];
+        else Object.assign(next, { [k]: v });
+      }
+      const out = { ...cur };
+      if (isMeaningfulOverride(next)) out[date] = next;
+      else delete out[date];
+      return out;
+    });
+
+  const toggleOff = (date: string) =>
+    setOverrides((cur) => {
+      const out = { ...cur };
+      if (cur[date]?.off) {
+        const rest = { ...cur[date] };
+        delete rest.off;
+        if (isMeaningfulOverride(rest)) out[date] = rest;
+        else delete out[date];
+      } else {
+        out[date] = { ...cur[date], off: true };
+      }
+      return out;
+    });
+
+  const clearOverride = (date: string) =>
+    setOverrides((cur) => {
+      const out = { ...cur };
+      delete out[date];
+      return out;
+    });
+
   /** 지정한 기간 안내 — 잘못 넣은 경우도 여기서 바로 알려 준다 */
   const rangeHint = useMemo(() => {
     const end = form.endDate.trim();
@@ -70,14 +205,11 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
     const days = workDaysOf(form);
     if (days === 1) return '시작일과 종료일이 같아 하루 작업으로 기록됩니다.';
     if (days > MAX_WORK_DAYS) return `⚠ 기간이 너무 깁니다 (${days}일). ${MAX_WORK_DAYS}일 이내로 지정해 주세요.`;
-    return `${days}일간 작업 — 이 기간의 모든 날짜에 같은 현장·인원이 표시됩니다.`;
+    return `${days}일간 작업 — 기본은 모든 날 같은 인원이고, 다른 날은 아래에서 따로 지정합니다.`;
   }, [form]);
 
   const set = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
-
-  const setRow = (i: number, k: keyof LaborRow, v: string) =>
-    setLaborRows((rows) => rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,11 +225,21 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
     }
     const rows = laborRows.filter((r) => r.category || r.name.trim() || r.workType.trim() || r.hours.trim());
     const editing = entries.find((x) => x.id === editingId);
+    // 기간 안에 있고 실제로 내용이 있는 조정만 남긴다 (기간을 줄이면 밖으로 나간 날은 버린다)
+    const inRange = new Set(datesOf({ date: form.date, endDate: end }));
+    const keptOverrides: Record<string, DayOverride> = {};
+    for (const [d, o] of Object.entries(overrides)) {
+      if (!inRange.has(d) || !isMeaningfulOverride(o)) continue;
+      keptOverrides[d] = o.laborRows
+        ? { ...o, laborRows: o.laborRows.filter((r) => r.category || r.name.trim() || r.workType.trim() || r.hours.trim()) }
+        : o;
+    }
     const entry: WorkforceEntry = {
       id: editing?.id ?? `WF-${Date.now()}`,
       ...form,
       // 하루짜리는 종료일을 남기지 않는다 (예전 기록과 같은 모양으로 둔다)
       endDate: end && end > form.date ? end : '',
+      overrides: keptOverrides,
       site: form.site.trim(),
       laborRows: rows,
       createdAt: editing?.createdAt ?? new Date().toISOString(),
@@ -106,6 +248,8 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
     if (!(await add(entry))) return;
     setForm({ ...EMPTY, date: form.date, endDate: form.endDate, site: form.site });
     setLaborRows([{ ...EMPTY_ROW }]);
+    setOverrides({});
+    setOpenDay(null);
     setEditingId(null);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -124,12 +268,16 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
       equipment: e.equipment,
     });
     setLaborRows(e.laborRows && e.laborRows.length > 0 ? e.laborRows.map((r) => ({ ...r })) : [{ ...EMPTY_ROW }]);
+    setOverrides(structuredClone(e.overrides ?? {}));
+    setOpenDay(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setForm({ ...EMPTY, date: todayLocal() });
+    setOverrides({});
+    setOpenDay(null);
     setLaborRows([{ ...EMPTY_ROW }]);
   };
 
@@ -247,65 +395,151 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
                 ＋ 인력 추가
               </button>
             </div>
-            <div className="space-y-1.5">
-              {/* 열 제목 */}
-              <div className="grid grid-cols-[2rem_5.5rem_1fr_1fr_5.5rem_1.5rem] items-center gap-1.5 px-0.5 text-[10px] font-semibold text-slate-400">
-                <span className="text-center">번호</span>
-                <span>구분</span>
-                <span>인력이름</span>
-                <span>작업구분</span>
-                <span>작업시간</span>
-                <span />
-              </div>
-              {laborRows.map((r, i) => (
-                <div key={i} className="grid grid-cols-[2rem_5.5rem_1fr_1fr_5.5rem_1.5rem] items-center gap-1.5">
-                  <span className="text-center text-sm font-semibold text-slate-500">{i + 1}</span>
-                  <select
-                    value={r.category}
-                    onChange={(e) => setRow(i, 'category', e.target.value)}
-                    className={rowInput}
-                    aria-label={`인력 ${i + 1} 구분`}
-                  >
-                    <option value="">선택</option>
-                    {LABOR_CATEGORIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    value={r.name}
-                    onChange={(e) => setRow(i, 'name', e.target.value)}
-                    placeholder="이름"
-                    className={rowInput}
-                    aria-label={`인력 ${i + 1} 이름`}
-                  />
-                  <input
-                    value={r.workType}
-                    onChange={(e) => setRow(i, 'workType', e.target.value)}
-                    placeholder="예: 밀폐감시"
-                    className={rowInput}
-                    aria-label={`인력 ${i + 1} 작업구분`}
-                  />
-                  <input
-                    value={r.hours}
-                    onChange={(e) => setRow(i, 'hours', e.target.value)}
-                    placeholder="8h"
-                    className={rowInput}
-                    aria-label={`인력 ${i + 1} 작업시간`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setLaborRows((rows) => (rows.length > 1 ? rows.filter((_, j) => j !== i) : [{ ...EMPTY_ROW }]))}
-                    className="text-center text-slate-300 hover:text-red-500"
-                    aria-label={`인력 ${i + 1} 행 삭제`}
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
+            <LaborRowsEditor rows={laborRows} onChange={setLaborRows} idPrefix="base" />
           </div>
+
+          {/* 기간 중 특정 날짜만 다르게 — 하루짜리 작업에는 나오지 않는다 */}
+          {rangeDates.length > 1 && (
+            <div className="col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="text-xs font-bold text-slate-600">날짜별 조정</span>
+                <span className="text-[10px] text-slate-400">
+                  기본값과 다른 날만 지정하세요 · 지정 안 한 날은 위 내용 그대로
+                </span>
+              </div>
+              <div className="space-y-1">
+                {rangeDates.map((d) => {
+                  const o = overrides[d];
+                  const off = o?.off === true;
+                  const changed = !off && isMeaningfulOverride(o);
+                  const isOpen = openDay === d;
+                  return (
+                    <div key={d} className="rounded-lg border border-slate-200 bg-white">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-2.5 py-1.5">
+                        <span className={`font-mono text-xs font-bold ${off ? 'text-slate-300 line-through' : 'text-slate-700'}`}>
+                          {d.slice(5)} ({dowOf(d)})
+                        </span>
+                        {off ? (
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">휴무</span>
+                        ) : changed ? (
+                          <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
+                            {overrideSummary(o)}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400">기본</span>
+                        )}
+                        <span className="ml-auto flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => toggleOff(d)}
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                              off ? 'bg-slate-600 text-white' : 'border border-slate-300 text-slate-500 hover:border-slate-500'
+                            }`}
+                          >
+                            휴무
+                          </button>
+                          <button
+                            type="button"
+                            disabled={off}
+                            onClick={() => setOpenDay(isOpen ? null : d)}
+                            className="rounded px-1.5 py-0.5 text-[10px] font-semibold text-sky-600 hover:underline disabled:opacity-30"
+                          >
+                            {isOpen ? '접기' : '이 날만 수정'}
+                          </button>
+                        </span>
+                      </div>
+
+                      {isOpen && !off && (
+                        <div className="space-y-2 border-t border-slate-100 px-2.5 py-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="mb-1 block text-[10px] font-semibold text-slate-500" htmlFor={`ov-hours-${d}`}>작업시간</label>
+                              <input
+                                id={`ov-hours-${d}`}
+                                value={o?.workHours ?? ''}
+                                placeholder={form.workHours || '기본값 그대로'}
+                                onChange={(ev) => setOverride(d, { workHours: ev.target.value })}
+                                className={ROW_INPUT}
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-[10px] font-semibold text-slate-500" htmlFor={`ov-staff-${d}`}>직원</label>
+                              <input
+                                id={`ov-staff-${d}`}
+                                value={o?.staff ?? ''}
+                                placeholder={form.staff || '기본값 그대로'}
+                                onChange={(ev) => setOverride(d, { staff: ev.target.value })}
+                                className={ROW_INPUT}
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-[10px] font-semibold text-slate-500" htmlFor={`ov-work-${d}`}>작업내용</label>
+                            <input
+                              id={`ov-work-${d}`}
+                              value={o?.work ?? ''}
+                              placeholder={form.work ? form.work.split('\n')[0] : '기본값 그대로'}
+                              onChange={(ev) => setOverride(d, { work: ev.target.value })}
+                              className={ROW_INPUT}
+                            />
+                          </div>
+                          <div>
+                            <div className="mb-1 flex items-center justify-between">
+                              <span className="text-[10px] font-semibold text-slate-500">
+                                인력 {o?.laborRows ? `(${o.laborRows.length}명 — 이 날만)` : '(기본값 그대로)'}
+                              </span>
+                              <span className="flex items-center gap-1.5">
+                                {o?.laborRows ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => setOverride(d, { laborRows: [...(o.laborRows ?? []), { ...EMPTY_ROW }] })}
+                                      className="rounded border border-[#1f3864] px-1.5 py-0.5 text-[10px] font-bold text-[#1f3864]"
+                                    >
+                                      ＋ 인력
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setOverride(d, { laborRows: undefined })}
+                                      className="text-[10px] text-slate-400 hover:text-slate-700 hover:underline"
+                                    >
+                                      기본값으로
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setOverride(d, { laborRows: laborRows.map((r) => ({ ...r })) })}
+                                    className="rounded border border-slate-300 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 hover:border-[#1f3864] hover:text-[#1f3864]"
+                                  >
+                                    이 날만 인력 바꾸기
+                                  </button>
+                                )}
+                              </span>
+                            </div>
+                            {o?.laborRows && (
+                              <LaborRowsEditor
+                                rows={o.laborRows}
+                                onChange={(next) => setOverride(d, { laborRows: next })}
+                                idPrefix={`ov-${d}`}
+                              />
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => clearOverride(d)}
+                            className="text-[10px] font-semibold text-slate-400 hover:text-red-500 hover:underline"
+                          >
+                            이 날 조정 전부 지우기
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="col-span-2">
             <label className={label} htmlFor="wf-work">작업내용</label>
@@ -377,6 +611,14 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="rounded bg-[#1f3864] px-2 py-0.5 text-xs font-bold text-white">{e.site}</span>
                 <span className="font-mono text-xs text-slate-500">{dateLabelOf(e)}</span>
+                {hasOverrides(e) && (
+                  <span
+                    className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700"
+                    title={`실작업 ${workingDatesOf(e).length}일${offDayCount(e) > 0 ? ` · 휴무 ${offDayCount(e)}일` : ''}`}
+                  >
+                    날짜별 조정 {Object.keys(e.overrides ?? {}).length}일
+                  </span>
+                )}
                 {e.workHours && <span className="text-xs text-slate-500">🕐 {e.workHours}</span>}
                 {e.manager && <span className="text-xs text-slate-500">소장 {e.manager}</span>}
                 {laborCountOf(e) > 0 && (
