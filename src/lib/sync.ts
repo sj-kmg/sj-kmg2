@@ -136,6 +136,8 @@ export interface DocFields {
   docType: string | null;
   personName: string | null;
   birth: string | null;
+  /** 휴대폰 번호 010-0000-0000 */
+  phone: string | null;
   issuedAt: string | null;
   periodStart: string | null;
   periodEnd: string | null;

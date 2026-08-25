@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { HEALTH_KEY, type HealthCheck } from '@/lib/health';
-import { LABOR_ROSTER_KEY, LABOR_TABS, UNASSIGNED, blankWorker, type LaborWorker } from '@/lib/laborRoster';
+import { LABOR_ROSTER_KEY, LABOR_TABS, UNASSIGNED, autoFillFromDoc, blankWorker, type LaborWorker } from '@/lib/laborRoster';
 import { formatPhone } from '@/lib/format';
 import { fileHref, nameId } from '@/lib/ids';
 import { SyncError, extractDocFields, listEntriesSilently, uploadCert } from '@/lib/sync';
@@ -191,6 +191,8 @@ export default function LaborRoster() {
   const [uploading, setUploading] = useState<string | null>(null);
   const [migrating, setMigrating] = useState(false);
   const [migrateNote, setMigrateNote] = useState('');
+  /** 첨부서류에서 자동으로 채운 내용 안내 */
+  const [autoNote, setAutoNote] = useState('');
   const seq = useRef(0);
   const seededRef = useRef(false);
   const sortCtl = useSortable<LaborWorker>();
@@ -370,22 +372,16 @@ export default function LaborRoster() {
       const f = await extractDocFields(dataUrl, HINT[field]);
       // 판독 중 사용자가 직접 고쳤을 수 있으므로 최신 값을 다시 확인한다
       const cur = getRows().find((x) => x.id === row.id) ?? row;
-      const auto: Partial<LaborWorker> = {};
-      if (f?.birth && !cur.birth) auto.birth = f.birth;
-      if (field === 'chemCert' || field === 'chemCertCompletion') {
-        // 이수년도 — 서류에서 읽은 이수일자를 쓰고, 못 읽으면 파일명의 연도로 대신한다
-        if (!cur.chemDate) auto.chemDate = f?.issuedAt ?? `${yearFromFileName(file.name)}-01-01`;
-      }
-      if (field === 'specialHealthCert' && f?.issuedAt && !cur.specialHealthDate) {
-        auto.specialHealthDate = f.issuedAt;
-      }
-      if (field === 'generalHealthCert' && f?.issuedAt && !cur.generalHealthDate) {
-        auto.generalHealthDate = f.issuedAt;
-      }
-      if (Object.keys(auto).length > 0) setRow(row.id, auto);
+      const { patch, filled } = autoFillFromDoc(cur, f, field, {
+        formatPhone,
+        fallbackChemDate: `${yearFromFileName(file.name)}-01-01`,
+        nameTaken: (n) => !!findByName(n, cur.id),
+      });
+      if (Object.keys(patch).length > 0) setRow(row.id, patch);
+      setAutoNote(filled.length > 0 ? `📄 서류에서 읽어 자동으로 채웠습니다 — ${filled.join(' · ')}` : '');
 
       // 서류의 이름이 다르면 사람이 확인하도록 알린다 (값은 바꾸지 않는다)
-      if (f?.personName && cur.name.trim() && f.personName.replace(/\s/g, '') !== cur.name.replace(/\s/g, '')) {
+      if (f?.personName && cur.name.trim() && normName(f.personName) !== normName(cur.name)) {
         alert(`첨부한 서류의 이름은 "${f.personName}"입니다.\n지금 기록은 "${cur.name}"이니 확인해 주세요.`);
       }
     } catch (e) {
@@ -502,6 +498,15 @@ export default function LaborRoster() {
 
       {migrateNote && (
         <p className="mb-3 rounded-lg bg-sky-50 px-3 py-2 text-xs font-medium text-sky-800">{migrateNote}</p>
+      )}
+
+      {autoNote && (
+        <p className="mb-3 flex items-start gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
+          <span className="flex-1">{autoNote}</span>
+          <button onClick={() => setAutoNote('')} className="shrink-0 text-emerald-600 hover:text-emerald-900" aria-label="안내 닫기">
+            ✕
+          </button>
+        </p>
       )}
 
       {/* 분류 탭 */}

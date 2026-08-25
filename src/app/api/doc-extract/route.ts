@@ -3,16 +3,20 @@ import { generateObject } from 'ai';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { checkAuth } from '@/lib/auth';
+import { fieldsFromText } from '@/lib/docText';
 
 /**
  * 첨부서류 자동 판독 API — 수료증·이수증·검진결과·자동차등록증 같은 서류를 읽어
- * 화면의 입력칸에 들어갈 값(성명·생년월일·일자·차량번호 등)을 뽑아 준다.
+ * 화면의 입력칸에 들어갈 값(성명·생년월일·연락처·일자·차량번호 등)을 뽑아 준다.
  *
  * 화면에서는 파일을 올린 직후 이 API를 부르고, "비어 있는 칸만" 채운다.
  * 이미 사람이 적어 둔 값은 절대 덮어쓰지 않는다 (판독은 어디까지나 보조 수단).
  *
- * GOOGLE_GENERATIVE_AI_API_KEY(Google AI Studio 키)로 Gemini를 호출하며,
- * 키가 없으면 503을 돌려주고 화면은 조용히 수동 입력으로 진행한다.
+ * 읽는 방법은 두 가지다.
+ *  1) **글자층 읽기** — 협회·관공서가 발급한 전자 PDF에는 글자가 그대로 들어 있어
+ *     별도 설정 없이 바로 읽는다. 적혀 있는 값을 그대로 가져오므로 가장 정확하다.
+ *  2) **AI 판독** — 스캔본·사진처럼 글자층이 없는 서류용.
+ *     GOOGLE_GENERATIVE_AI_API_KEY가 있어야 하고, 없으면 1)만 동작한다.
  */
 export const maxDuration = 120;
 
@@ -27,6 +31,7 @@ const Schema = z.object({
   docType: z.string().nullable().describe('서류 종류 (예: 교육 이수증, 수료증, 건강진단 결과서, 자동차등록증, 보험가입증권)'),
   personName: z.string().nullable().describe('사람 이름 — 없으면 null'),
   birth: z.string().nullable().describe('생년월일 YYYY-MM-DD — 없으면 null'),
+  phone: z.string().nullable().describe('휴대폰 번호 010-0000-0000 — 없으면 null'),
   issuedAt: z.string().nullable().describe('발급일·수료일·검진일 등 이 서류의 기준 일자 YYYY-MM-DD'),
   periodStart: z.string().nullable().describe('유효기간 시작일 YYYY-MM-DD — 없으면 null'),
   periodEnd: z.string().nullable().describe('유효기간 종료일·만료일 YYYY-MM-DD — 없으면 null'),
@@ -44,8 +49,10 @@ const SYSTEM = `너는 한국 산업안전 서류를 읽어 항목을 뽑아내�
   「집합교육 이수기한」처럼 앞으로의 기한은 periodEnd에 넣는다.
 - 건강진단 결과서: 검진을 받은 날을 issuedAt으로 본다.
 - 자동차등록증·보험가입증권: 차량번호를 plate에, 유효기간을 periodStart·periodEnd에 넣는다.
-- 주민등록번호가 보여도 앞 6자리로 생년월일만 만들고, 뒷자리는 어디에도 옮기지 않는다.
-  (앞자리 7번째 숫자가 1·2면 19xx년, 3·4면 20xx년생이다.)
+- 주민등록번호·외국인등록번호가 보여도 앞 6자리로 생년월일만 만들고, 뒷자리는 어디에도 옮기지 않는다.
+  (뒷자리 첫 숫자가 1·2·5·6이면 19xx년, 3·4·7·8이면 20xx년생이다.)
+- 연락처·전화번호·휴대폰 칸에 010으로 시작하는 번호가 있으면 phone에 010-0000-0000 형태로 넣는다.
+  사업장 대표번호(02·061 등)나 발급기관 전화번호는 넣지 않는다.
 - 이름은 사람 이름만 넣는다. 사업장·상호·대표자 이름은 personName이 아니다.`;
 
 function parseDataUrl(dataUrl: string): { mediaType: string; data: string } | null {
@@ -66,10 +73,31 @@ function cleanDate(v: string | null): string | null {
   return `${m[1]}-${m[2]}-${m[3]}`;
 }
 
-export async function POST(req: Request) {
-  if (!USE_GEMINI) {
-    return NextResponse.json({ error: 'ai_not_configured' }, { status: 503 });
+/** 휴대폰 번호를 010-0000-0000 형태로 — 그 외 번호는 버린다 */
+function cleanPhone(v: string | null): string | null {
+  if (!v) return null;
+  const d = v.replace(/\D/g, '');
+  if (!/^01[016789]\d{7,8}$/.test(d)) return null;
+  return d.length === 10 ? `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}` : `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+}
+
+/**
+ * PDF 글자층 읽기 — 전자 서류면 여기서 값이 그대로 나온다.
+ * 스캔본이면 글자가 없어 빈 값이 나오고, 그때만 AI 판독으로 넘어간다.
+ */
+async function readPdfText(base64: string): Promise<string> {
+  try {
+    const { extractText, getDocumentProxy } = await import('unpdf');
+    const pdf = await getDocumentProxy(new Uint8Array(Buffer.from(base64, 'base64')));
+    const { text } = await extractText(pdf, { mergePages: true });
+    return text;
+  } catch (e) {
+    console.error('pdf text layer read failed:', e);
+    return '';
   }
+}
+
+export async function POST(req: Request) {
   // 기록 API와 같은 자격으로 막는다 — 열람 전용 계정은 쓸 수 없다
   const auth = await checkAuth(req);
   if (auth.notConfigured) {
@@ -97,6 +125,30 @@ export async function POST(req: Request) {
   }
   const hint = typeof body.hint === 'string' ? body.hint.slice(0, 200) : '';
 
+  // 1단계 — 글자층. 전자 PDF면 여기서 적힌 값을 그대로 얻는다 (AI 키 없이도 동작)
+  const fromText =
+    file.mediaType === 'application/pdf'
+      ? fieldsFromText(await readPdfText(file.data))
+      : { personName: null, birth: null, phone: null, issuedAt: null };
+
+  const textResult = {
+    docType: null as string | null,
+    personName: fromText.personName,
+    birth: cleanDate(fromText.birth),
+    phone: cleanPhone(fromText.phone),
+    issuedAt: cleanDate(fromText.issuedAt),
+    periodStart: null as string | null,
+    periodEnd: null as string | null,
+    plate: null as string | null,
+    note: null as string | null,
+  };
+
+  // 글자층에서 사람·생년월일을 모두 얻었으면 AI를 부르지 않는다 (더 정확하고 비용도 없다)
+  const enough = !!textResult.personName && !!textResult.birth;
+  if (!USE_GEMINI || enough) {
+    return NextResponse.json({ fields: textResult, source: enough ? 'text' : 'text-only' });
+  }
+
   try {
     const { object } = await generateObject({
       model: google(MODEL),
@@ -117,20 +169,24 @@ export async function POST(req: Request) {
       ],
     });
 
+    // 서류에 적힌 글자(textResult)가 AI 판독보다 정확하므로 그쪽을 우선하고, 빈 칸만 AI로 채운다
     return NextResponse.json({
       fields: {
         docType: object.docType?.trim() || null,
-        personName: object.personName?.trim() || null,
-        birth: cleanDate(object.birth),
-        issuedAt: cleanDate(object.issuedAt),
+        personName: textResult.personName ?? object.personName?.trim() ?? null,
+        birth: textResult.birth ?? cleanDate(object.birth),
+        phone: textResult.phone ?? cleanPhone(object.phone),
+        issuedAt: textResult.issuedAt ?? cleanDate(object.issuedAt),
         periodStart: cleanDate(object.periodStart),
         periodEnd: cleanDate(object.periodEnd),
         plate: object.plate?.replace(/\s+/g, '') || null,
         note: object.note?.trim() || null,
       },
+      source: 'ai',
     });
   } catch (e) {
     console.error('doc-extract failed:', e);
-    return NextResponse.json({ error: 'extract_failed' }, { status: 502 });
+    // AI가 실패해도 글자층에서 얻은 값은 돌려준다
+    return NextResponse.json({ fields: textResult, source: 'text-fallback' });
   }
 }
