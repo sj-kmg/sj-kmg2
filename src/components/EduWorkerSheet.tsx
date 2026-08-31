@@ -134,8 +134,19 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
     );
   };
 
+  /**
+   * YNCC출입은 집체교육만 하고 수료증도 따로 받지 않아, 온라인 이수일자·수료증 칸을 두지 않는다.
+   * (기존에 입력된 값은 지우지 않고 화면에서만 빠진다)
+   */
+  const showOnline = variant === 'chem';
+  const showCert = variant !== 'yncc';
+  /** 열 수 — 빈 목록 안내 문구를 표 전체 폭으로 펴는 데 쓴다 */
+  const colCount = 5 + (showOnline ? 1 : 0) + (showCert ? 1 : 0);
+
   /** 집체·온라인 이수일자가 같으면 잘못 입력된 것 — 같은 날 두 교육을 이수할 수 없다 */
-  const conflict = shown.find((r) => r.name.trim() && r.offlineDate && r.onlineDate && r.offlineDate === r.onlineDate);
+  const conflict = showOnline
+    ? shown.find((r) => r.name.trim() && r.offlineDate && r.onlineDate && r.offlineDate === r.onlineDate)
+    : undefined;
 
   return (
     <div>
@@ -153,33 +164,33 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-slate-200">
-        <table className={`w-full ${variant === 'supervisor' ? 'min-w-[1080px]' : 'min-w-[1300px]'} text-xs`}>
+        <table className={`w-full ${variant === 'chem' ? 'min-w-[1300px]' : 'min-w-[1000px]'} text-xs`}>
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] text-slate-500">
               <th className={`${TH} ${TH_STICKY} w-36`}>작업자명<SortButton ctl={sortCtl} col="name" label="작업자명" /></th>
               <th className={`${TH} w-40`}>생년월일</th>
               <th className={`${TH} w-44`}>{variant === 'supervisor' ? '이수일자' : '집체교육 이수일자'}</th>
-              {variant !== 'supervisor' && <th className={`${TH} w-44`}>온라인교육 이수일자</th>}
+              {showOnline && <th className={`${TH} w-44`}>온라인교육 이수일자</th>}
               {variant === 'yncc' ? (
                 <th className={`${TH} w-44`}>교육유효종료일</th>
               ) : (
                 <th className={`${TH} w-36`}>갱신 도래일</th>
               )}
               <th className={`${TH} w-24 text-center`}>D-day<SortButton ctl={sortCtl} col="due" label="D-day" /></th>
-              <th className={`${TH} w-32 text-center`}>수료증</th>
+              {showCert && <th className={`${TH} w-32 text-center`}>수료증</th>}
               <th className="w-10 px-1 py-2" aria-label="행 삭제" />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {shown.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-4 text-center text-slate-300">
+                <td colSpan={colCount} className="px-3 py-4 text-center text-slate-300">
                   아래 ＋ 버튼으로 {group}을 추가해 주세요
                 </td>
               </tr>
             )}
             {shown.map((r) => {
-              const sameDate = !!(r.offlineDate && r.onlineDate && r.offlineDate === r.onlineDate);
+              const sameDate = showOnline && !!(r.offlineDate && r.onlineDate && r.offlineDate === r.onlineDate);
               return (
                 <tr key={r.id} className={sameDate ? 'bg-red-50' : ''}>
                   <td className={`${TD_STICKY_POS} ${sameDate ? 'bg-red-50' : 'bg-white'} px-1.5 py-1.5`}>
@@ -197,7 +208,7 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
                       className={CELL}
                     />
                   </td>
-                  {variant !== 'supervisor' && (
+                  {showOnline && (
                     <td className="px-1.5 py-1.5">
                       <input
                         aria-label="온라인교육 이수일자"
@@ -219,6 +230,7 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
                     </td>
                   )}
                   <td className="px-2 py-1.5 text-center">{dday(r)}</td>
+                  {showCert && (
                   <td className="px-2 py-1.5">
                     <div className="flex items-center justify-center gap-1">
                       {r.certFile && (
@@ -251,6 +263,7 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
                       />
                     </div>
                   </td>
+                  )}
                   <td className="px-1 py-1.5 text-center">
                     <button aria-label="행 삭제" onClick={() => del(r)} className="text-slate-300 hover:text-red-500">
                       ✕
@@ -271,7 +284,7 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
           : variant === 'supervisor'
             ? '이수일 기준 1년 유효, 갱신 90일 전부터 메인 [안전교육 현황]에 표시됩니다.'
             : '이수년도 기준 2년 유효(예: 24년 이수 → 27년 1월 갱신), 갱신년도 1월 1일 30일 전부터 메인에 표시됩니다.'}{' '}
-        수료증은 [첨부]로 PDF·이미지를 올리면 [📄 보기]로 열람할 수 있습니다.
+        {showCert && '수료증은 [첨부]로 PDF·이미지를 올리면 [📄 보기]로 열람할 수 있습니다.'}
       </p>
     </div>
   );

@@ -141,6 +141,8 @@ function Sheet({ kind, group }: { kind: HealthCheck['kind']; group: HealthCheck[
   const [today, setToday] = useState<Date | null>(null);
   /** 첨부서류에서 읽어 자동으로 채운 내용 안내 */
   const [autoNote, setAutoNote] = useState('');
+  /** 특수검진 카드에서 펼쳐 놓은 인원 */
+  const [open, setOpen] = useState<string | null>(null);
   const seq = useRef(0);
   /** 유해인자별 갱신은 특수검진에서만 따진다 */
   const isSpecial = kind === 'special';
@@ -227,6 +229,7 @@ function Sheet({ kind, group }: { kind: HealthCheck['kind']; group: HealthCheck[
   };
 
   const badge = modeBadge(mode);
+  const label = 'mb-1 block text-[11px] font-semibold text-slate-500';
   const save = saveBadge(status, mode);
 
   const dday = (r: HealthCheck) => {
@@ -260,6 +263,151 @@ function Sheet({ kind, group }: { kind: HealthCheck['kind']; group: HealthCheck[
         </p>
       )}
 
+      {/* 특수검진은 인원별 카드 — 한 줄 요약을 누르면 세부내용이 펼쳐진다 */}
+      {isSpecial ? (
+        shown.length === 0 ? (
+          <div className="rounded-xl border-2 border-dashed border-slate-200 py-14 text-center text-sm text-slate-400">
+            아래 ＋ 버튼으로 {group}을 추가해 주세요
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {shown.map((r) => {
+              const isOpen = open === r.id;
+              const hz = hazardStatuses(r.hazards, today);
+              return (
+                <article key={r.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                  {/* 요약 줄 */}
+                  <button
+                    onClick={() => setOpen(isOpen ? null : r.id)}
+                    className="flex w-full flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3 text-left hover:bg-slate-50"
+                  >
+                    <span className="text-sm font-bold text-slate-800">{r.name || '(이름 없음)'}</span>
+                    {r.birth && <span className="font-mono text-[11px] text-slate-400">{r.birth}</span>}
+                    {r.checkDate && (
+                      <span className="font-mono text-[11px] text-slate-500" title="검진일자">
+                        검진 {r.checkDate}
+                      </span>
+                    )}
+                    <span className="flex flex-wrap items-center gap-1">
+                      {hz.length === 0 ? (
+                        <span className="text-[10px] text-slate-300">유해인자 미지정</span>
+                      ) : (
+                        hz.map((s) => (
+                          <span
+                            key={s.name}
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                              s.level ? NOTICE_STYLE[s.level].badge : 'bg-slate-100 text-slate-500'
+                            }`}
+                            title={`다음 검진 ${s.renewAt} (${s.months}개월 주기)`}
+                          >
+                            {s.name} {s.days < 0 ? `D+${-s.days}` : `D-${s.days}`}
+                          </span>
+                        ))
+                      )}
+                    </span>
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                        r.certFile ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'
+                      }`}
+                    >
+                      {r.certFile ? '✓ 확인서' : '· 확인서'}
+                    </span>
+                    <span className="ml-auto text-slate-300">{isOpen ? '▲' : '▼'}</span>
+                  </button>
+
+                  {/* 세부내용 */}
+                  {isOpen && (
+                    <div className="border-t border-slate-100 px-4 py-4">
+                      <div className="flex flex-wrap gap-2.5">
+                        <div className="w-28">
+                          <label className={label} htmlFor={`hc-name-${r.id}`}>성명</label>
+                          <input id={`hc-name-${r.id}`} placeholder="이름" value={r.name} onChange={(e) => setRow(r.id, { name: e.target.value })} className={CELL} />
+                        </div>
+                        <div className="w-36">
+                          <label className={label} htmlFor={`hc-birth-${r.id}`}>생년월일</label>
+                          <input id={`hc-birth-${r.id}`} type="date" value={r.birth ?? ''} onChange={(e) => setRow(r.id, { birth: e.target.value })} className={CELL} />
+                        </div>
+                        <div className="w-36">
+                          <label className={label} htmlFor={`hc-date-${r.id}`}>검진일자</label>
+                          <input
+                            id={`hc-date-${r.id}`}
+                            type="date"
+                            value={r.checkDate}
+                            onChange={(e) => setRow(r.id, { checkDate: e.target.value, renewDate: healthRenewDate(e.target.value) })}
+                            className={CELL}
+                          />
+                        </div>
+                        <div className="w-36">
+                          <label className={label} htmlFor={`hc-renew-${r.id}`}>갱신일자 (1년)</label>
+                          <input id={`hc-renew-${r.id}`} type="date" value={r.renewDate} onChange={(e) => setRow(r.id, { renewDate: e.target.value })} className={CELL} />
+                        </div>
+                        <div className="w-20">
+                          <span className={label}>D-day</span>
+                          <div className="pt-1.5">{dday(r)}</div>
+                        </div>
+                      </div>
+
+                      <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                        <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                          <p className="mb-1.5 text-xs font-bold text-slate-600">
+                            유해인자 갱신
+                            <span className="ml-1 font-normal text-slate-400">벤젠 6개월 · 톨루엔/크실렌 1년</span>
+                          </p>
+                          <HazardCell row={r} today={today} onChange={(next) => setRow(r.id, { hazards: next })} />
+                        </div>
+
+                        <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                          <p className="mb-1.5 text-xs font-bold text-slate-600">확인서</p>
+                          <div className="flex items-center gap-1.5">
+                            {r.certFile && (
+                              <a
+                                href={fileHref(r.certFile)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="rounded border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
+                                title={`${r.name} 확인서 열기`}
+                              >
+                                📄 보기
+                              </a>
+                            )}
+                            <label
+                              htmlFor={`hc-${r.id}`}
+                              className="cursor-pointer rounded border border-dashed border-slate-300 px-1.5 py-1 text-[11px] whitespace-nowrap text-slate-500 hover:border-[#1f3864] hover:text-[#1f3864]"
+                              title="확인서 첨부·교체 (PDF·이미지)"
+                            >
+                              {uploading === r.id ? '업로드중' : r.certFile ? '교체' : '첨부'}
+                            </label>
+                            <input
+                              id={`hc-${r.id}`}
+                              type="file"
+                              accept="application/pdf,image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                void attachCert(r, e.target.files?.[0]);
+                                e.target.value = '';
+                              }}
+                            />
+                          </div>
+                          <div className="mt-2.5">
+                            <label className={label} htmlFor={`hc-note-${r.id}`}>비고</label>
+                            <input id={`hc-note-${r.id}`} value={r.note ?? ''} onChange={(e) => setRow(r.id, { note: e.target.value })} className={CELL} />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-2 text-right">
+                        <button onClick={() => del(r)} className="text-[11px] text-slate-400 hover:text-red-500 hover:underline">
+                          이 인원 기록 삭제
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        )
+      ) : (
       <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className={`w-full text-xs ${isSpecial ? 'min-w-[1400px]' : 'min-w-[1100px]'}`}>
           <thead>
@@ -360,12 +508,15 @@ function Sheet({ kind, group }: { kind: HealthCheck['kind']; group: HealthCheck[
           </tbody>
         </table>
       </div>
+      )}
 
       <SheetToolbar addLabel={`＋ ${group} 추가`} onAdd={add} onUndo={() => void undo()} canUndo={canUndo} save={save} />
 
       <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
-        검진일자를 입력하면 갱신일자(1년 후)가 자동 입력되며 직접 수정할 수 있습니다. 이수증은 [첨부]로 올리고 [교체]로
-        바꿀 수 있으며, 갱신 {HEALTH_NOTICE_DAYS}일 전부터 메인 [공무관리 현황]에 D-day가 표시됩니다.
+        검진일자를 입력하면 갱신일자(1년 후)가 자동 입력되며 직접 수정할 수 있습니다.{' '}
+        {isSpecial ? '확인서' : '이수증'}는 [첨부]로 올리고 [교체]로 바꿀 수 있으며, 갱신 {HEALTH_NOTICE_DAYS}일 전부터
+        메인 [공무관리 현황]에 D-day가 표시됩니다.
+        {isSpecial && ' 인원 줄을 누르면 세부내용이 펼쳐집니다.'}
       </p>
     </div>
   );
