@@ -15,9 +15,11 @@ export interface TextFields {
   phone: string | null;
   /** 교육일자·검진일자처럼 이 서류의 기준 일자 */
   issuedAt: string | null;
+  /** 「유해인자」 칸에 적힌 물질 목록 원문 — 갱신주기 판단에 쓴다 */
+  hazards: string | null;
 }
 
-const EMPTY: TextFields = { personName: null, birth: null, phone: null, issuedAt: null };
+const EMPTY: TextFields = { personName: null, birth: null, phone: null, issuedAt: null, hazards: null };
 
 /** 줄바꿈·중복 공백을 하나로 — 서류마다 글자 간격이 제각각이라 먼저 고른다 */
 function flatten(raw: string): string {
@@ -107,6 +109,19 @@ function issuedFrom(flat: string): string | null {
   return null;
 }
 
+/**
+ * 「유해인자 :」 뒤에 나열된 물질 목록.
+ * 특수건강진단 확인서는 이 목록으로 어떤 물질을 검진했는지 알 수 있어,
+ * 물질별 갱신주기(벤젠 6개월 등)를 따질 때 쓴다.
+ */
+function hazardsFrom(flat: string): string | null {
+  const m = /유\s*해\s*인\s*자\s*[:：]?\s*([\s\S]{0,1200})/.exec(flat);
+  if (!m) return null;
+  // 다음 문단("2026년 01월 28일", "위 사람은 …")이 나오면 거기서 끊는다
+  const cut = m[1].split(/\d{4}\s*년\s*\d{1,2}\s*월|위\s*사람은/)[0].trim();
+  return cut.length >= 2 ? cut : null;
+}
+
 /** 서류 글자에서 뽑아낼 수 있는 값들 */
 export function fieldsFromText(raw: string): TextFields {
   const flat = flatten(raw);
@@ -116,5 +131,6 @@ export function fieldsFromText(raw: string): TextFields {
     birth: birthFromLabel(flat) ?? birthFromRegNo(flat),
     phone: phoneFrom(flat),
     issuedAt: issuedFrom(flat),
+    hazards: hazardsFrom(flat),
   };
 }

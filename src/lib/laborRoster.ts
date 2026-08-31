@@ -6,6 +6,7 @@
  * [기존 인력 데이터 불러오기]로 그 메뉴들에 이미 입력된 인력 항목을 이름 기준으로
  * 병합해 최초 1회 가져올 수 있다 (덮어쓰지 않고 채워져 있지 않은 값만 채운다).
  */
+import { WATCHED_HAZARDS, applyHazardCheck, watchedHazardsIn, type HazardWatch } from './hazardWatch';
 import { LABOR_CATEGORIES } from './workforce';
 
 export interface LaborWorker {
@@ -18,6 +19,11 @@ export interface LaborWorker {
   generalHealthCert?: string; // LG화학 일반검진 첨부파일 URL
   specialHealthDate?: string; // 특수검진일자
   specialHealthCert?: string; // 특수검진 첨부파일 URL
+  /**
+   * 갱신주기를 따로 관리하는 유해인자 — 물질마다 마지막 검진일을 들고 있다.
+   * (벤젠은 6개월, 톨루엔·크실렌은 1년 주기라 특수검진일자 하나로는 부족하다)
+   */
+  hazards?: HazardWatch[];
   chemCert?: string; // 유해화학물질 교육이수증 첨부파일 URL
   chemCertCompletion?: string; // 유해화학물질 수료증 첨부파일 URL
   chemDate?: string; // 유해화학물질 교육 이수일자 — 이수년도 표시에 쓰인다
@@ -46,6 +52,8 @@ export interface ReadFields {
   birth?: string | null;
   phone?: string | null;
   issuedAt?: string | null;
+  /** 「유해인자」 칸 원문 — 어떤 물질을 검진했는지 판단해 갱신주기를 잡는다 */
+  hazards?: string | null;
 }
 
 /**
@@ -85,9 +93,20 @@ export function autoFillFromDoc(
       if (f?.issuedAt) filled.push(`이수일자 ${f.issuedAt}`);
     }
   }
-  if (field === 'specialHealthCert' && f?.issuedAt && !cur.specialHealthDate) {
-    patch.specialHealthDate = f.issuedAt;
-    filled.push(`특수검진일 ${f.issuedAt}`);
+  if (field === 'specialHealthCert' && f?.issuedAt) {
+    if (!cur.specialHealthDate) {
+      patch.specialHealthDate = f.issuedAt;
+      filled.push(`특수검진일 ${f.issuedAt}`);
+    }
+    // 유해인자별 갱신 — 확인서에 적힌 물질만 날짜를 바꾼다 (벤젠 재검이면 벤젠만).
+    // 유해인자를 못 읽었으면 연간 검진으로 보고 세 물질을 모두 잡는다.
+    const read = watchedHazardsIn(f.hazards);
+    const names = read.length > 0 ? read : [...WATCHED_HAZARDS];
+    const next = applyHazardCheck(cur.hazards, names, f.issuedAt);
+    if (JSON.stringify(next) !== JSON.stringify(cur.hazards ?? [])) {
+      patch.hazards = next;
+      filled.push(`${names.join('·')} ${f.issuedAt}${read.length > 0 ? '' : ' (유해인자를 못 읽어 3종 모두 적용)'}`);
+    }
   }
   if (field === 'generalHealthCert' && f?.issuedAt && !cur.generalHealthDate) {
     patch.generalHealthDate = f.issuedAt;

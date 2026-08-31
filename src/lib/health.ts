@@ -1,4 +1,5 @@
 /** 건강검진(일반·특수) 데이터 — 공무관리 메뉴와 메인 [공무관리 현황] 패널이 공유한다. */
+import { applyHazardCheck, type HazardWatch } from './hazardWatch';
 import { seedId } from './ids';
 
 export interface HealthCheck {
@@ -10,6 +11,11 @@ export interface HealthCheck {
   checkDate: string; // 검진일자
   renewDate: string; // 갱신일자 — 검진일 + 1년 (수정 가능)
   certFile?: string; // 이수증(결과서) 파일 URL
+  /**
+   * 갱신주기를 따로 관리하는 유해인자 — 물질마다 마지막 검진일을 들고 있다.
+   * (벤젠은 6개월, 톨루엔·크실렌은 1년 주기라 검진일자 하나로는 부족하다)
+   */
+  hazards?: HazardWatch[];
   note?: string;
   updatedAt: string;
 }
@@ -66,6 +72,40 @@ export function healthGeneralSeed(): HealthCheck[] {
     renewDate: healthRenewDate(checkDate),
     certFile: `/certs/health-general/${name}_일반검진_2026.pdf`,
     note: 'LG출입자검진',
+    updatedAt: '',
+  }));
+}
+
+/**
+ * 직원 특수검진(2026 상반기) 초기 데이터 — 여천전남병원 확인서 원본 반영.
+ *
+ * 확인서의 유해인자 목록에 벤젠·톨루엔·크실렌이 모두 들어 있어
+ * 세 물질 다 이 날짜로 잡는다. 이후 벤젠만 다시 받으면 벤젠 날짜만 바뀐다.
+ */
+export function healthSpecialSeed(): HealthCheck[] {
+  const rows: [string, string, string][] = [
+    // 성명, 생년월일, 검진일자
+    ['김중길', '1978-10-15', '2026-01-02'],
+    ['서태옥', '1979-07-31', '2026-01-02'],
+    ['김영길', '1972-08-15', '2026-01-03'],
+    ['김종호', '1982-01-02', '2026-01-08'],
+    ['오남택', '1965-07-26', '2026-01-09'],
+    ['김민규', '1994-01-06', '2026-01-12'],
+    ['조준호', '1977-12-13', '2026-01-14'],
+    ['김진복', '1981-08-08', '2026-01-16'],
+    ['김선태', '1966-06-14', '2026-01-17'],
+    ['권현철', '1975-08-14', '2026-01-28'],
+  ];
+  return rows.map(([name, birth, checkDate], i) => ({
+    id: seedId('HC-special-seed', i, name),
+    kind: 'special' as const,
+    group: '직원' as const,
+    name,
+    birth,
+    checkDate,
+    renewDate: healthRenewDate(checkDate),
+    certFile: `/certs/health-special/${name}_특수검진_2026.pdf`,
+    hazards: applyHazardCheck([], ['벤젠', '톨루엔', '크실렌'], checkDate),
     updatedAt: '',
   }));
 }

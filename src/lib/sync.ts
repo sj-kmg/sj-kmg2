@@ -138,6 +138,8 @@ export interface DocFields {
   birth: string | null;
   /** 휴대폰 번호 010-0000-0000 */
   phone: string | null;
+  /** 서류에 적힌 유해인자 목록 원문 (특수검진 확인서 등) */
+  hazards: string | null;
   issuedAt: string | null;
   periodStart: string | null;
   periodEnd: string | null;

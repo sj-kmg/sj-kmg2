@@ -4,6 +4,14 @@ import { useEffect, useRef, useState } from 'react';
 import { HEALTH_KEY, type HealthCheck } from '@/lib/health';
 import { LABOR_ROSTER_KEY, LABOR_TABS, UNASSIGNED, autoFillFromDoc, blankWorker, type LaborWorker } from '@/lib/laborRoster';
 import { formatPhone } from '@/lib/format';
+import { NOTICE_STYLE } from '@/lib/education';
+import {
+  HAZARD_CYCLE_MONTHS,
+  WATCHED_HAZARDS,
+  applyHazardCheck,
+  hazardStatuses,
+  type HazardWatch,
+} from '@/lib/hazardWatch';
 import { fileHref, nameId } from '@/lib/ids';
 import { SyncError, extractDocFields, listEntriesSilently, uploadCert } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
@@ -157,6 +165,72 @@ function filledCount(r: LaborWorker): number {
   return CONTENT_KEYS.reduce((n, k) => (r[k] ? n + 1 : n), 0);
 }
 
+/**
+ * 유해인자별 갱신 표시 — 물질마다 마지막 검진일과 다음 검진일(D-day).
+ * 벤젠만 다시 받는 경우가 있어 물질별로 날짜를 따로 고칠 수 있게 둔다.
+ */
+function HazardChips({
+  list,
+  today,
+  onChange,
+  idPrefix,
+  personName,
+}: {
+  list: HazardWatch[] | undefined;
+  today: Date | null;
+  onChange: (next: HazardWatch[]) => void;
+  idPrefix: string;
+  personName: string;
+}) {
+  const byName = new Map((list ?? []).map((h) => [h.name, h.checkedAt]));
+  const statuses = new Map(hazardStatuses(list, today).map((s) => [s.name, s]));
+
+  const setOne = (name: string, checkedAt: string) => {
+    const rest = (list ?? []).filter((h) => h.name !== name);
+    onChange(checkedAt ? [...rest, { name, checkedAt }] : rest);
+  };
+
+  return (
+    <div className="space-y-1">
+      {WATCHED_HAZARDS.map((name) => {
+        const checkedAt = byName.get(name) ?? '';
+        const s = statuses.get(name);
+        return (
+          <div key={name} className="flex items-center gap-1.5">
+            <label
+              className="w-11 shrink-0 text-[10px] font-bold text-slate-500"
+              htmlFor={`${idPrefix}-${name}`}
+              title={`${HAZARD_CYCLE_MONTHS[name]}개월 주기`}
+            >
+              {name}
+            </label>
+            <input
+              id={`${idPrefix}-${name}`}
+              type="date"
+              aria-label={`${personName || '이 인원'} ${name} 검진일`}
+              value={checkedAt}
+              onChange={(e) => setOne(name, e.target.value)}
+              className="w-[8.5rem] rounded border border-slate-300 bg-white px-1 py-0.5 text-[11px] text-slate-800 focus:border-[#1f3864] focus:outline-none"
+            />
+            {s ? (
+              <span
+                className={`rounded px-1 py-0.5 font-mono text-[10px] font-bold ${
+                  s.level ? NOTICE_STYLE[s.level].badge : 'text-slate-400'
+                }`}
+                title={`다음 검진 ${s.renewAt} (${s.months}개월 주기)`}
+              >
+                {s.days < 0 ? `D+${-s.days}` : `D-${s.days}`}
+              </span>
+            ) : (
+              <span className="text-[10px] text-slate-300">—</span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /** 값이 비어 있을 때만 채운다 — 이미 입력된 값은 덮어쓰지 않는다 */
 function fillBlank<T extends object>(base: T, patch: Partial<T>): { next: T; changed: boolean } {
   let changed = false;
@@ -193,7 +267,10 @@ export default function LaborRoster() {
   const [migrateNote, setMigrateNote] = useState('');
   /** 첨부서류에서 자동으로 채운 내용 안내 */
   const [autoNote, setAutoNote] = useState('');
+  /** D-day 계산 기준 — 서버 렌더와 어긋나지 않도록 화면이 뜬 뒤 잡는다 */
+  const [today, setToday] = useState<Date | null>(null);
   const seq = useRef(0);
+  useEffect(() => setToday(new Date()), []);
   const seededRef = useRef(false);
   const sortCtl = useSortable<LaborWorker>();
 
@@ -299,14 +376,18 @@ export default function LaborRoster() {
       const added = new Set<string>();
       const seedRow = (d: (typeof DEFAULT_WORKERS)[number] | (typeof DEFAULT_ROSTER)[number]) => {
         if (added.has(normName(d.name))) return;
+        const spDate = 'specialHealthDate' in d ? d.specialHealthDate : undefined;
         const patch: Partial<LaborWorker> = {
           birth: d.birth,
           phone: 'phone' in d ? d.phone : undefined,
           chemDate: 'chemDate' in d ? d.chemDate : undefined,
           chemCert: 'chemCert' in d ? d.chemCert : undefined,
           chemCertCompletion: 'chemCertCompletion' in d ? d.chemCertCompletion : undefined,
-          specialHealthDate: 'specialHealthDate' in d ? d.specialHealthDate : undefined,
+          specialHealthDate: spDate,
           specialHealthCert: 'specialHealthCert' in d ? d.specialHealthCert : undefined,
+          // 이미 붙어 있는 특검확인서는 모두 벤젠·톨루엔·크실렌이 적힌 연간 검진이라
+          // 그 검진일로 세 물질을 함께 잡는다 (벤젠만 재검하면 그때 벤젠 날짜만 바뀐다)
+          hazards: spDate ? applyHazardCheck([], [...WATCHED_HAZARDS], spDate) : undefined,
         };
         const existing = findByName(d.name);
         if (existing) {
@@ -638,7 +719,7 @@ export default function LaborRoster() {
                         </div>
                       </div>
 
-                      {/* 특수검진 첨부파일 — 일자 없이 확인서만 */}
+                      {/* 특수검진 첨부파일 — 확인서 + 유해인자별 갱신 */}
                       <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                         <p className="mb-1.5 text-xs font-bold text-slate-600">특수검진 첨부파일</p>
                         <div className="flex items-center gap-1.5">
@@ -648,6 +729,19 @@ export default function LaborRoster() {
                             uploading={uploading === `${r.id}-specialHealthCert`}
                             inputId={`lw-special-${r.id}`}
                             onFile={(file) => void attachFile(r, 'specialHealthCert', file)}
+                          />
+                        </div>
+                        <div className="mt-2 border-t border-slate-100 pt-2">
+                          <p className="mb-1 text-[10px] font-semibold text-slate-500">
+                            유해인자 갱신
+                            <span className="ml-1 font-normal text-slate-400">벤젠 6개월 · 톨루엔/크실렌 1년</span>
+                          </p>
+                          <HazardChips
+                            list={r.hazards}
+                            today={today}
+                            onChange={(next) => setRow(r.id, { hazards: next })}
+                            idPrefix={`lw-haz-${r.id}`}
+                            personName={r.name}
                           />
                         </div>
                       </div>

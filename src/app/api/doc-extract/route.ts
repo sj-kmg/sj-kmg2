@@ -32,6 +32,7 @@ const Schema = z.object({
   personName: z.string().nullable().describe('사람 이름 — 없으면 null'),
   birth: z.string().nullable().describe('생년월일 YYYY-MM-DD — 없으면 null'),
   phone: z.string().nullable().describe('휴대폰 번호 010-0000-0000 — 없으면 null'),
+  hazards: z.string().nullable().describe('「유해인자」 칸에 적힌 물질 목록을 적힌 그대로 (쉼표 구분) — 없으면 null'),
   issuedAt: z.string().nullable().describe('발급일·수료일·검진일 등 이 서류의 기준 일자 YYYY-MM-DD'),
   periodStart: z.string().nullable().describe('유효기간 시작일 YYYY-MM-DD — 없으면 null'),
   periodEnd: z.string().nullable().describe('유효기간 종료일·만료일 YYYY-MM-DD — 없으면 null'),
@@ -47,7 +48,9 @@ const SYSTEM = `너는 한국 산업안전 서류를 읽어 항목을 뽑아내�
 - 교육 이수증·수료증: 「교육 일자」의 **끝나는 날**을 issuedAt으로 본다.
   기간이 "2026년 01월 07일 ~ 2026년 01월 08일"이면 issuedAt은 2026-01-08.
   「집합교육 이수기한」처럼 앞으로의 기한은 periodEnd에 넣는다.
-- 건강진단 결과서: 검진을 받은 날을 issuedAt으로 본다.
+- 건강진단 결과서·확인서: 검진을 받은 날을 issuedAt으로 본다.
+  「유해인자」 칸이 있으면 거기 적힌 물질 목록을 **줄이거나 요약하지 말고 그대로** hazards에 넣는다.
+  (물질마다 다시 검진해야 하는 주기가 달라, 어떤 물질이 적혀 있었는지가 중요하다)
 - 자동차등록증·보험가입증권: 차량번호를 plate에, 유효기간을 periodStart·periodEnd에 넣는다.
 - 주민등록번호·외국인등록번호가 보여도 앞 6자리로 생년월일만 만들고, 뒷자리는 어디에도 옮기지 않는다.
   (뒷자리 첫 숫자가 1·2·5·6이면 19xx년, 3·4·7·8이면 20xx년생이다.)
@@ -129,13 +132,14 @@ export async function POST(req: Request) {
   const fromText =
     file.mediaType === 'application/pdf'
       ? fieldsFromText(await readPdfText(file.data))
-      : { personName: null, birth: null, phone: null, issuedAt: null };
+      : { personName: null, birth: null, phone: null, issuedAt: null, hazards: null };
 
   const textResult = {
     docType: null as string | null,
     personName: fromText.personName,
     birth: cleanDate(fromText.birth),
     phone: cleanPhone(fromText.phone),
+    hazards: fromText.hazards,
     issuedAt: cleanDate(fromText.issuedAt),
     periodStart: null as string | null,
     periodEnd: null as string | null,
@@ -143,8 +147,11 @@ export async function POST(req: Request) {
     note: null as string | null,
   };
 
-  // 글자층에서 사람·생년월일을 모두 얻었으면 AI를 부르지 않는다 (더 정확하고 비용도 없다)
-  const enough = !!textResult.personName && !!textResult.birth;
+  // 글자층에서 필요한 값을 다 얻었으면 AI를 부르지 않는다 (더 정확하고 비용도 없다).
+  // 검진 서류는 유해인자까지 있어야 갱신주기를 따질 수 있어 그것도 함께 본다.
+  const needsHazards = /검진|확인서/.test(hint);
+  const enough =
+    !!textResult.personName && !!textResult.birth && (!needsHazards || !!textResult.hazards);
   if (!USE_GEMINI || enough) {
     return NextResponse.json({ fields: textResult, source: enough ? 'text' : 'text-only' });
   }
@@ -176,6 +183,7 @@ export async function POST(req: Request) {
         personName: textResult.personName ?? object.personName?.trim() ?? null,
         birth: textResult.birth ?? cleanDate(object.birth),
         phone: textResult.phone ?? cleanPhone(object.phone),
+        hazards: textResult.hazards ?? object.hazards?.trim() ?? null,
         issuedAt: textResult.issuedAt ?? cleanDate(object.issuedAt),
         periodStart: cleanDate(object.periodStart),
         periodEnd: cleanDate(object.periodEnd),
