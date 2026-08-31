@@ -107,17 +107,57 @@ function HazardCell({
           </div>
         );
       })}
-      {row.recheckCert && (
+    </div>
+  );
+}
+
+/** 확인서 한 줄 — [📄 보기] + [첨부/교체] */
+function CertRow({
+  label,
+  url,
+  inputId,
+  busy,
+  personName,
+  onFile,
+}: {
+  label: string;
+  url: string | undefined;
+  inputId: string;
+  busy: boolean;
+  personName: string;
+  onFile: (file: File | undefined) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="w-16 shrink-0 text-[11px] text-slate-500">{label}</span>
+      {url && (
         <a
-          href={fileHref(row.recheckCert)}
+          href={fileHref(url)}
           target="_blank"
           rel="noreferrer"
-          className="mt-0.5 inline-block rounded border border-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 hover:bg-sky-50"
-          title={`${row.name} 재검 확인서 열기`}
+          className="rounded border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
+          title={`${personName} ${label} 열기`}
         >
-          📄 재검 확인서
+          📄 보기
         </a>
       )}
+      <label
+        htmlFor={inputId}
+        className="cursor-pointer rounded border border-dashed border-slate-300 px-1.5 py-1 text-[11px] whitespace-nowrap text-slate-500 hover:border-[#1f3864] hover:text-[#1f3864]"
+        title={`${label} 첨부·교체 (PDF·이미지)`}
+      >
+        {busy ? '업로드중' : url ? '교체' : '첨부'}
+      </label>
+      <input
+        id={inputId}
+        type="file"
+        accept="application/pdf,image/*"
+        className="hidden"
+        onChange={(e) => {
+          onFile(e.target.files?.[0]);
+          e.target.value = '';
+        }}
+      />
     </div>
   );
 }
@@ -175,18 +215,26 @@ function Sheet({ kind, group }: { kind: HealthCheck['kind']; group: HealthCheck[
     void removeRow(r.id);
   };
 
-  /** 결과서(이수증) 첨부·교체 */
-  const attachCert = async (row: HealthCheck, file: File | undefined) => {
+  /**
+   * 확인서 첨부·교체.
+   * `recheckCert`는 벤젠처럼 주기가 짧아 중간에 다시 받은 검진의 확인서다 —
+   * 어느 쪽을 붙이든 서류를 읽어 해당 유해인자의 날짜를 갱신한다.
+   */
+  const attachCert = async (
+    row: HealthCheck,
+    file: File | undefined,
+    field: 'certFile' | 'recheckCert' = 'certFile',
+  ) => {
     if (!file) return;
     if (file.size > 8_000_000) {
       alert('파일이 너무 큽니다. 8MB 이하 PDF·이미지를 첨부해 주세요.');
       return;
     }
-    setUploading(row.id);
+    setUploading(`${row.id}-${field === 'certFile' ? 'cert' : 'recheck'}`);
     try {
       const dataUrl = await fileToDataUrl(file);
       const url = await uploadCert(dataUrl, `${row.name || '검진결과'}`);
-      setRow(row.id, { certFile: url });
+      setRow(row.id, { [field]: url } as Partial<HealthCheck>);
 
       // 서류를 읽어 검진일자·유해인자를 자동으로 반영한다 (사람이 적어 둔 값은 건드리지 않는다)
       const f = await extractDocFields(dataUrl, `${HEALTH_LABEL[kind]} 확인서`);
@@ -199,20 +247,22 @@ function Sheet({ kind, group }: { kind: HealthCheck['kind']; group: HealthCheck[
         patch.birth = f.birth;
         filled.push(`생년월일 ${f.birth}`);
       }
-      if (checkedAt && !cur.checkDate) {
+      // 갱신 확인서는 중간 재검이라 연간 검진일자를 바꾸지 않는다
+      if (field === 'certFile' && checkedAt && !cur.checkDate) {
         patch.checkDate = checkedAt;
         patch.renewDate = healthRenewDate(checkedAt);
         filled.push(`검진일자 ${checkedAt}`);
       }
       if (isSpecial && checkedAt) {
         // 확인서에 적힌 유해인자만 갱신한다 — 벤젠 재검 확인서면 벤젠 날짜만 바뀐다.
-        // 유해인자를 못 읽었으면 연간 검진으로 보고 세 물질을 모두 잡는다.
+        // 못 읽었으면 연간 확인서는 세 물질, 갱신 확인서는 벤젠만으로 본다.
         const read = watchedHazardsIn(f?.hazards ?? null);
-        const names = read.length > 0 ? read : [...WATCHED_HAZARDS];
+        const fallback = field === 'recheckCert' ? ['벤젠'] : [...WATCHED_HAZARDS];
+        const names = read.length > 0 ? read : fallback;
         const next = applyHazardCheck(cur.hazards, names, checkedAt);
         if (JSON.stringify(next) !== JSON.stringify(cur.hazards ?? [])) {
           patch.hazards = next;
-          filled.push(`${names.join('·')} ${checkedAt}${read.length > 0 ? '' : ' (유해인자를 못 읽어 3종 모두 적용)'}`);
+          filled.push(`${names.join('·')} ${checkedAt}${read.length > 0 ? '' : ` (유해인자를 못 읽어 ${names.join('·')}(으)로 적용)`}`);
         }
       }
       if (Object.keys(patch).length > 0) setRow(row.id, patch);
@@ -358,34 +408,23 @@ function Sheet({ kind, group }: { kind: HealthCheck['kind']; group: HealthCheck[
 
                         <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                           <p className="mb-1.5 text-xs font-bold text-slate-600">확인서</p>
-                          <div className="flex items-center gap-1.5">
-                            {r.certFile && (
-                              <a
-                                href={fileHref(r.certFile)}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="rounded border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
-                                title={`${r.name} 확인서 열기`}
-                              >
-                                📄 보기
-                              </a>
-                            )}
-                            <label
-                              htmlFor={`hc-${r.id}`}
-                              className="cursor-pointer rounded border border-dashed border-slate-300 px-1.5 py-1 text-[11px] whitespace-nowrap text-slate-500 hover:border-[#1f3864] hover:text-[#1f3864]"
-                              title="확인서 첨부·교체 (PDF·이미지)"
-                            >
-                              {uploading === r.id ? '업로드중' : r.certFile ? '교체' : '첨부'}
-                            </label>
-                            <input
-                              id={`hc-${r.id}`}
-                              type="file"
-                              accept="application/pdf,image/*"
-                              className="hidden"
-                              onChange={(e) => {
-                                void attachCert(r, e.target.files?.[0]);
-                                e.target.value = '';
-                              }}
+                          <div className="space-y-1.5">
+                            <CertRow
+                              label="확인서"
+                              url={r.certFile}
+                              inputId={`hc-${r.id}`}
+                              busy={uploading === `${r.id}-cert`}
+                              personName={r.name}
+                              onFile={(f) => void attachCert(r, f, 'certFile')}
+                            />
+                            {/* 벤젠처럼 주기가 짧아 중간에 다시 받은 검진의 확인서 */}
+                            <CertRow
+                              label="갱신 확인서"
+                              url={r.recheckCert}
+                              inputId={`hc-re-${r.id}`}
+                              busy={uploading === `${r.id}-recheck`}
+                              personName={r.name}
+                              onFile={(f) => void attachCert(r, f, 'recheckCert')}
                             />
                           </div>
                           <div className="mt-2.5">
@@ -481,7 +520,7 @@ function Sheet({ kind, group }: { kind: HealthCheck['kind']; group: HealthCheck[
                       className="cursor-pointer rounded border border-dashed border-slate-300 px-1.5 py-1 text-[11px] whitespace-nowrap text-slate-500 hover:border-[#1f3864] hover:text-[#1f3864]"
                       title="결과서 첨부·교체 (PDF·이미지)"
                     >
-                      {uploading === r.id ? '업로드중' : r.certFile ? '교체' : '첨부'}
+                      {uploading === `${r.id}-cert` ? '업로드중' : r.certFile ? '교체' : '첨부'}
                     </label>
                     <input
                       id={`hc-${r.id}`}
