@@ -10,6 +10,12 @@ export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 interface Options<T> {
   /** 저장 이력이 전혀 없을 때 최초 1회 자동 등록할 기존 대장(명부) */
   seed?: T[];
+  /**
+   * 이 시드가 담당하는 기록 범위 — 한 저장소를 여러 화면이 나눠 쓸 때 지정한다.
+   * (예: 건강검진은 일반·특수가 같은 저장소를 쓰므로 `r => r.kind === 'special'`)
+   * 지정하지 않으면 저장소 전체를 이 시드의 범위로 본다.
+   */
+  seedScope?: (row: T) => boolean;
   /** 빈 행 판별 — 이름·번호 등 핵심값이 비어 있으면 저장하지 않는다 */
   isBlank: (row: T) => boolean;
   /** 표시 정렬 */
@@ -27,7 +33,7 @@ const SAVE_DELAY = 700;
  *   이렇게 해야 이후의 삭제가 서버에 남아, 지운 행이 되살아나지 않는다.
  */
 export function useSheetLog<T extends { id: string }>(type: LogType, localKey: string, opts: Options<T>) {
-  const { seed, isBlank, sort } = opts;
+  const { seed, seedScope, isBlank, sort } = opts;
   const { entries, mode, add, remove } = useSyncedLog<T>(type, localKey);
 
   const [rows, setRowsState] = useState<T[]>([]);
@@ -60,11 +66,13 @@ export function useSheetLog<T extends { id: string }>(type: LogType, localKey: s
   // 호출부에서 인라인으로 넘기는 함수들 — 매 렌더 새 참조라 ref에 담아 의존성에서 뺀다
   // (그러지 않으면 목록 동기화 이펙트가 자기 자신을 다시 트리거해 무한 렌더가 된다)
   const sortRef = useRef(sort);
+  const seedScopeRef = useRef(seedScope);
   const isBlankRef = useRef(isBlank);
   /** 저장된 목록 — 되돌리기에서 "이미 저장된 행인지" 판단에 쓴다 */
   const entriesRef = useRef(entries);
   useEffect(() => {
     sortRef.current = sort;
+    seedScopeRef.current = seedScope;
     isBlankRef.current = isBlank;
     entriesRef.current = entries;
   });
@@ -91,7 +99,13 @@ export function useSheetLog<T extends { id: string }>(type: LogType, localKey: s
     // 등록할 대장이 없으면 표시만 하고, 나중에 대장이 생기면 그때 판단한다
     if (!seed?.length) return;
     seeded.current = true;
-    if (entries.length > 0) return;
+    /*
+     * "이미 등록했는지"는 이 시드가 담당하는 범위 안에서만 따진다.
+     * 한 저장소를 두 화면이 나눠 쓰는 경우(건강검진의 일반/특수)에
+     * 전체 기록 수로 판단하면, 다른 화면 기록 때문에 이쪽 시드가 통째로 막힌다.
+     */
+    const mine = seedScopeRef.current ? entries.filter(seedScopeRef.current) : entries;
+    if (mine.length > 0) return;
     void (async () => {
       setStatus('saving');
       const stamped = seed.map((s) => ({ ...s, updatedAt: new Date().toISOString() }));

@@ -107,6 +107,17 @@ function HazardCell({
           </div>
         );
       })}
+      {row.recheckCert && (
+        <a
+          href={fileHref(row.recheckCert)}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-0.5 inline-block rounded border border-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 hover:bg-sky-50"
+          title={`${row.name} 재검 확인서 열기`}
+        >
+          📄 재검 확인서
+        </a>
+      )}
     </div>
   );
 }
@@ -118,6 +129,8 @@ function Sheet({ kind, group }: { kind: HealthCheck['kind']; group: HealthCheck[
     HEALTH_KEY,
     {
       seed,
+      // 일반·특수가 같은 저장소를 쓰므로, 이 화면 몫만 보고 최초 등록 여부를 판단한다
+      seedScope: (r) => r.kind === kind && r.group === group,
       isBlank: (r) => !r.name.trim(),
       sort: (a, b) => a.name.localeCompare(b.name, 'ko'),
     },
