@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { CARDS_KEY, PASS_VEHICLES_KEY, type AccessCard, type PassVehicle } from '@/lib/cards';
 import { EDU_COURSES } from '@/lib/education';
+import { LABOR_ROSTER_KEY, type LaborWorker } from '@/lib/laborRoster';
 import { listEntriesSilently } from '@/lib/sync';
 import {
   CHEM_WORKERS_KEY,
@@ -156,23 +157,34 @@ export default function SearchResults({
         listEntriesSilently<NearMissLite>('nearmiss', 'sj-nearmiss:v1'),
       ]);
 
+      // 인력은 [인력관리]에서만 다루므로 여기서는 직원만 찾는다 (안 보이는 화면으로 보내지 않는다)
       for (const w of chemWs) {
+        if (w.group !== '직원') continue;
         if (hit(w.name) || hit(w.birth)) {
-          const view = w.group === '직원' ? 'edu-chemical' : 'edu-chemical';
-          push('공무관리 › 안전교육 › 유해화학물질', view, {
+          push('공무관리 › 안전교육 › 유해화학물질', 'edu-chemical', {
             title: w.name,
             sub: `${w.group}${w.offlineDate ? ` · 집체 ${w.offlineDate}` : ''}${w.onlineDate ? ` · 온라인 ${w.onlineDate}` : ''}`,
-            view,
+            view: 'edu-chemical',
           });
         }
       }
       for (const w of ynccWs) {
+        if (w.group !== '직원') continue;
         if (hit(w.name) || hit(w.birth)) {
-          const view = w.group === '직원' ? 'edu-yncc' : 'edu-yncc';
-          push('공무관리 › 안전교육 › YNCC출입', view, {
+          push('공무관리 › 안전교육 › YNCC출입', 'edu-yncc', {
             title: w.name,
             sub: `${w.group}${w.eduExpire ? ` · 유효종료 ${w.eduExpire}` : ''}`,
-            view,
+            view: 'edu-yncc',
+          });
+        }
+      }
+      // 인력 명부 — 이름·생년월일·연락처로 찾는다
+      for (const w of await listEntriesSilently<LaborWorker>('labor-roster', LABOR_ROSTER_KEY)) {
+        if (hit(w.name) || hit(w.birth ?? '') || hit(w.phone ?? '')) {
+          push('공무관리 › 인력관리', 'labor-roster', {
+            title: w.name,
+            sub: [w.category, w.birth, w.phone].filter(Boolean).join(' · '),
+            view: 'labor-roster',
           });
         }
       }

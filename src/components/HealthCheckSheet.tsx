@@ -17,7 +17,6 @@ import { useSortable } from '@/lib/useSortable';
 import { CELL, SheetToolbar, SortButton, TD_STICKY, TH, TH_STICKY } from './SheetUI';
 import { fileHref } from '@/lib/ids';
 
-const GROUPS: HealthCheck['group'][] = ['직원', '인력'];
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -29,28 +28,17 @@ function fileToDataUrl(file: File): Promise<string> {
 }
 
 /**
- * 건강검진(일반·특수) 시트 — 직원/인력 탭.
+ * 건강검진(일반·특수) 시트 — 직원 명부.
  * 검진일자를 입력하면 갱신일자(1년 후)가 자동 입력되고, 결과서(이수증)를 첨부·교체할 수 있다.
  * 값을 바꾸면 자동 저장되며 [되돌리기]로 직전 상태로 복구할 수 있다.
+ *
+ * 인력은 [공무관리 > 인력관리]에서 인력소별로 관리하므로 여기서는 다루지 않는다.
  */
 export default function HealthCheckSheet({ kind }: { kind: HealthCheck['kind'] }) {
-  const [tab, setTab] = useState<HealthCheck['group']>('직원');
-  const tabBtn = (active: boolean) =>
-    `rounded-t-lg border border-b-0 px-5 py-2.5 text-sm font-bold ${
-      active ? 'border-slate-200 bg-white text-[#1f3864]' : 'border-transparent bg-slate-100 text-slate-400 hover:text-slate-600'
-    }`;
-
   return (
     <div className="w-full">
-      <div className="flex gap-1">
-        {GROUPS.map((g) => (
-          <button key={g} onClick={() => setTab(g)} className={tabBtn(tab === g)}>
-            {g === '직원' ? '🧑‍💼' : '👷'} {g}
-          </button>
-        ))}
-      </div>
-      <div className="rounded-b-xl rounded-tr-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <Sheet kind={kind} group={tab} />
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <Sheet kind={kind} group="직원" />
       </div>
     </div>
   );
