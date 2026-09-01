@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { keepAttachments } from './attachments';
 import {
   enqueue,
   flushOutbox,
@@ -59,6 +60,7 @@ function saveLocal<T>(key: string, list: T[]): void {
     // ignore
   }
 }
+
 
 function askPasscode(): boolean {
   const entered = window.prompt(
@@ -157,8 +159,16 @@ export function useSyncedLog<T extends { id: string }>(type: LogType, localKey: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** 저장 직전의 원본 — 첨부파일을 이어받을 때 참조한다 */
+  const entriesRef = useRef<T[]>([]);
+  useEffect(() => {
+    entriesRef.current = entries;
+  }, [entries]);
+
   const add = useCallback(
-    async (entry: T): Promise<boolean> => {
+    async (incoming: T): Promise<boolean> => {
+      // 내용만 고쳐 저장하는 경우에도 첨부파일이 사라지지 않게 이어받는다
+      const entry = keepAttachments(incoming, entriesRef.current.find((e) => e.id === incoming.id));
       if (mode === 'server') {
         try {
           await saveEntryRemote(type, entry);

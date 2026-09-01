@@ -128,6 +128,9 @@ export default function YnccVehicles() {
     try {
       const existing = entries.find((v) => v.plate === plate);
       const entry: YnccVehicle = {
+        // 기존 값을 먼저 펼쳐 둔다 — 이렇게 하지 않으면 갱신할 때
+        // 여기서 다루지 않는 칸(차량등록증·보험증권 첨부)이 통째로 지워진다
+        ...existing,
         id: existing?.id ?? `YV-${Date.now()}`,
         plate,
         regDate,
