@@ -54,3 +54,21 @@ export function nameId(prefix: string, name: string): string {
 export function fileHref(path: string): string {
   return /^https?:\/\//i.test(path) ? path : encodeURI(path);
 }
+
+/**
+ * 같은 서류의 **사진(JPG) 판** 주소.
+ *
+ * 휴대폰마다 PDF 뷰어가 달라 안 열리는 기기가 있어, 저장소에 넣어 둔 서류는
+ * PDF 옆에 같은 이름의 .jpg를 함께 둔다. 화면에서는 이 사진을 먼저 띄우고
+ * 원본 PDF는 인쇄용으로 남긴다.
+ *
+ * - 이미 이미지면 그 자체가 사진 판이다
+ * - 업로드된 파일(Cloud Storage 주소)은 짝이 되는 사진이 없으므로 null
+ */
+export function certPhoto(path: string | undefined): string | null {
+  if (!path) return null;
+  if (/^https?:\/\//i.test(path)) return null;
+  if (/\.(jpe?g|png|webp|gif)$/i.test(path)) return path;
+  if (/\.pdf$/i.test(path)) return path.replace(/\.pdf$/i, '.jpg');
+  return null;
+}

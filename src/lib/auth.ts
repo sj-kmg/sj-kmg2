@@ -34,8 +34,14 @@ export interface AuthResult {
   pending?: boolean;
 }
 
-/** 현장 계정이 쓸 수 있는 기록 종류 — 이 외에는 접근할 수 없다 */
+/** 현장 계정이 **작성**할 수 있는 기록 종류 */
 export const FIELD_TYPES = new Set(['tbm', 'nearmiss']);
+
+/**
+ * 현장 계정이 **읽기만** 할 수 있는 기록 종류.
+ * 현장에서 차량 서류를 제시할 일이 있어 YNCC차량은 열어 두되, 고칠 수는 없다.
+ */
+export const FIELD_READ_TYPES = new Set([...FIELD_TYPES, 'yncc-vehicles']);
 
 function adminApp() {
   return getApps()[0] ?? initializeApp({ projectId: projectId() });
@@ -114,7 +120,7 @@ export async function checkAuth(req: Request): Promise<AuthResult> {
 /** 이 역할이 해당 기록 종류를 읽을 수 있는가 */
 export function canRead(auth: AuthResult, type: string): boolean {
   if (auth.role === 'admin') return true;
-  if (auth.role === 'field') return FIELD_TYPES.has(type);
+  if (auth.role === 'field') return FIELD_READ_TYPES.has(type);
   if (auth.role === 'viewer') return typesForMenus(auth.menus ?? []).has(type);
   return false;
 }

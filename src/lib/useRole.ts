@@ -5,9 +5,12 @@ import { authHeaders } from './sync';
 import { watchUser } from './firebaseClient';
 
 export type Role = 'admin' | 'field' | 'viewer';
-
-/** 현장 계정이 쓸 수 있는 화면 */
-export const FIELD_VIEWS = ['tbm', 'nearmiss'];
+/**
+ * 현장 암호로 볼 수 있는 화면.
+ * YNCC차량은 현장에서 서류를 제시할 일이 있어 **보기 전용**으로 열어 둔다
+ * (수정·첨부는 canWrite에서 막는다).
+ */
+export const FIELD_VIEWS = ['tbm', 'nearmiss', 'yncc-vehicle'];
 
 export interface SessionUser {
   uid: string;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { fileHref } from '@/lib/ids';
+import { certPhoto, fileHref } from '@/lib/ids';
 import { SyncError, uploadCert } from '@/lib/sync';
 import { modeBadge, useSyncedLog } from '@/lib/useSyncedLog';
 import { useRole } from '@/lib/useRole';
@@ -13,6 +13,114 @@ function todayStr(): string {
   const d = new Date();
   const p = (n: number) => (n < 10 ? `0${n}` : String(n));
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/**
+ * 서류 한 건 — 사진으로 바로 띄워 본다.
+ *
+ * 휴대폰마다 PDF 뷰어가 달라 안 열리는 기기가 있어, 저장소에 넣어 둔 서류는
+ * 같은 이름의 사진(JPG)을 함께 두고 그걸 먼저 보여 준다.
+ * 사진은 길게 눌러 저장할 수 있고, [저장] 버튼으로 내려받을 수도 있다.
+ * 원본 PDF는 인쇄용으로 옆에 남겨 둔다.
+ */
+function CertView({
+  label,
+  url,
+  plate,
+  canEdit,
+  uploading,
+  inputId,
+  onFile,
+}: {
+  label: string;
+  url: string | undefined;
+  plate: string;
+  canEdit: boolean;
+  uploading: boolean;
+  inputId: string;
+  onFile: (file: File | undefined) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const photo = certPhoto(url);
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-1">
+        {url && photo && (
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="rounded border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
+          >
+            {open ? '닫기' : '🖼 보기'}
+          </button>
+        )}
+        {url && !photo && (
+          // 올린 파일은 짝이 되는 사진이 없어 원본을 그대로 연다
+          <a
+            href={fileHref(url)}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
+            title={`${plate} ${label} 열기`}
+          >
+            📄 보기
+          </a>
+        )}
+        {canEdit && (
+          <>
+            <label
+              htmlFor={inputId}
+              className="cursor-pointer rounded border border-dashed border-slate-300 px-1.5 py-1 text-[11px] whitespace-nowrap text-slate-500 hover:border-[#1f3864] hover:text-[#1f3864]"
+              title={`${label} 첨부·교체`}
+            >
+              {uploading ? '업로드중' : url ? '교체' : '첨부'}
+            </label>
+            <input
+              id={inputId}
+              type="file"
+              accept="application/pdf,image/*"
+              className="hidden"
+              onChange={(e) => {
+                onFile(e.target.files?.[0]);
+                e.target.value = '';
+              }}
+            />
+          </>
+        )}
+        {!url && !canEdit && <span className="text-[11px] text-slate-300">없음</span>}
+      </div>
+
+      {open && photo && (
+        <div className="mt-1.5 rounded-lg border border-slate-200 bg-white p-1.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={fileHref(photo)}
+            alt={`${plate} ${label}`}
+            className="w-full rounded"
+            style={{ maxHeight: '75vh', objectFit: 'contain' }}
+          />
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 px-0.5">
+            <a
+              href={fileHref(photo)}
+              download={`${plate}_${label}.jpg`}
+              className="rounded bg-[#1f3864] px-2 py-1 text-[11px] font-semibold text-white"
+            >
+              ⤓ 사진 저장
+            </a>
+            <a href={fileHref(photo)} target="_blank" rel="noreferrer" className="text-[11px] text-sky-700 hover:underline">
+              새 창에서 크게
+            </a>
+            {url && url !== photo && (
+              <a href={fileHref(url)} target="_blank" rel="noreferrer" className="text-[11px] text-slate-400 hover:underline">
+                원본 PDF
+              </a>
+            )}
+            <span className="text-[10px] text-slate-400">사진을 길게 눌러도 저장됩니다</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** 원본 문서를 반영해 둔 차량 — 최초 1회, 비어 있는 첨부 칸에만 채워 넣는다 (이미 있으면 손대지 않는다) */
@@ -61,6 +169,8 @@ export default function YnccVehicles() {
   const [uploading, setUploading] = useState<string | null>(null);
   const seededRef = useRef(false);
   const sortCtl = useSortable<YnccVehicle>();
+  /** 현장·열람 계정은 보기만 한다 — 수정·첨부·삭제는 관리자만 */
+  const canEdit = role === 'admin';
 
   useEffect(() => setRegDate(todayStr()), []);
 
@@ -194,7 +304,8 @@ export default function YnccVehicles() {
           <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
         </div>
 
-        {/* 입력창 — 차량번호는 고정, 등록일자·등록자만 갱신 */}
+        {/* 입력창 — 차량번호는 고정, 등록일자·등록자만 갱신 (관리자만) */}
+        {canEdit && (
         <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 p-3">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
             <div>
@@ -232,9 +343,54 @@ export default function YnccVehicles() {
             </div>
           </div>
         </div>
+        )}
+
+        {/* 휴대폰 — 차량 카드. 표를 옆으로 밀지 않고 그대로 읽을 수 있게 한다 */}
+        <div className="mt-4 space-y-2 md:hidden">
+          {vehicles.length === 0 && (
+            <p className="rounded-lg border border-dashed border-slate-200 py-8 text-center text-sm text-slate-300">
+              {mode === 'loading' ? '불러오는 중…' : '등록된 차량이 없습니다.'}
+            </p>
+          )}
+          {vehicles.map((v) => (
+            <article key={v.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <span className="text-base font-bold text-slate-800">{v.plate}</span>
+                {v.registrant && <span className="text-xs text-slate-600">등록자 {v.registrant}</span>}
+                {v.regDate && <span className="font-mono text-[11px] text-slate-400">{v.regDate}</span>}
+              </div>
+              <div className="mt-2 space-y-2">
+                <div>
+                  <p className="mb-1 text-[11px] font-semibold text-slate-500">차량등록증</p>
+                  <CertView
+                    label="자동차등록증"
+                    url={v.regCertFile}
+                    plate={v.plate}
+                    canEdit={canEdit}
+                    uploading={uploading === `${v.id}:regCertFile`}
+                    inputId={`yv-m-reg-${v.id}`}
+                    onFile={(f) => void attach(v, 'regCertFile', f)}
+                  />
+                </div>
+                <div>
+                  <p className="mb-1 text-[11px] font-semibold text-slate-500">보험증권</p>
+                  <CertView
+                    label="보험증권"
+                    url={v.insuranceCertFile}
+                    plate={v.plate}
+                    canEdit={canEdit}
+                    uploading={uploading === `${v.id}:insuranceCertFile`}
+                    inputId={`yv-m-ins-${v.id}`}
+                    onFile={(f) => void attach(v, 'insuranceCertFile', f)}
+                  />
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
 
         {/* 차량 전체 현황 — 입력하면 아래 내용이 바로 갱신된다 */}
-        <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+        <div className="mt-4 hidden overflow-x-auto rounded-lg border border-slate-200 md:block">
           <table className="w-full min-w-[820px] text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs text-slate-500">
@@ -270,83 +426,43 @@ export default function YnccVehicles() {
                   <td className="px-4 py-2.5 font-mono text-xs text-slate-600">{v.regDate}</td>
                   <td className="px-4 py-2.5 text-slate-700">{v.registrant}</td>
                   <td className="px-2 py-2.5" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-center gap-1">
-                      {v.regCertFile && (
-                        <a
-                          href={fileHref(v.regCertFile)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
-                          title={`${v.plate} 자동차등록증 열기`}
-                        >
-                          📄 보기
-                        </a>
-                      )}
-                      <label
-                        htmlFor={`yv-reg-${v.id}`}
-                        className="cursor-pointer rounded border border-dashed border-slate-300 px-1.5 py-1 text-[11px] whitespace-nowrap text-slate-500 hover:border-[#1f3864] hover:text-[#1f3864]"
-                        title="자동차등록증 첨부·교체"
-                      >
-                        {uploading === `${v.id}:regCertFile` ? '업로드중' : v.regCertFile ? '교체' : '첨부'}
-                      </label>
-                      <input
-                        id={`yv-reg-${v.id}`}
-                        type="file"
-                        accept="application/pdf,image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          void attach(v, 'regCertFile', e.target.files?.[0]);
-                          e.target.value = '';
-                        }}
-                      />
-                    </div>
+                    <CertView
+                      label="자동차등록증"
+                      url={v.regCertFile}
+                      plate={v.plate}
+                      canEdit={canEdit}
+                      uploading={uploading === `${v.id}:regCertFile`}
+                      inputId={`yv-reg-${v.id}`}
+                      onFile={(f) => void attach(v, 'regCertFile', f)}
+                    />
                   </td>
                   <td className="px-2 py-2.5" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-center gap-1">
-                      {v.insuranceCertFile && (
-                        <a
-                          href={fileHref(v.insuranceCertFile)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
-                          title={`${v.plate} 보험증권 열기`}
-                        >
-                          📄 보기
-                        </a>
-                      )}
-                      <label
-                        htmlFor={`yv-ins-${v.id}`}
-                        className="cursor-pointer rounded border border-dashed border-slate-300 px-1.5 py-1 text-[11px] whitespace-nowrap text-slate-500 hover:border-[#1f3864] hover:text-[#1f3864]"
-                        title="보험증권 첨부·교체"
-                      >
-                        {uploading === `${v.id}:insuranceCertFile` ? '업로드중' : v.insuranceCertFile ? '교체' : '첨부'}
-                      </label>
-                      <input
-                        id={`yv-ins-${v.id}`}
-                        type="file"
-                        accept="application/pdf,image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          void attach(v, 'insuranceCertFile', e.target.files?.[0]);
-                          e.target.value = '';
-                        }}
-                      />
-                    </div>
+                    <CertView
+                      label="보험증권"
+                      url={v.insuranceCertFile}
+                      plate={v.plate}
+                      canEdit={canEdit}
+                      uploading={uploading === `${v.id}:insuranceCertFile`}
+                      inputId={`yv-ins-${v.id}`}
+                      onFile={(f) => void attach(v, 'insuranceCertFile', f)}
+                    />
                   </td>
                   <td className="px-4 py-2.5 font-mono text-[11px] text-slate-400">
                     {v.updatedAt ? new Date(v.updatedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
                   </td>
                   <td className="px-2 py-2.5 text-center">
-                    <button
-                      aria-label={`${v.plate} 삭제`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void removeVehicle(v);
-                      }}
-                      className="text-slate-300 hover:text-red-500"
-                    >
-                      ✕
-                    </button>
+                    {canEdit && (
+                      <button
+                        aria-label={`${v.plate} 삭제`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void removeVehicle(v);
+                        }}
+                        className="text-slate-300 hover:text-red-500"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -354,9 +470,11 @@ export default function YnccVehicles() {
           </table>
         </div>
         <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
-          차량번호는 고정이고 등록일자·차량 등록자만 수시로 갱신됩니다. 표에서 차량을 클릭하면 위 입력창으로 불러와 바로
-          갱신할 수 있습니다. 차량등록증·보험증권은 [첨부]로 올려 두면 [📄 보기]로 바로 열람할 수 있고, 갱신 시
-          [교체]로 새 파일로 바꿀 수 있습니다.
+          [🖼 보기]를 누르면 서류가 사진으로 바로 뜹니다. 사진을 길게 누르거나 [⤓ 사진 저장]으로 휴대폰에 저장할 수
+          있고, 인쇄가 필요하면 [원본 PDF]를 쓰면 됩니다.
+          {canEdit
+            ? ' 차량번호는 고정이고 등록일자·차량 등록자만 수시로 갱신됩니다. 표에서 차량을 클릭하면 위 입력창으로 불러와 갱신할 수 있고, 서류는 [교체]로 바꿀 수 있습니다.'
+            : ' 내용 수정과 서류 교체는 관리자만 할 수 있습니다.'}
         </p>
       </div>
     </div>
