@@ -33,6 +33,7 @@ function CertView({
   uploading,
   inputId,
   onFile,
+  fullscreen,
 }: {
   label: string;
   url: string | undefined;
@@ -43,6 +44,8 @@ function CertView({
   uploading: boolean;
   inputId: string;
   onFile: (file: File | undefined) => void;
+  /** 휴대폰 — 좁은 칸에 끼워 넣지 않고 화면 전체에 크게 띄운다 */
+  fullscreen?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const photo = photoUrl?.trim() || certPhoto(url);
@@ -94,7 +97,41 @@ function CertView({
         {!url && !canEdit && <span className="text-[11px] text-slate-300">없음</span>}
       </div>
 
-      {open && photo && (
+      {open && photo && fullscreen && (
+        // 휴대폰 — 서류는 화면 가득 띄워야 글씨가 읽힌다
+        <div className="fixed inset-0 z-[70] flex flex-col bg-black/95">
+          <div className="flex items-center gap-2 px-3 py-2">
+            <span className="truncate text-sm font-semibold text-white">
+              {plate} {label}
+            </span>
+            <button onClick={() => setOpen(false)} className="ml-auto rounded px-2 py-1 text-sm font-medium text-white/80">
+              닫기 ✕
+            </button>
+          </div>
+          <div className="flex-1 overflow-auto px-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={fileHref(photo)} alt={`${plate} ${label}`} className="mx-auto w-full max-w-3xl rounded" />
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
+            <a
+              href={fileHref(photo)}
+              download={`${plate}_${label}.jpg`}
+              className="rounded bg-white px-2.5 py-1.5 text-xs font-semibold text-black"
+            >
+              ⤓ 사진 저장
+            </a>
+            {url && url !== photo && (
+              <a href={fileHref(url)} target="_blank" rel="noreferrer" className="text-xs text-white/60 hover:underline">
+                원본 PDF
+              </a>
+            )}
+            <span className="text-[10px] text-white/40">사진을 길게 눌러도 저장됩니다</span>
+          </div>
+        </div>
+      )}
+
+      {open && photo && !fullscreen && (
+
         <div className="mt-1.5 rounded-lg border border-slate-200 bg-white p-1.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -171,6 +208,8 @@ export default function YnccVehicles() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
+  /** 휴대폰에서 펼쳐 놓은 차량 — 목록이 길어지지 않게 한 대씩만 연다 */
+  const [openPlate, setOpenPlate] = useState<string | null>(null);
   const seededRef = useRef(false);
   const sortCtl = useSortable<YnccVehicle>();
   /** 현장·열람 계정은 보기만 한다 — 수정·첨부·삭제는 관리자만 */
@@ -380,43 +419,60 @@ export default function YnccVehicles() {
               {mode === 'loading' ? '불러오는 중…' : '등록된 차량이 없습니다.'}
             </p>
           )}
-          {vehicles.map((v) => (
-            <article key={v.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                <span className="text-base font-bold text-slate-800">{v.plate}</span>
-                {v.registrant && <span className="text-xs text-slate-600">등록자 {v.registrant}</span>}
-                {v.regDate && <span className="font-mono text-[11px] text-slate-400">{v.regDate}</span>}
-              </div>
-              <div className="mt-2 space-y-2">
-                <div>
-                  <p className="mb-1 text-[11px] font-semibold text-slate-500">차량등록증</p>
-                  <CertView
-                    label="자동차등록증"
-                    url={v.regCertFile}
-                    photoUrl={v.regCertPhoto}
-                    plate={v.plate}
-                    canEdit={canEdit}
-                    uploading={uploading === `${v.id}:regCertFile`}
-                    inputId={`yv-m-reg-${v.id}`}
-                    onFile={(f) => void attach(v, 'regCertFile', f)}
-                  />
-                </div>
-                <div>
-                  <p className="mb-1 text-[11px] font-semibold text-slate-500">보험증권</p>
-                  <CertView
-                    label="보험증권"
-                    url={v.insuranceCertFile}
-                    photoUrl={v.insuranceCertPhoto}
-                    plate={v.plate}
-                    canEdit={canEdit}
-                    uploading={uploading === `${v.id}:insuranceCertFile`}
-                    inputId={`yv-m-ins-${v.id}`}
-                    onFile={(f) => void attach(v, 'insuranceCertFile', f)}
-                  />
-                </div>
-              </div>
-            </article>
-          ))}
+          {vehicles.map((v) => {
+            const isOpen = openPlate === v.id;
+            return (
+              <article key={v.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                {/* 차량번호 한 줄 — 누르면 서류가 펼쳐진다. 차량이 많아도 목록이 짧게 유지된다 */}
+                <button
+                  onClick={() => setOpenPlate(isOpen ? null : v.id)}
+                  aria-expanded={isOpen}
+                  className="flex w-full flex-wrap items-baseline gap-x-2 gap-y-0.5 px-3 py-2.5 text-left active:bg-slate-50"
+                >
+                  <span className="text-base font-bold text-slate-800">{v.plate}</span>
+                  {v.registrant && <span className="text-xs text-slate-600">{v.registrant}</span>}
+                  {v.regDate && <span className="font-mono text-[11px] text-slate-400">{v.regDate}</span>}
+                  <span className="ml-auto text-slate-300">{isOpen ? '▲' : '▼'}</span>
+                </button>
+
+                {isOpen && (
+                  <div className="border-t border-slate-100 px-3 py-2.5">
+                    {/* 등록증·보험증권을 나란히 */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="mb-1 text-[11px] font-semibold text-slate-500">차량등록증</p>
+                        <CertView
+                          label="자동차등록증"
+                          url={v.regCertFile}
+                          photoUrl={v.regCertPhoto}
+                          plate={v.plate}
+                          canEdit={canEdit}
+                          uploading={uploading === `${v.id}:regCertFile`}
+                          inputId={`yv-m-reg-${v.id}`}
+                          fullscreen
+                          onFile={(f) => void attach(v, 'regCertFile', f)}
+                        />
+                      </div>
+                      <div>
+                        <p className="mb-1 text-[11px] font-semibold text-slate-500">보험증권</p>
+                        <CertView
+                          label="보험증권"
+                          url={v.insuranceCertFile}
+                          photoUrl={v.insuranceCertPhoto}
+                          plate={v.plate}
+                          canEdit={canEdit}
+                          uploading={uploading === `${v.id}:insuranceCertFile`}
+                          inputId={`yv-m-ins-${v.id}`}
+                          fullscreen
+                          onFile={(f) => void attach(v, 'insuranceCertFile', f)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </article>
+            );
+          })}
         </div>
 
         {/* 차량 전체 현황 — 입력하면 아래 내용이 바로 갱신된다 */}
