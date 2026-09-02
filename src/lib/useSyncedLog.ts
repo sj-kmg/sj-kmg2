@@ -80,6 +80,11 @@ function askPasscode(): boolean {
 export function useSyncedLog<T extends { id: string }>(type: LogType, localKey: string, opts?: Options<T>) {
   const [entries, setEntries] = useState<T[]>([]);
   const [mode, setMode] = useState<SyncMode>('loading');
+  /** 이펙트 밖에서 읽는 현재 저장 모드 */
+  const modeRef = useRef<SyncMode>('loading');
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
   /** 아직 서버로 못 보낸 기록 수 (신호 불량 등) */
   const [pending, setPending] = useState(0);
 
@@ -158,6 +163,42 @@ export function useSyncedLog<T extends { id: string }>(type: LogType, localKey: 
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /**
+   * 서버 목록만 다시 읽어 온다 (로컬→서버 이관은 하지 않는다).
+   * 다른 기기에서 고친 내용을 따라잡는 용도라 가볍게 유지한다.
+   */
+  const refresh = useCallback(async () => {
+    if (modeRef.current !== 'server') return;
+    try {
+      setEntries(withPending(await listEntries<T>(type)));
+    } catch {
+      // 신호가 약하거나 잠시 막힌 경우 — 화면은 지금 목록을 그대로 둔다
+    }
+  }, [type, withPending]);
+
+  /*
+   * 다른 기기에서 바뀐 내용 따라잡기.
+   *
+   * 사무실 대시보드에서 차량을 등록하거나 서류를 바꾸면 현장 휴대폰에서도 보여야 한다.
+   * 화면을 다시 볼 때(주머니에서 꺼냈을 때)와, 켜 둔 동안 주기적으로 다시 읽는다.
+   * 보이지 않는 동안에는 아무것도 하지 않아 배터리·통신을 쓰지 않는다.
+   */
+  useEffect(() => {
+    const onBack = () => {
+      if (document.visibilityState === 'visible') void refresh();
+    };
+    window.addEventListener('focus', onBack);
+    document.addEventListener('visibilitychange', onBack);
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') void refresh();
+    }, 30_000);
+    return () => {
+      window.removeEventListener('focus', onBack);
+      document.removeEventListener('visibilitychange', onBack);
+      clearInterval(timer);
+    };
+  }, [refresh]);
 
   /** 저장 직전의 원본 — 첨부파일을 이어받을 때 참조한다 */
   const entriesRef = useRef<T[]>([]);

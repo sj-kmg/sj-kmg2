@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { certPhoto, fileHref } from '@/lib/ids';
+import { isPdf, pdfFirstPageToJpeg } from '@/lib/pdfPhoto';
 import { SyncError, uploadCert } from '@/lib/sync';
 import { modeBadge, useSyncedLog } from '@/lib/useSyncedLog';
 import { useRole } from '@/lib/useRole';
@@ -26,6 +27,7 @@ function todayStr(): string {
 function CertView({
   label,
   url,
+  photoUrl,
   plate,
   canEdit,
   uploading,
@@ -34,6 +36,8 @@ function CertView({
 }: {
   label: string;
   url: string | undefined;
+  /** 올릴 때 함께 만들어 둔 사진 — 없으면 저장소에 나란히 둔 사진을 찾는다 */
+  photoUrl?: string;
   plate: string;
   canEdit: boolean;
   uploading: boolean;
@@ -41,7 +45,7 @@ function CertView({
   onFile: (file: File | undefined) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const photo = certPhoto(url);
+  const photo = photoUrl?.trim() || certPhoto(url);
 
   return (
     <div>
@@ -269,7 +273,31 @@ export default function YnccVehicles() {
       const dataUrl = await fileToDataUrl(file);
       const label = field === 'regCertFile' ? '자동차등록증' : '보험증권';
       const url = await uploadCert(dataUrl, `${v.plate || '차량'}_${label}`);
-      await add({ ...v, [field]: url, updatedAt: new Date().toISOString() });
+
+      /*
+       * 휴대폰에서 바로 열리도록 사진 판을 함께 만든다.
+       * PDF면 첫 장을 사진으로 바꿔 올리고, 이미 이미지면 그 자체가 사진 판이다.
+       * 변환이 안 되면 사진 없이 원본만 저장한다 (첨부 자체는 실패시키지 않는다).
+       */
+      const photoField = field === 'regCertFile' ? 'regCertPhoto' : 'insuranceCertPhoto';
+      let photo: string | undefined;
+      if (isPdf(file)) {
+        const jpeg = await pdfFirstPageToJpeg(file);
+        if (jpeg) photo = await uploadCert(jpeg, `${v.plate || '차량'}_${label}_사진`);
+      } else {
+        photo = url;
+      }
+
+      await add({
+        ...v,
+        [field]: url,
+        // 변환에 실패했으면 예전 사진을 남겨 두지 않는다 — 원본과 어긋나면 더 혼란스럽다
+        [photoField]: photo ?? '',
+        updatedAt: new Date().toISOString(),
+      });
+      if (isPdf(file) && !photo) {
+        alert('서류는 올렸지만 사진으로 바꾸지 못했습니다.\n휴대폰에서는 원본 PDF로 열립니다.');
+      }
     } catch (e) {
       if (e instanceof SyncError && (e.status === 503 || e.status === 401)) {
         alert('첨부는 배포된 사이트에서 동기화 암호를 입력한 뒤 사용할 수 있습니다.');
@@ -365,6 +393,7 @@ export default function YnccVehicles() {
                   <CertView
                     label="자동차등록증"
                     url={v.regCertFile}
+                    photoUrl={v.regCertPhoto}
                     plate={v.plate}
                     canEdit={canEdit}
                     uploading={uploading === `${v.id}:regCertFile`}
@@ -377,6 +406,7 @@ export default function YnccVehicles() {
                   <CertView
                     label="보험증권"
                     url={v.insuranceCertFile}
+                    photoUrl={v.insuranceCertPhoto}
                     plate={v.plate}
                     canEdit={canEdit}
                     uploading={uploading === `${v.id}:insuranceCertFile`}
@@ -429,6 +459,7 @@ export default function YnccVehicles() {
                     <CertView
                       label="자동차등록증"
                       url={v.regCertFile}
+                      photoUrl={v.regCertPhoto}
                       plate={v.plate}
                       canEdit={canEdit}
                       uploading={uploading === `${v.id}:regCertFile`}
@@ -440,6 +471,7 @@ export default function YnccVehicles() {
                     <CertView
                       label="보험증권"
                       url={v.insuranceCertFile}
+                      photoUrl={v.insuranceCertPhoto}
                       plate={v.plate}
                       canEdit={canEdit}
                       uploading={uploading === `${v.id}:insuranceCertFile`}

@@ -26,8 +26,14 @@ export interface YnccVehicle {
   plate: string; // 차량번호 (고정)
   regDate: string; // 등록일자 (수시 갱신)
   registrant: string; // 차량 등록자 (수시 갱신)
-  regCertFile?: string; // 자동차등록증 파일
-  insuranceCertFile?: string; // 보험증권 파일
+  regCertFile?: string; // 자동차등록증 파일 (원본, 보통 PDF)
+  insuranceCertFile?: string; // 보험증권 파일 (원본, 보통 PDF)
+  /**
+   * 휴대폰에서 바로 띄우는 사진 판 — PDF를 올릴 때 첫 장을 사진으로 만들어 함께 저장한다.
+   * (기기마다 PDF 뷰어가 달라 안 열리는 경우가 있어 사진을 먼저 보여 준다)
+   */
+  regCertPhoto?: string;
+  insuranceCertPhoto?: string;
   updatedAt: string;
 }
 
