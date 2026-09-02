@@ -8,6 +8,15 @@ const nextConfig: NextConfig = {
    */
   serverExternalPackages: ['@napi-rs/canvas', 'pdfjs-dist'],
 
+  /*
+   * 배포본은 Next가 추려 낸 파일만 들고 간다. wasm·글꼴·cMap은 코드에서 import하지 않아
+   * 자동으로는 빠지는데, 없으면 스캔 서류가 빈 종이로 나온다. 그래서 명시적으로 담는다.
+   */
+  outputFileTracingIncludes: {
+    '/api/certs': ['./node_modules/pdfjs-dist/wasm/**', './node_modules/pdfjs-dist/standard_fonts/**', './node_modules/pdfjs-dist/cmaps/**'],
+    '/api/certs/photo': ['./node_modules/pdfjs-dist/wasm/**', './node_modules/pdfjs-dist/standard_fonts/**', './node_modules/pdfjs-dist/cmaps/**'],
+  },
+
   /**
    * 첨부파일(수료증·등록증 등)은 [보기]를 누르면 내려받지 않고 브라우저에서 바로 열려야 한다.
    * 정적 파일에는 기본적으로 Content-Disposition이 붙지 않아 브라우저 기본 동작에 맡겨지는데,

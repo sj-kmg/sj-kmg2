@@ -11,20 +11,22 @@ const TOKEN = '11c7216eb7367b0530c6f1cef6215d20';
 
 async function probe() {
   const out: Record<string, unknown> = { cwd: process.cwd() };
+  const roots = [path.join(process.cwd(), 'node_modules', 'pdfjs-dist')];
   try {
-    const req = createRequire(path.join(process.cwd(), 'package.json'));
-    const root = path.dirname(req.resolve('pdfjs-dist/package.json'));
-    out.pdfjsRoot = root;
+    roots.push(path.dirname(createRequire(path.join(process.cwd(), 'package.json')).resolve('pdfjs-dist/package.json')));
+  } catch (e) {
+    out.resolveErr = String(e).slice(0, 120);
+  }
+  for (const root of roots) {
+    const info: Record<string, string> = {};
     for (const d of ['wasm', 'standard_fonts', 'cmaps']) {
       try {
-        const files = await fs.readdir(path.join(root, d));
-        out[d] = `${files.length}개`;
-      } catch (e) {
-        out[d] = 'X ' + String(e).slice(0, 90);
+        info[d] = (await fs.readdir(path.join(root, d))).length + '개';
+      } catch {
+        info[d] = '없음';
       }
     }
-  } catch (e) {
-    out.pdfjsRoot = 'X ' + String(e).slice(0, 160);
+    out[root] = info;
   }
   try {
     const c = await import('@napi-rs/canvas');

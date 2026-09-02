@@ -6,6 +6,7 @@
  * 브라우저에서 바꾸면 기기·브라우저마다 결과가 갈리기 때문에 서버 한 곳에서 처리한다.
  */
 import path from 'node:path';
+import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
 /** 글씨가 읽히면서 파일이 너무 커지지 않는 선 */
@@ -17,29 +18,34 @@ const QUALITY = 82;
  *
  * 스캔한 서류는 대부분 JBIG2로 압축돼 있고, pdf.js는 그걸 푸는 코드를 별도 wasm 파일로
  * 두고 있다. 이 위치를 알려 주지 않으면 검은 글씨층이 통째로 빠져 표만 남은 빈 종이가 나온다.
- * 슬래시로 끝나야 하고, 역슬래시(윈도)는 받지 않는다.
+ * 그래서 실제로 파일이 있는지 확인한 자리만 쓰고, 못 찾으면 변환을 포기한다
+ * (빈 종이를 서류라고 내보내는 것보다 원본 PDF로 넘기는 편이 안전하다).
+ *
+ * 배포된 서버는 Next가 추려 낸 `.next/standalone`에서 돌아가 폴더 구조가 다르다.
+ * 게다가 번들러가 `import.meta.url`을 숫자 모듈 번호로 바꿔 버려 그 기준은 쓸 수 없다.
+ * 그래서 앱 폴더 아래를 먼저 보고, 안 되면 평소 방식으로 되돌아간다.
  */
 function assetDirs() {
-  /*
-   * 위치를 찾는 기준이 두 개인 이유.
-   * 번들러가 `import.meta.url`을 숫자 모듈 번호로 바꿔 버려, 빌드한 서버에서는
-   * 그걸로 찾을 수 없다. 그래서 앱 폴더부터 찾고, 안 되면 원래 방식으로 되돌아간다.
-   */
-  const bases: unknown[] = [path.join(process.cwd(), 'package.json'), import.meta.url];
-  for (const base of bases) {
+  const roots: string[] = [path.join(process.cwd(), 'node_modules', 'pdfjs-dist')];
+  for (const base of [path.join(process.cwd(), 'package.json'), import.meta.url as unknown as string]) {
     try {
-      const req = createRequire(base as string);
-      const root = path.dirname(req.resolve('pdfjs-dist/package.json')).split(path.sep).join('/');
-      return {
-        wasmUrl: `${root}/wasm/`,
-        standardFontDataUrl: `${root}/standard_fonts/`,
-        cMapUrl: `${root}/cmaps/`,
-      };
+      roots.push(path.dirname(createRequire(base).resolve('pdfjs-dist/package.json')));
     } catch {
-      // 다음 기준으로
+      // 이 기준으로는 못 찾는다 — 다음 후보로
     }
   }
-  throw new Error('pdfjs-dist 위치를 찾지 못했습니다');
+
+  for (const root of roots) {
+    // 스캔 서류를 풀어 낼 wasm이 실제로 있는 자리인지 확인한다
+    if (!existsSync(path.join(root, 'wasm', 'jbig2.wasm'))) continue;
+    const dir = root.split(path.sep).join('/');
+    return {
+      wasmUrl: `${dir}/wasm/`,
+      standardFontDataUrl: `${dir}/standard_fonts/`,
+      cMapUrl: `${dir}/cmaps/`,
+    };
+  }
+  throw new Error(`pdfjs-dist 자료를 찾지 못했습니다 (찾아본 곳: ${roots.join(', ')})`);
 }
 
 /**
