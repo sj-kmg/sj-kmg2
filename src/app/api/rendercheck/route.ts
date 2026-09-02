@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { pdfFirstPageJpeg } from '@/lib/pdfRender';
 
 /**
@@ -8,19 +9,58 @@ import { pdfFirstPageJpeg } from '@/lib/pdfRender';
  */
 const TOKEN = '11c7216eb7367b0530c6f1cef6215d20';
 
+async function probe() {
+  const out: Record<string, unknown> = { cwd: process.cwd() };
+  try {
+    const req = createRequire(path.join(process.cwd(), 'package.json'));
+    const root = path.dirname(req.resolve('pdfjs-dist/package.json'));
+    out.pdfjsRoot = root;
+    for (const d of ['wasm', 'standard_fonts', 'cmaps']) {
+      try {
+        const files = await fs.readdir(path.join(root, d));
+        out[d] = `${files.length}개`;
+      } catch (e) {
+        out[d] = 'X ' + String(e).slice(0, 90);
+      }
+    }
+  } catch (e) {
+    out.pdfjsRoot = 'X ' + String(e).slice(0, 160);
+  }
+  try {
+    const c = await import('@napi-rs/canvas');
+    out.canvas = c.createCanvas(4, 4).toBuffer('image/jpeg', 80).length + ' bytes OK';
+  } catch (e) {
+    out.canvas = 'X ' + String(e).slice(0, 200);
+  }
+  try {
+    await import('pdfjs-dist/legacy/build/pdf.mjs');
+    out.pdfjs = 'OK';
+  } catch (e) {
+    out.pdfjs = 'X ' + String(e).slice(0, 200);
+  }
+  return out;
+}
+
 export async function GET(req: Request) {
   const q = new URL(req.url).searchParams;
   if (q.get('t') !== TOKEN) return new Response('nope', { status: 404 });
+  if (q.get('probe')) return Response.json(await probe());
+
   const name = (q.get('f') ?? '86저0128_자동차등록증.pdf').replace(/[\/]/g, '');
+  const errs: string[] = [];
+  const orig = console.error;
+  console.error = (...a: unknown[]) => { errs.push(a.map((x) => String(x)).join(' ')); orig(...a); };
   try {
     const buf = await fs.readFile(path.join(process.cwd(), 'public/certs/yncc-vehicles', name));
     const t = Date.now();
     const jpeg = await pdfFirstPageJpeg(buf);
-    if (!jpeg) return new Response('convert_failed', { status: 500 });
+    if (!jpeg) return new Response('convert_failed: ' + errs.join(' | ').slice(0, 3000), { status: 500 });
     return new Response(new Uint8Array(jpeg), {
       headers: { 'Content-Type': 'image/jpeg', 'X-Ms': String(Date.now() - t) },
     });
   } catch (e) {
-    return new Response('error: ' + String(e), { status: 500 });
+    return new Response('error: ' + String(e).slice(0, 800), { status: 500 });
+  } finally {
+    console.error = orig;
   }
 }
