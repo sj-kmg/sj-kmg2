@@ -11,11 +11,12 @@ const HOST = 'https://firebasestorage.googleapis.com';
 
 /**
  * 파일을 저장하고 열람용 공개 URL을 돌려준다.
+ * `reuseToken`을 주면 그 토큰으로 저장한다 — 같은 서류의 PDF와 사진 판이 한 쌍으로 묶인다.
  * `contentDisposition: inline`을 지정해, 클릭하면 다운로드되지 않고 새 탭에서 바로 열리게 한다
  * (지정하지 않으면 브라우저·파일 형식에 따라 곧장 저장 대화상자가 뜨는 경우가 있다).
  */
-export async function saveFile(path: string, buffer: Buffer, contentType: string): Promise<string> {
-  const token = randomUUID();
+export async function saveFile(path: string, buffer: Buffer, contentType: string, reuseToken?: string): Promise<string> {
+  const token = reuseToken ?? randomUUID();
   await bucket()
     .file(path)
     .save(buffer, {
@@ -58,4 +59,36 @@ export async function deleteFiles(urls: string[]): Promise<void> {
       }
     }),
   );
+}
+
+/**
+ * 같은 서류의 사진 판이 놓이는 자리. `certs/…_등록증.pdf` → `certs/…_등록증.photo.jpg`
+ * 확장자만 바꾸면 사람이 올린 같은 이름의 JPG와 부딪힐 수 있어 `.photo.jpg`로 구분한다.
+ */
+export function photoPath(pdfPath: string): string {
+  return pdfPath.replace(/\.pdf$/i, '') + '.photo.jpg';
+}
+
+/** 저장된 파일 읽기 — 없으면 null */
+export async function readFile(path: string): Promise<Buffer | null> {
+  try {
+    const file = bucket().file(path);
+    const [exists] = await file.exists();
+    if (!exists) return null;
+    const [buf] = await file.download();
+    return buf;
+  } catch {
+    return null;
+  }
+}
+
+/** 저장할 때 붙여 둔 열람 토큰 — 사진 판을 원본과 같은 토큰으로 묶을 때 쓴다 */
+export async function fileToken(path: string): Promise<string | undefined> {
+  try {
+    const [meta] = await bucket().file(path).getMetadata();
+    const raw = (meta.metadata as Record<string, unknown> | undefined)?.firebaseStorageDownloadTokens;
+    return typeof raw === 'string' ? raw.split(',')[0] : undefined;
+  } catch {
+    return undefined;
+  }
 }

@@ -7,7 +7,8 @@ runConfig:
   maxInstances: 2
   concurrency: 80
   cpu: 1
-  memoryMiB: 512
+  # PDF를 사진으로 굽는 동안 A4 한 장(1600px)이 메모리에 통째로 올라간다 — 512로는 빠듯하다
+  memoryMiB: 1024
 
 env:
   # 수료증·검진결과서·사진이 저장되는 Cloud Storage 버킷

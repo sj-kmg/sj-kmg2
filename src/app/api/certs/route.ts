@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { checkAuth } from '@/lib/auth';
 import { firebaseReady } from '@/lib/firebaseAdmin';
-import { saveFile } from '@/lib/fileStore';
+import { photoPath, saveFile } from '@/lib/fileStore';
+import { pdfFirstPageJpeg } from '@/lib/pdfRender';
 
 /** 교육 수료증 업로드 — PDF·이미지 dataURL을 받아 Cloud Storage에 저장 (최대 8MB) */
 const TYPES: Record<string, string> = {
@@ -47,7 +48,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'too_large' }, { status: 413 });
   }
   try {
-    const url = await saveFile(`certs/${Date.now()}-${name}.${ext}`, buffer, m[1]);
+    const path = `certs/${Date.now()}-${name}.${ext}`;
+    const url = await saveFile(path, buffer, m[1]);
+
+    /*
+     * PDF는 올리는 즉시 사진 판을 함께 만들어 둔다.
+     * 휴대폰마다 PDF 뷰어가 달라 안 열리는 기기가 있어, 화면에는 이 사진을 띄운다.
+     * 변환이 안 돼도 첨부 자체는 성공으로 둔다 — 보기는 원본 PDF로 넘어간다.
+     */
+    if (ext === 'pdf') {
+      const jpeg = await pdfFirstPageJpeg(buffer);
+      if (jpeg) {
+        await saveFile(photoPath(path), jpeg, 'image/jpeg');
+      }
+    }
     return NextResponse.json({ url });
   } catch (e) {
     console.error('cert upload failed:', e);

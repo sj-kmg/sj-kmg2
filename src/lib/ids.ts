@@ -58,17 +58,19 @@ export function fileHref(path: string): string {
 /**
  * 같은 서류의 **사진(JPG) 판** 주소.
  *
- * 휴대폰마다 PDF 뷰어가 달라 안 열리는 기기가 있어, 저장소에 넣어 둔 서류는
- * PDF 옆에 같은 이름의 .jpg를 함께 둔다. 화면에서는 이 사진을 먼저 띄우고
- * 원본 PDF는 인쇄용으로 남긴다.
+ * 휴대폰마다 PDF 뷰어가 달라 안 열리는 기기가 있어, 화면에는 늘 사진을 띄운다.
  *
- * - 이미 이미지면 그 자체가 사진 판이다
- * - 업로드된 파일(Cloud Storage 주소)은 짝이 되는 사진이 없으므로 null
+ * - 이미 사진이면 그 자체가 사진 판이다
+ * - 올린 서류(저장소 주소)는 `/api/certs/photo`가 사진으로 바꿔 준다.
+ *   올릴 때 미리 만들어 두지만, 그 전에 올라온 서류는 처음 열릴 때 만들어진다
+ * - 저장소에 함께 넣어 둔 정적 파일은 PDF 옆에 같은 이름의 .jpg를 둔다
  */
 export function certPhoto(path: string | undefined): string | null {
   if (!path) return null;
-  if (/^https?:\/\//i.test(path)) return null;
-  if (/\.(jpe?g|png|webp|gif)$/i.test(path)) return path;
-  if (/\.pdf$/i.test(path)) return path.replace(/\.pdf$/i, '.jpg');
-  return null;
+  // 저장소 주소에는 `?alt=media&token=…`이 붙어 있어 확장자는 물음표 앞에서 본다
+  const bare = path.split('?')[0];
+  if (/\.(jpe?g|png|webp|gif)$/i.test(bare)) return path;
+  if (!/\.pdf$/i.test(bare)) return null;
+  if (/^https?:\/\//i.test(path)) return `/api/certs/photo?src=${encodeURIComponent(path)}`;
+  return path.replace(/\.pdf$/i, '.jpg');
 }
