@@ -37,12 +37,10 @@ env:
     availability:
       - RUNTIME
 
-  # 위험성평가 AI 초안 생성용 Google AI Studio 키.
-  # 미등록 상태라 비활성화해 둠 — AI 자동 생성만 동작하지 않고 나머지는 정상이다.
-  # 재활성화: 아래 명령으로 키를 등록한 뒤 주석을 풀고 다시 배포한다.
-  #   firebase apphosting:secrets:set google-generative-ai-api-key
-  #   firebase deploy --only apphosting
-  # - variable: GOOGLE_GENERATIVE_AI_API_KEY
-  #   secret: google-generative-ai-api-key
-  #   availability:
-  #     - RUNTIME
+  # Google AI Studio 키 — 스캔 서류 판독(첨부서류 자동입력·차량 서류 기간)과
+  # 위험성평가 AI 초안 생성에 함께 쓴다. 2026-09-03 등록.
+  #   교체: firebase apphosting:secrets:set google-generative-ai-api-key
+  - variable: GOOGLE_GENERATIVE_AI_API_KEY
+    secret: google-generative-ai-api-key
+    availability:
+      - RUNTIME
