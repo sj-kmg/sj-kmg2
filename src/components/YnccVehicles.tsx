@@ -283,8 +283,9 @@ export default function YnccVehicles() {
       alert('차량번호를 선택하거나 새로 입력해 주세요.');
       return;
     }
-    if (!regDate || !registrant.trim()) {
-      alert('등록일자와 차량 등록자를 입력해 주세요.');
+    // 등록자는 비워 둬도 된다 — 누가 쓸지 정해지기 전에 차량부터 올리고 서류를 붙이는 경우가 있다
+    if (!regDate) {
+      alert('등록일자를 입력해 주세요.');
       return;
     }
     if (saving) return;
@@ -383,8 +384,10 @@ export default function YnccVehicles() {
               <input id="yv-date" type="date" value={regDate} onChange={(e) => setRegDate(e.target.value)} className={`${input} w-full`} />
             </div>
             <div>
-              <label className={label} htmlFor="yv-reg">차량 등록자</label>
-              <input id="yv-reg" placeholder="예: 김민규" value={registrant} onChange={(e) => setRegistrant(e.target.value)} className={`${input} w-full`} />
+              <label className={label} htmlFor="yv-reg">
+                차량 등록자 <span className="font-normal text-slate-400">(나중에 입력해도 됩니다)</span>
+              </label>
+              <input id="yv-reg" placeholder="미정이면 비워 두세요" value={registrant} onChange={(e) => setRegistrant(e.target.value)} className={`${input} w-full`} />
             </div>
             <div className="flex items-end gap-2">
               <button
@@ -418,7 +421,9 @@ export default function YnccVehicles() {
                   className="flex w-full flex-wrap items-baseline gap-x-2 gap-y-0.5 px-3 py-2.5 text-left active:bg-slate-50"
                 >
                   <span className="text-base font-bold text-slate-800">{v.plate}</span>
-                  {v.registrant && <span className="text-xs text-slate-600">{v.registrant}</span>}
+                  <span className={v.registrant ? 'text-xs text-slate-600' : 'text-xs text-slate-300'}>
+                    {v.registrant || '등록자 미정'}
+                  </span>
                   {v.regDate && <span className="font-mono text-[11px] text-slate-400">{v.regDate}</span>}
                   <span className="ml-auto text-slate-300">{isOpen ? '▲' : '▼'}</span>
                 </button>
@@ -496,7 +501,9 @@ export default function YnccVehicles() {
                     {v.plate}
                   </td>
                   <td className="px-4 py-2.5 font-mono text-xs text-slate-600">{v.regDate}</td>
-                  <td className="px-4 py-2.5 text-slate-700">{v.registrant}</td>
+                  <td className="px-4 py-2.5 text-slate-700">
+                    {v.registrant || <span className="text-slate-300">미정</span>}
+                  </td>
                   <td className="px-2 py-2.5" onClick={(e) => e.stopPropagation()}>
                     <CertView
                       label="자동차등록증"
