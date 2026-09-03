@@ -29,3 +29,20 @@ export function keepAttachments<T extends { id: string }>(next: T, prev: T | und
   }
   return merged ?? next;
 }
+
+/**
+ * 현장 계정이 보낸 내용을 저장된 기록에 반영한다 — 허용된 칸만.
+ * 보낸 값을 그대로 쓰지 않으므로, 화면을 우회해 다른 값을 실어 보내도 반영되지 않는다.
+ */
+export function applyFieldPatch(
+  prev: Record<string, unknown>,
+  entry: Record<string, unknown>,
+  allowed: string[],
+): Record<string, unknown> {
+  const next = { ...prev };
+  for (const k of allowed) {
+    if (k in entry) next[k] = entry[k];
+  }
+  next.updatedAt = entry.updatedAt ?? prev.updatedAt;
+  return next;
+}

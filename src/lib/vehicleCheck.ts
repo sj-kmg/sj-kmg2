@@ -70,6 +70,24 @@ export function nextDueDate(doneAt: string, cycleMonths: number): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+/** 차량번호 비교용 — 공백·기호를 뺀 형태 ('86저 0128'과 '86저0128'을 같게 본다) */
+export function normPlate(plate: string): string {
+  return String(plate ?? '').replace(/[\s-]/g, '');
+}
+
+let plateMap: Map<string, VehicleCategory> | null = null;
+
+/**
+ * 차량번호로 분류를 찾는다 — 대장에 없으면 null.
+ * 분류 기준은 차량점검내역 대장 하나로 두어, 메뉴마다 따로 나뉘지 않게 한다.
+ */
+export function categoryOfPlate(plate: string): VehicleCategory | null {
+  if (!plateMap) {
+    plateMap = new Map(vehicleCheckSeed().map((v) => [normPlate(v.plate), v.category]));
+  }
+  return plateMap.get(normPlate(plate)) ?? null;
+}
+
 /** 분류 → 차량번호 순 */
 export function compareVehicle(a: VehicleCheck, b: VehicleCheck): number {
   const ca = VEHICLE_CATEGORIES.indexOf(a.category);

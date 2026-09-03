@@ -3,11 +3,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { certPhoto, fileHref } from '@/lib/ids';
 import { SyncError, uploadDatedCert } from '@/lib/sync';
-import { CERT_FILE_LABEL, certStatus, summarize, worstStatus, type CertKind, type CertStatus } from '@/lib/certExpiry';
+import {
+  CERT_FILE_LABEL,
+  CERT_LABEL,
+  certStatus,
+  summarize,
+  worstStatus,
+  type CertKind,
+  type CertStatus,
+} from '@/lib/certExpiry';
 import { useCertPhoto } from '@/lib/useCertPhoto';
 import { modeBadge, useSyncedLog } from '@/lib/useSyncedLog';
 import { useRole } from '@/lib/useRole';
 import { YNCC_VEHICLES_KEY, type YnccVehicle } from '@/lib/yncc';
+import { categoryOfPlate, VEHICLE_CATEGORIES, type VehicleCategory } from '@/lib/vehicleCheck';
 import { useSortable } from '@/lib/useSortable';
 import { SortButton, TD_STICKY_POS, TH_STICKY } from './SheetUI';
 
@@ -265,6 +274,9 @@ export default function YnccVehicles() {
   const [registrant, setRegistrant] = useState('');
   const [inspectionUntil, setInspectionUntil] = useState('');
   const [insuranceUntil, setInsuranceUntil] = useState('');
+  const [category, setCategory] = useState<VehicleCategory>('일반차량');
+  /** 보고 있는 탭 — 차량점검내역과 같은 세 갈래로 나눈다 */
+  const [tab, setTab] = useState<VehicleCategory>('일반차량');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
@@ -272,14 +284,19 @@ export default function YnccVehicles() {
   const [openPlate, setOpenPlate] = useState<string | null>(null);
   const seededRef = useRef(false);
   const sortCtl = useSortable<YnccVehicle>();
-  /** 현장·열람 계정은 보기만 한다 — 수정·첨부·삭제는 관리자만 */
+  /** 서류 첨부·삭제·차량번호·만료일 — 관리자만 */
   const canEdit = role === 'admin';
+  /**
+   * 차량 등록자는 현장 계정도 고칠 수 있다 — 누가 그 차를 쓰는지는 현장에서 자주 바뀐다.
+   * (서버도 이 칸만 반영하므로 화면을 우회해도 다른 값은 바뀌지 않는다)
+   */
+  const canEditRegistrant = role === 'admin' || role === 'field';
 
   useEffect(() => setRegDate(todayStr()), []);
 
   // 원본 문서(등록증·보험증권)를 딱 한 번 반영 — 열람 전용 계정은 쓸 수 없으니 건드리지 않는다
   useEffect(() => {
-    if (seededRef.current || mode === 'loading' || role === 'viewer') return;
+    if (seededRef.current || mode === 'loading' || role !== 'admin') return;
     seededRef.current = true;
     const norm = (p: string) => p.replace(/\s/g, '');
     for (const d of DEFAULT_ATTACHMENTS) {
@@ -319,6 +336,14 @@ export default function YnccVehicles() {
     registrant: (v) => v.registrant,
   });
 
+  /**
+   * 이 차량의 분류 — 직접 정해 둔 값이 있으면 그것을, 없으면 차량점검내역 대장을 따른다.
+   * 대장에도 없는 차량은 일반차량으로 둔다 (탭 어디에도 안 보이는 차가 없도록).
+   */
+  const categoryOf = (v: YnccVehicle): VehicleCategory => v.category ?? categoryOfPlate(v.plate) ?? '일반차량';
+
+  const shown = vehicles.filter((v) => categoryOf(v) === tab);
+
   /** 이 차량의 두 서류 상태 — 검사유효기간·보험기간 */
   const statusesOf = (v: YnccVehicle): CertStatus[] => [
     certStatus('inspection', v.inspectionUntil),
@@ -327,6 +352,16 @@ export default function YnccVehicles() {
   /** 목록에 배지 하나만 달 때 쓰는, 가장 급한 서류 (여유가 있으면 null) */
   const alertOf = (v: YnccVehicle) => worstStatus(statusesOf(v));
   const overview = summarize(vehicles.flatMap(statusesOf));
+  /**
+   * 만료일을 못 읽은 서류 — 차량번호와 어떤 서류인지 그대로 적어 둔다.
+   * 스캔 서류는 글자층이 없어 자동으로 못 읽으므로, 사람이 실물을 보고 넣어야 한다.
+   */
+  const unreadable = vehicles
+    .map((v) => ({ plate: v.plate, kinds: statusesOf(v).filter((st) => st.level === 'unknown') }))
+    .filter((r) => r.kinds.length > 0);
+  const unreadableText = unreadable
+    .map((r) => `${r.plate} — ${r.kinds.map((k) => `${CERT_FILE_LABEL[k.kind]}(${CERT_LABEL[k.kind]})`).join(', ')}`)
+    .join(String.fromCharCode(10));
   /** 교체가 필요하거나 곧 필요한 차량 — 위쪽 요약에 이름을 적어 준다 */
   const needsAction = vehicles.filter((v) => {
     const w = alertOf(v);
@@ -342,11 +377,14 @@ export default function YnccVehicles() {
       setRegistrant(v.registrant);
       setInspectionUntil(v.inspectionUntil ?? '');
       setInsuranceUntil(v.insuranceUntil ?? '');
+      setCategory(categoryOf(v));
     } else {
       setRegDate(todayStr());
       setRegistrant('');
       setInspectionUntil('');
       setInsuranceUntil('');
+      // 새 차량은 지금 보고 있는 탭으로 들어가는 게 자연스럽다
+      setCategory(tab);
     }
   };
 
@@ -362,19 +400,24 @@ export default function YnccVehicles() {
       return;
     }
     if (saving) return;
+    const existing = entries.find((v) => v.plate === plate);
+    // 직원 계정은 이미 있는 차량의 등록자만 고친다 (서버도 같은 기준으로 거른다)
+    if (!canEdit && !existing) {
+      alert('차량을 목록에서 골라 주세요. 새 차량 등록은 관리자만 할 수 있습니다.');
+      return;
+    }
     setSaving(true);
     try {
-      const existing = entries.find((v) => v.plate === plate);
       const entry: YnccVehicle = {
         // 기존 값을 먼저 펼쳐 둔다 — 이렇게 하지 않으면 갱신할 때
         // 여기서 다루지 않는 칸(차량등록증·보험증권 첨부)이 통째로 지워진다
         ...existing,
         id: existing?.id ?? `YV-${Date.now()}`,
         plate,
-        regDate,
         registrant: registrant.trim(),
-        inspectionUntil,
-        insuranceUntil,
+        regDate: canEdit ? regDate : (existing?.regDate ?? regDate),
+        // 등록자·등록일자 말고는 관리자만 바꾼다
+        ...(canEdit ? { inspectionUntil, insuranceUntil, category } : {}),
         updatedAt: new Date().toISOString(),
       };
       if (!(await add(entry))) return;
@@ -472,50 +515,118 @@ export default function YnccVehicles() {
                 }).join(' · ')}
               </p>
             )}
+
+            {/*
+              만료일을 못 읽은 서류 — 스캔본은 글자층이 없어 자동으로는 알 수 없다.
+              어느 차량의 어떤 서류인지 그대로 적어 두고, 그대로 복사해 물어볼 수 있게 한다.
+            */}
+            {unreadable.length > 0 && (
+              <div className="mt-2 rounded border border-slate-200 bg-white px-2 py-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-semibold text-slate-600">만료일을 읽지 못한 서류</span>
+                  <button
+                    onClick={() => void navigator.clipboard?.writeText(unreadableText)}
+                    className="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-500 hover:border-[#1f3864] hover:text-[#1f3864]"
+                    title="목록을 복사합니다"
+                  >
+                    복사
+                  </button>
+                </div>
+                <ul className="mt-1 space-y-0.5">
+                  {unreadable.map((r) => (
+                    <li key={r.plate} className="text-[11px] text-slate-500">
+                      <span className="font-semibold text-slate-700">{r.plate}</span>
+                      {' — '}
+                      {r.kinds.map((k) => `${CERT_FILE_LABEL[k.kind]}(${CERT_LABEL[k.kind]})`).join(', ')}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1 text-[10px] text-slate-400">
+                  스캔한 서류는 글자를 읽을 수 없어 자동으로 채워지지 않습니다. 서류를 보고 위 입력창에 직접 넣어 주세요.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
+        {/*
+          분류 탭 — 차량점검내역과 같은 세 갈래로 나눈다.
+          위 요약은 탭과 상관없이 전체 기준이라, 다른 탭의 만료를 놓치지 않는다.
+        */}
+        <div className="mb-2 flex flex-wrap items-center gap-1.5">
+          {VEHICLE_CATEGORIES.map((c) => (
+            <button
+              key={c}
+              onClick={() => setTab(c)}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
+                tab === c
+                  ? 'border-[#1f3864] bg-[#1f3864] text-white'
+                  : 'border-slate-200 bg-white text-slate-600 hover:border-[#1f3864]'
+              }`}
+            >
+              {c} <span className="ml-1 font-normal opacity-70">{vehicles.filter((v) => categoryOf(v) === c).length}</span>
+            </button>
+          ))}
+        </div>
+
         {/* 입력창 — 차량번호는 고정, 등록일자·등록자만 갱신 (관리자만) */}
-        {canEdit && (
+        {canEditRegistrant && (
         <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 p-3">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <div>
               <label className={label} htmlFor="yv-sel">차량 선택</label>
               <select id="yv-sel" value={plateSel} onChange={(e) => selectPlate(e.target.value)} className={`${input} w-full`}>
-                <option value="">＋ 신규 차량</option>
+                {/* 새 차량을 만드는 건 관리자만 — 직원은 이미 있는 차량의 등록자만 고친다 */}
+                {canEdit ? <option value="">＋ 신규 차량</option> : <option value="">차량을 고르세요</option>}
                 {vehicles.map((v) => (
                   <option key={v.id} value={v.plate}>{v.plate}</option>
                 ))}
               </select>
             </div>
-            {plateSel === '' && (
+            {canEdit && plateSel === '' && (
               <div>
                 <label className={label} htmlFor="yv-new">새 차량번호</label>
                 <input id="yv-new" placeholder="예: 12가3456" value={plateNew} onChange={(e) => setPlateNew(e.target.value)} className={`${input} w-full`} />
               </div>
             )}
-            <div>
-              <label className={label} htmlFor="yv-date">등록일자</label>
-              <input id="yv-date" type="date" value={regDate} onChange={(e) => setRegDate(e.target.value)} className={`${input} w-full`} />
-            </div>
+            {canEdit && (
+              <div>
+                <label className={label} htmlFor="yv-cat">분류</label>
+                <select id="yv-cat" value={category} onChange={(e) => setCategory(e.target.value as VehicleCategory)} className={`${input} w-full`}>
+                  {VEHICLE_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {canEdit && (
+              <div>
+                <label className={label} htmlFor="yv-date">등록일자</label>
+                <input id="yv-date" type="date" value={regDate} onChange={(e) => setRegDate(e.target.value)} className={`${input} w-full`} />
+              </div>
+            )}
             <div>
               <label className={label} htmlFor="yv-reg">
                 차량 등록자 <span className="font-normal text-slate-400">(나중에 입력해도 됩니다)</span>
               </label>
               <input id="yv-reg" placeholder="미정이면 비워 두세요" value={registrant} onChange={(e) => setRegistrant(e.target.value)} className={`${input} w-full`} />
             </div>
-            <div>
-              <label className={label} htmlFor="yv-insp">
-                검사유효기간 <span className="font-normal text-slate-400">만료일</span>
-              </label>
-              <input id="yv-insp" type="date" value={inspectionUntil} onChange={(e) => setInspectionUntil(e.target.value)} className={`${input} w-full`} />
-            </div>
-            <div>
-              <label className={label} htmlFor="yv-ins">
-                보험기간 <span className="font-normal text-slate-400">만료일</span>
-              </label>
-              <input id="yv-ins" type="date" value={insuranceUntil} onChange={(e) => setInsuranceUntil(e.target.value)} className={`${input} w-full`} />
-            </div>
+            {canEdit && (
+              <div>
+                <label className={label} htmlFor="yv-insp">
+                  검사유효기간 <span className="font-normal text-slate-400">만료일</span>
+                </label>
+                <input id="yv-insp" type="date" value={inspectionUntil} onChange={(e) => setInspectionUntil(e.target.value)} className={`${input} w-full`} />
+              </div>
+            )}
+            {canEdit && (
+              <div>
+                <label className={label} htmlFor="yv-ins">
+                  보험기간 <span className="font-normal text-slate-400">만료일</span>
+                </label>
+                <input id="yv-ins" type="date" value={insuranceUntil} onChange={(e) => setInsuranceUntil(e.target.value)} className={`${input} w-full`} />
+              </div>
+            )}
             <div className="flex items-end gap-2">
               <button
                 onClick={() => void submit()}
@@ -527,17 +638,22 @@ export default function YnccVehicles() {
               {saved && <span className="pb-2 text-sm font-medium text-green-600">✓</span>}
             </div>
           </div>
+          {!canEdit && (
+            <p className="mt-2 text-[11px] text-slate-400">
+              차량 등록자만 고칠 수 있습니다. 차량 추가·서류 교체·만료일 입력은 관리자에게 요청해 주세요.
+            </p>
+          )}
         </div>
         )}
 
         {/* 휴대폰 — 차량 카드. 표를 옆으로 밀지 않고 그대로 읽을 수 있게 한다 */}
         <div className="mt-4 space-y-2 md:hidden">
-          {vehicles.length === 0 && (
+          {shown.length === 0 && (
             <p className="rounded-lg border border-dashed border-slate-200 py-8 text-center text-sm text-slate-300">
-              {mode === 'loading' ? '불러오는 중…' : '등록된 차량이 없습니다.'}
+              {mode === 'loading' ? '불러오는 중…' : `등록된 ${tab}이 없습니다.`}
             </p>
           )}
-          {vehicles.map((v) => {
+          {shown.map((v) => {
             const isOpen = openPlate === v.id;
             return (
               <article key={v.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -612,14 +728,14 @@ export default function YnccVehicles() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {vehicles.length === 0 && (
+              {shown.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-sm text-slate-300">
-                    {mode === 'loading' ? '불러오는 중…' : '등록된 차량이 없습니다. 위 입력창에서 차량을 등록해 주세요.'}
+                    {mode === 'loading' ? '불러오는 중…' : `등록된 ${tab}이 없습니다. 위 입력창에서 차량을 등록해 주세요.`}
                   </td>
                 </tr>
               )}
-              {vehicles.map((v) => (
+              {shown.map((v) => (
                 <tr
                   key={v.id}
                   className={`cursor-pointer hover:bg-sky-50/50 ${plateSel === v.plate ? 'bg-sky-50' : ''}`}

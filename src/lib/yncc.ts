@@ -1,3 +1,4 @@
+import type { VehicleCategory } from './vehicleCheck';
 /** 교육 입력 시트(유해화학물질·YNCC출입) 공용 타입 — 사이드바 메뉴와 메인 안전교육 현황이 공유한다. */
 
 export interface EduSheetWorker {
@@ -41,6 +42,11 @@ export interface YnccVehicle {
    */
   inspectionUntil?: string; // 자동차등록증 — 검사유효기간
   insuranceUntil?: string; // 보험증권 — 보험기간
+  /**
+   * 일반차량·특수차량·중장비 — 비어 있으면 차량점검내역 대장에서 차량번호로 찾는다.
+   * 대장에 없는 차량만 여기에 직접 적어 둔다 (대장을 고치면 자동으로 따라가도록).
+   */
+  category?: VehicleCategory;
   updatedAt: string;
 }
 

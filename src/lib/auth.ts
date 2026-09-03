@@ -38,10 +38,20 @@ export interface AuthResult {
 export const FIELD_TYPES = new Set(['tbm', 'nearmiss']);
 
 /**
- * 현장 계정이 **읽기만** 할 수 있는 기록 종류.
- * 현장에서 차량 서류를 제시할 일이 있어 YNCC차량은 열어 두되, 고칠 수는 없다.
+ * 현장 계정이 읽을 수 있는 기록 종류 — 현장에서 차량 서류를 제시할 일이 있어 YNCC차량도 연다.
  */
 export const FIELD_READ_TYPES = new Set([...FIELD_TYPES, 'yncc-vehicles']);
+
+/**
+ * 현장 계정이 **일부 칸만** 고칠 수 있는 기록 종류.
+ *
+ * YNCC차량은 누가 그 차를 쓰는지가 현장에서 자주 바뀌어, 차량 등록자만 직원이 직접
+ * 고칠 수 있게 열어 둔다. 서류·만료일·차량번호는 관리자만 손댄다.
+ * 서버가 여기 적힌 칸만 반영하므로, 화면을 우회해도 다른 값은 바뀌지 않는다.
+ */
+export const FIELD_EDITABLE_FIELDS: Record<string, string[]> = {
+  'yncc-vehicles': ['registrant'],
+};
 
 function adminApp() {
   return getApps()[0] ?? initializeApp({ projectId: projectId() });
@@ -128,6 +138,7 @@ export function canRead(auth: AuthResult, type: string): boolean {
 /** 쓰기 가능한 역할인가 — viewer는 언제나 불가 */
 export function canWrite(auth: AuthResult, type: string): boolean {
   if (auth.role === 'admin') return true;
-  if (auth.role === 'field') return FIELD_TYPES.has(type);
+  // 일부 칸만 고칠 수 있는 종류도 여기서는 통과시키고, 어떤 칸인지는 저장할 때 거른다
+  if (auth.role === 'field') return FIELD_TYPES.has(type) || type in FIELD_EDITABLE_FIELDS;
   return false;
 }

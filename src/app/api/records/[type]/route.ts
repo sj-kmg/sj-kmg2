@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { canRead, canWrite, checkAuth, type AuthResult } from '@/lib/auth';
+import { canRead, canWrite, checkAuth, FIELD_EDITABLE_FIELDS, type AuthResult } from '@/lib/auth';
+import { applyFieldPatch } from '@/lib/attachments';
 import { db, firebaseReady } from '@/lib/firebaseAdmin';
 import { deleteFiles } from '@/lib/fileStore';
 
@@ -118,10 +119,25 @@ export async function POST(req: Request, ctx: { params: Promise<{ type: string }
   }
   try {
     const ref = entriesOf(type).doc(id);
-    // 현장 계정은 새로 쓰기만 할 수 있다 — 이미 있는 기록은 건드리지 않는다.
-    // (이미 저장된 건을 다시 보내면 조용히 넘어가므로 재전송에도 안전하다)
-    if (gated.auth.role === 'field' && (await ref.get()).exists) {
-      return NextResponse.json({ ok: true, skipped: 'exists' });
+    if (gated.auth.role === 'field') {
+      const allowed = FIELD_EDITABLE_FIELDS[type];
+      const snap = await ref.get();
+      if (allowed) {
+        /*
+         * 일부 칸만 열어 둔 종류 — 저장된 기록에 그 칸만 덮어쓴다.
+         * 보낸 내용을 그대로 쓰지 않으므로, 화면을 우회해 다른 값을 실어 보내도 반영되지 않는다.
+         */
+        if (!snap.exists) {
+          return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+        }
+        await ref.set(applyFieldPatch(snap.data() ?? {}, entry, allowed));
+        return NextResponse.json({ ok: true });
+      }
+      // 그 밖의 종류는 새로 쓰기만 할 수 있다 — 이미 있는 기록은 건드리지 않는다.
+      // (이미 저장된 건을 다시 보내면 조용히 넘어가므로 재전송에도 안전하다)
+      if (snap.exists) {
+        return NextResponse.json({ ok: true, skipped: 'exists' });
+      }
     }
     await ref.set(entry);
   } catch (e) {
