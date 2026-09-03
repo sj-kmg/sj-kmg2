@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { certPhoto, fileHref } from '@/lib/ids';
-import { extractDocFields, SyncError, uploadDatedCert } from '@/lib/sync';
+import { extractDocFields, readCertPeriod, SyncError, uploadDatedCert } from '@/lib/sync';
 import { samePlate } from '@/lib/docDates';
-import { certStatus, type CertKind } from '@/lib/certExpiry';
+import { CERT_FILE_LABEL, certStatus, type CertKind } from '@/lib/certExpiry';
 import { useCertPhoto } from '@/lib/useCertPhoto';
 import { modeBadge, useSyncedLog } from '@/lib/useSyncedLog';
 import { useRole } from '@/lib/useRole';
@@ -259,6 +259,8 @@ export default function YnccVehicles() {
   const [category, setCategory] = useState<VehicleCategory>('일반차량');
   /** 보고 있는 탭 — 차량점검내역과 같은 세 갈래로 나눈다 */
   const [tab, setTab] = useState<VehicleCategory>('일반차량');
+  /** 이미 붙어 있는 서류를 다시 읽는 중 — '3/8' 같은 진행 표시 */
+  const [rereading, setRereading] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
@@ -461,6 +463,51 @@ export default function YnccVehicles() {
   const badge = modeBadge(mode);
   const input =
     'rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-[#1f3864] focus:outline-none';
+  /**
+   * 기간이 '미확인'인 서류를 서버에 다시 읽힌다.
+   *
+   * 기간 읽기는 파일을 올리는 순간에만 돌아서, 그 전에 붙여 둔 서류는 계속 비어 있다.
+   * 파일을 다시 올리게 하는 대신 저장된 파일을 서버가 열어 읽는다.
+   */
+  const rereadPeriods = async () => {
+    const jobs: { v: YnccVehicle; kind: CertKind; src: string; field: 'inspectionUntil' | 'insuranceUntil' }[] = [];
+    for (const v of entries) {
+      if (v.regCertFile && !v.inspectionUntil) {
+        jobs.push({ v, kind: 'inspection', src: v.regCertFile, field: 'inspectionUntil' });
+      }
+      if (v.insuranceCertFile && !v.insuranceUntil) {
+        jobs.push({ v, kind: 'insurance', src: v.insuranceCertFile, field: 'insuranceUntil' });
+      }
+    }
+    if (jobs.length === 0) {
+      alert('다시 읽을 서류가 없습니다. 기간이 비어 있는 서류만 대상입니다.');
+      return;
+    }
+
+    let filled = 0;
+    const failed: string[] = [];
+    const patched: Record<string, YnccVehicle> = {};
+    // 한 건씩 — 서버에서 AI가 읽는 데 시간이 걸려 한꺼번에 보내면 밀린다
+    for (let i = 0; i < jobs.length; i += 1) {
+      const job = jobs[i];
+      setRereading(`${i + 1}/${jobs.length}`);
+      const got = await readCertPeriod(job.src, job.kind);
+      if (got?.expiresAt) {
+        // 같은 차량의 두 서류를 잇달아 채울 수 있어, 방금 채운 값을 잃지 않게 모아 둔다
+        patched[job.v.id] = { ...(patched[job.v.id] ?? job.v), [job.field]: got.expiresAt };
+        await add({ ...patched[job.v.id], updatedAt: new Date().toISOString() });
+        filled += 1;
+      } else {
+        failed.push(`${job.v.plate} ${CERT_FILE_LABEL[job.kind]}`);
+      }
+    }
+    setRereading('');
+    alert(
+      `${jobs.length}건 중 ${filled}건을 읽었습니다.` +
+        (failed.length ? ` 못 읽은 서류: ${failed.join(', ')}` : ''),
+    );
+  };
+
   const label = 'mb-1 block text-xs font-semibold text-slate-500';
 
   return (
@@ -558,6 +605,17 @@ export default function YnccVehicles() {
                 {saving ? '저장 중…' : plateSel ? '갱신' : '등록'}
               </button>
               {saved && <span className="pb-2 text-sm font-medium text-green-600">✓</span>}
+              {/* 붙일 때 못 읽고 넘어간 서류를 나중에 채운다 — 파일을 다시 올릴 필요가 없다 */}
+              {canEdit && (
+                <button
+                  onClick={() => void rereadPeriods()}
+                  disabled={!!rereading}
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium whitespace-nowrap text-slate-600 hover:border-[#1f3864] hover:text-[#1f3864] disabled:opacity-50"
+                  title="기간이 비어 있는 서류를 서버가 다시 읽어 채웁니다"
+                >
+                  {rereading ? `읽는 중 ${rereading}` : '미확인 기간 읽기'}
+                </button>
+              )}
             </div>
           </div>
           {!canEdit && (

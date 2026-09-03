@@ -145,6 +145,22 @@ export async function uploadDatedCert(
   return { url: data.url, expiresAt: data.expiresAt ?? null, plate: data.plate ?? null };
 }
 
+/**
+ * 이미 붙어 있는 서류에서 유효기간을 다시 읽는다.
+ * 붙일 때 못 읽고 넘어간 서류(스캔본 등)를 나중에 채우는 데 쓴다.
+ */
+export async function readCertPeriod(
+  src: string,
+  kind: 'inspection' | 'insurance',
+): Promise<{ expiresAt: string | null; plate: string | null; source: string } | null> {
+  try {
+    const res = await call('/api/certs/period', { method: 'POST', body: JSON.stringify({ src, kind }) });
+    return (await res.json()) as { expiresAt: string | null; plate: string | null; source: string };
+  } catch {
+    return null;
+  }
+}
+
 /** 첨부서류에서 읽어 낸 값 — 확인되지 않은 항목은 null */
 export interface DocFields {
   docType: string | null;
