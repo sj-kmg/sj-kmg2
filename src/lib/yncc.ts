@@ -34,6 +34,13 @@ export interface YnccVehicle {
    */
   regCertPhoto?: string;
   insuranceCertPhoto?: string;
+  /**
+   * 서류의 유효기간 만료일 (YYYY-MM-DD).
+   * 기간이 끝나면 새로 발급받아 첨부파일을 교체해야 해서 따로 들고 있다.
+   * 올릴 때 문서에서 읽어 내지만, 스캔본은 글자가 없어 못 읽으므로 직접 입력도 받는다.
+   */
+  inspectionUntil?: string; // 자동차등록증 — 검사유효기간
+  insuranceUntil?: string; // 보험증권 — 보험기간
   updatedAt: string;
 }
 

@@ -3,6 +3,8 @@ import { checkAuth } from '@/lib/auth';
 import { firebaseReady } from '@/lib/firebaseAdmin';
 import { photoPath, saveFile } from '@/lib/fileStore';
 import { pdfFirstPageJpeg } from '@/lib/pdfRender';
+import { expiryFromText } from '@/lib/docDates';
+import type { CertKind } from '@/lib/certExpiry';
 
 /** 교육 수료증 업로드 — PDF·이미지 dataURL을 받아 Cloud Storage에 저장 (최대 8MB) */
 const TYPES: Record<string, string> = {
@@ -31,10 +33,12 @@ export async function POST(req: Request) {
 
   let dataUrl = '';
   let name = '';
+  let expiryKind: CertKind | null = null;
   try {
-    const body = (await req.json()) as { dataUrl?: string; name?: string };
+    const body = (await req.json()) as { dataUrl?: string; name?: string; expiryKind?: string };
     dataUrl = body.dataUrl ?? '';
     name = (body.name ?? 'cert').replace(/[^\w가-힣.-]/g, '_').slice(0, 60);
+    if (body.expiryKind === 'inspection' || body.expiryKind === 'insurance') expiryKind = body.expiryKind;
   } catch {
     return NextResponse.json({ error: 'bad_json' }, { status: 400 });
   }
@@ -62,9 +66,32 @@ export async function POST(req: Request) {
         await saveFile(photoPath(path), jpeg, 'image/jpeg');
       }
     }
-    return NextResponse.json({ url });
+
+    /*
+     * 유효기간이 있는 서류(차량등록증·보험증권)는 만료일도 읽어 본다.
+     * 스캔본은 글자층이 없어 못 읽는데, 그때는 넘겨짚지 않고 비워 둔다
+     * (화면에서 '만료일 확인'으로 남아 사람이 직접 넣는다).
+     */
+    let expiresAt: string | null = null;
+    if (expiryKind && ext === 'pdf') {
+      expiresAt = await readExpiry(buffer, expiryKind);
+    }
+    return NextResponse.json({ url, expiresAt });
   } catch (e) {
     console.error('cert upload failed:', e);
     return NextResponse.json({ error: 'storage_unavailable' }, { status: 503 });
+  }
+}
+
+/** 서류 글자층에서 만료일 — 못 읽으면 null (첨부 자체는 성공시킨다) */
+async function readExpiry(pdf: Buffer, kind: CertKind): Promise<string | null> {
+  try {
+    const { extractText, getDocumentProxy } = await import('unpdf');
+    const doc = await getDocumentProxy(new Uint8Array(pdf));
+    const { text } = await extractText(doc, { mergePages: true });
+    return expiryFromText(String(text ?? ''), kind);
+  } catch (e) {
+    console.error('만료일 읽기 실패:', e);
+    return null;
   }
 }
