@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { checkAuth } from '@/lib/auth';
 import { fieldsFromText } from '@/lib/docText';
+import { pdfText } from '@/lib/pdfRender';
 
 /**
  * 첨부서류 자동 판독 API — 수료증·이수증·검진결과·자동차등록증 같은 서류를 읽어
@@ -89,15 +90,8 @@ function cleanPhone(v: string | null): string | null {
  * 스캔본이면 글자가 없어 빈 값이 나오고, 그때만 AI 판독으로 넘어간다.
  */
 async function readPdfText(base64: string): Promise<string> {
-  try {
-    const { extractText, getDocumentProxy } = await import('unpdf');
-    const pdf = await getDocumentProxy(new Uint8Array(Buffer.from(base64, 'base64')));
-    const { text } = await extractText(pdf, { mergePages: true });
-    return text;
-  } catch (e) {
-    console.error('pdf text layer read failed:', e);
-    return '';
-  }
+  // 글꼴·cMap 위치를 명시하는 경로 — 안 그러면 배포본에서 한글이 깨져 나온다
+  return pdfText(Buffer.from(base64, 'base64'));
 }
 
 export async function POST(req: Request) {

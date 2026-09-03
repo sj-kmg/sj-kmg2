@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { checkAuth } from '@/lib/auth';
 import { firebaseReady } from '@/lib/firebaseAdmin';
 import { photoPath, saveFile } from '@/lib/fileStore';
-import { pdfFirstPageJpeg } from '@/lib/pdfRender';
-import { expiryFromText } from '@/lib/docDates';
+import { pdfFirstPageJpeg, pdfText } from '@/lib/pdfRender';
+import { expiryFromText, plateIn } from '@/lib/docDates';
 import type { CertKind } from '@/lib/certExpiry';
 
 /** 교육 수료증 업로드 — PDF·이미지 dataURL을 받아 Cloud Storage에 저장 (최대 8MB) */
@@ -73,25 +73,15 @@ export async function POST(req: Request) {
      * (화면에서 '만료일 확인'으로 남아 사람이 직접 넣는다).
      */
     let expiresAt: string | null = null;
+    let plate: string | null = null;
     if (expiryKind && ext === 'pdf') {
-      expiresAt = await readExpiry(buffer, expiryKind);
+      const text = await pdfText(buffer);
+      expiresAt = expiryFromText(text, expiryKind);
+      plate = plateIn(text);
     }
-    return NextResponse.json({ url, expiresAt });
+    return NextResponse.json({ url, expiresAt, plate });
   } catch (e) {
     console.error('cert upload failed:', e);
     return NextResponse.json({ error: 'storage_unavailable' }, { status: 503 });
-  }
-}
-
-/** 서류 글자층에서 만료일 — 못 읽으면 null (첨부 자체는 성공시킨다) */
-async function readExpiry(pdf: Buffer, kind: CertKind): Promise<string | null> {
-  try {
-    const { extractText, getDocumentProxy } = await import('unpdf');
-    const doc = await getDocumentProxy(new Uint8Array(pdf));
-    const { text } = await extractText(doc, { mergePages: true });
-    return expiryFromText(String(text ?? ''), kind);
-  } catch (e) {
-    console.error('만료일 읽기 실패:', e);
-    return null;
   }
 }

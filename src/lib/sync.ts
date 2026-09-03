@@ -132,17 +132,17 @@ export async function uploadCert(dataUrl: string, name: string): Promise<string>
 }
 
 /**
- * 유효기간이 있는 서류 올리기 — 주소와 함께 문서에서 읽어 낸 만료일을 돌려준다.
- * 스캔본이라 못 읽으면 `expiresAt`은 null이고, 화면에서 직접 넣게 된다.
+ * 유효기간이 있는 서류 올리기 — 주소와 함께 문서에서 읽어 낸 만료일·차량번호를 돌려준다.
+ * 스캔본이라 글자층이 없으면 둘 다 null이고, 화면이 AI 판독으로 한 번 더 시도한다.
  */
 export async function uploadDatedCert(
   dataUrl: string,
   name: string,
   expiryKind: 'inspection' | 'insurance',
-): Promise<{ url: string; expiresAt: string | null }> {
+): Promise<{ url: string; expiresAt: string | null; plate: string | null }> {
   const res = await call('/api/certs', { method: 'POST', body: JSON.stringify({ dataUrl, name, expiryKind }) });
-  const data = (await res.json()) as { url: string; expiresAt?: string | null };
-  return { url: data.url, expiresAt: data.expiresAt ?? null };
+  const data = (await res.json()) as { url: string; expiresAt?: string | null; plate?: string | null };
+  return { url: data.url, expiresAt: data.expiresAt ?? null, plate: data.plate ?? null };
 }
 
 /** 첨부서류에서 읽어 낸 값 — 확인되지 않은 항목은 null */

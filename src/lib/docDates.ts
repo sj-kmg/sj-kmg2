@@ -66,3 +66,27 @@ export function expiryFromText(text: string, kind: CertKind, today = new Date())
   // 기간의 끝 = 가장 나중 날짜. 시작일·발행일·계약일은 모두 그보다 앞선다
   return candidates.reduce((a, b) => (b > a ? b : a));
 }
+
+/**
+ * 글 속의 차량번호 — `86저0128`, `802소 3632`, `전남04바2827` 같은 형태.
+ * 서류가 어느 차량 것인지 확인하는 용도라, 확실한 형태만 잡는다.
+ */
+export function plateIn(text: string): string | null {
+  const flat = String(text ?? '').replace(/\s+/g, ' ');
+  // (지역명) + 숫자 2~3자리 + 한글 한 글자 + 숫자 4자리
+  const re = /(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)?\s?(\d{2,3})\s?([가-힣])\s?(\d{4})/g;
+  const found: string[] = [];
+  for (let m = re.exec(flat); m; m = re.exec(flat)) {
+    const region = m[0].trim().startsWith(m[1]) ? '' : m[0].trim().slice(0, 2);
+    found.push(`${region}${m[1]}${m[2]}${m[3]}`);
+  }
+  return found[0] ?? null;
+}
+
+/** 차량번호 비교용 — 공백·기호를 뺀 형태 */
+export function samePlate(a: string | null | undefined, b: string | null | undefined): boolean {
+  const norm = (v: string | null | undefined) => String(v ?? '').replace(/[\s-]/g, '');
+  const x = norm(a);
+  const y = norm(b);
+  return !!x && !!y && x === y;
+}

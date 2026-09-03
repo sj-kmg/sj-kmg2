@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { certPhoto, fileHref } from '@/lib/ids';
-import { SyncError, uploadDatedCert } from '@/lib/sync';
+import { extractDocFields, SyncError, uploadDatedCert } from '@/lib/sync';
+import { samePlate } from '@/lib/docDates';
 import { certStatus, type CertKind } from '@/lib/certExpiry';
 import { useCertPhoto } from '@/lib/useCertPhoto';
 import { modeBadge, useSyncedLog } from '@/lib/useSyncedLog';
@@ -185,11 +186,18 @@ function CertView({
 }
 
 /**
+ * 서류의 유효기간 한 칸 — 지났으면 빨갛게, 없으면 흐리게.
+ * 날짜만 보여 주고 별도 문구는 붙이지 않는다 (표가 어지러워진다).
+ */
+function PeriodCell({ until, expired }: { until: string | undefined; expired: boolean }) {
+  if (!until) return <span className="text-slate-300">미확인</span>;
+  return <span className={`font-mono text-xs ${expired ? 'font-semibold text-red-600' : 'text-slate-600'}`}>{until}</span>;
+}
+
+/**
  * 원본 문서를 반영해 둔 차량 — 최초 1회, **비어 있는 칸에만** 채워 넣는다.
  *
- * 만료일은 서류를 직접 읽어 옮긴 값이다.
- * 802소3632의 검사유효기간은 손으로 덧쓴 글씨라 연도를 확정할 수 없어 비워 두었다.
- * 넘겨짚어 넣으면 지난 서류를 유효한 것처럼 보여 주게 되므로, 화면에서 '만료일 확인'으로 남긴다.
+ * 만료일은 서류를 직접 읽어 옮긴 값이다 (802소3632 검사유효기간만 사용자 확인).
  */
 const DEFAULT_ATTACHMENTS: {
   plate: string;
@@ -209,6 +217,8 @@ const DEFAULT_ATTACHMENTS: {
     plate: '802소3632',
     regCertFile: '/certs/yncc-vehicles/802소3632_자동차등록증.pdf',
     insuranceCertFile: '/certs/yncc-vehicles/802소3632_보험증권.pdf',
+    // 손으로 덧쓴 글씨라 판독이 안 돼 사용자가 확인해 준 값 (2026-09-03)
+    inspectionUntil: '2027-12-08',
     insuranceUntil: '2027-04-06',
   },
   {
@@ -394,22 +404,38 @@ export default function YnccVehicles() {
       const reg = field === 'regCertFile';
       const label = reg ? '자동차등록증' : '보험증권';
       const kind: CertKind = reg ? 'inspection' : 'insurance';
-      // 사진으로 바꾸고 만료일을 읽는 일은 서버가 한다 — 어느 기기에서 올리든 결과가 같다
-      const { url, expiresAt } = await uploadDatedCert(dataUrl, `${v.plate || '차량'}_${label}`, kind);
+      // 사진으로 바꾸고 만료일·차량번호를 읽는 일은 서버가 한다 — 어느 기기에서 올리든 결과가 같다
+      const first = await uploadDatedCert(dataUrl, `${v.plate || '차량'}_${label}`, kind);
+      const url = first.url;
+      let until = first.expiresAt;
+      let docPlate = first.plate;
+
+      /*
+       * 글자층이 없는 스캔본이면 한 번 더 — AI 판독으로 기간과 차량번호를 읽는다.
+       * (AI 키가 없으면 조용히 빈손으로 돌아오고, 만료일은 사람이 넣게 된다)
+       */
+      if (!until) {
+        const f = await extractDocFields(dataUrl, label);
+        until = f?.periodEnd ?? null;
+        docPlate = docPlate ?? f?.plate ?? null;
+      }
+
       /*
        * 새 서류를 붙였으면 기간도 새 서류 것으로 바꾼다.
-       * 다만 읽어 내지 못했을 때(스캔본) 예전 날짜를 지우지는 않는다 —
+       * 다만 읽어 내지 못했을 때 예전 날짜를 지우지는 않는다 —
        * 사람이 넣어 둔 값을 없애 버리는 게 더 나쁘다.
        */
       const untilField = reg ? 'inspectionUntil' : 'insuranceUntil';
       await add({
         ...v,
         [field]: url,
-        ...(expiresAt ? { [untilField]: expiresAt } : {}),
+        ...(until ? { [untilField]: until } : {}),
         updatedAt: new Date().toISOString(),
       });
-      if (!expiresAt && !v[untilField]) {
-        alert(`${label}을 올렸습니다. 스캔 서류라 ${reg ? '검사유효기간' : '보험기간'}을 읽지 못했습니다 — 만료일을 직접 넣어 주세요.`);
+
+      // 다른 차량 서류를 잘못 붙인 경우만 알린다 — 흔한 일이 아니라 알릴 값어치가 있다
+      if (docPlate && !samePlate(docPlate, v.plate)) {
+        alert(`서류에 적힌 차량번호는 ${docPlate}인데 ${v.plate}에 첨부했습니다. 파일을 확인해 주세요.`);
       }
     } catch (e) {
       if (e instanceof SyncError && (e.status === 503 || e.status === 401)) {
@@ -569,6 +595,15 @@ export default function YnccVehicles() {
 
                 {isOpen && (
                   <div className="border-t border-slate-100 px-3 py-2.5">
+                    {/* 두 기간을 한 줄로 — 서류를 열지 않아도 남은 기간을 알 수 있다 */}
+                    <div className="mb-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
+                      <span className="text-slate-500">
+                        검사 <PeriodCell until={v.inspectionUntil} expired={isExpired('inspection', v.inspectionUntil)} />
+                      </span>
+                      <span className="text-slate-500">
+                        보험 <PeriodCell until={v.insuranceUntil} expired={isExpired('insurance', v.insuranceUntil)} />
+                      </span>
+                    </div>
                     {/* 등록증·보험증권을 나란히 */}
                     <div className="grid grid-cols-2 gap-2">
                       <div>
@@ -615,6 +650,8 @@ export default function YnccVehicles() {
                 <th className={`px-4 py-2.5 font-semibold ${TH_STICKY}`}>차량번호<SortButton ctl={sortCtl} col="plate" label="차량번호" /></th>
                 <th className="px-4 py-2.5 font-semibold">등록일자<SortButton ctl={sortCtl} col="regDate" label="등록일자" /></th>
                 <th className="px-4 py-2.5 font-semibold">차량 등록자<SortButton ctl={sortCtl} col="registrant" label="차량 등록자" /></th>
+                <th className="px-4 py-2.5 font-semibold whitespace-nowrap">검사유효기간</th>
+                <th className="px-4 py-2.5 font-semibold whitespace-nowrap">보험기간</th>
                 <th className="w-28 px-2 py-2.5 text-center font-semibold">차량등록증</th>
                 <th className="w-28 px-2 py-2.5 text-center font-semibold">보험증권</th>
                 <th className="px-4 py-2.5 font-semibold">최근 변경</th>
@@ -624,7 +661,7 @@ export default function YnccVehicles() {
             <tbody className="divide-y divide-slate-100">
               {shown.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-slate-300">
+                  <td colSpan={9} className="px-4 py-8 text-center text-sm text-slate-300">
                     {mode === 'loading' ? '불러오는 중…' : `등록된 ${tab}이 없습니다. 위 입력창에서 차량을 등록해 주세요.`}
                   </td>
                 </tr>
@@ -644,6 +681,12 @@ export default function YnccVehicles() {
                   <td className="px-4 py-2.5 font-mono text-xs text-slate-600">{v.regDate}</td>
                   <td className="px-4 py-2.5 text-slate-700">
                     {v.registrant || <span className="text-slate-300">미정</span>}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <PeriodCell until={v.inspectionUntil} expired={isExpired('inspection', v.inspectionUntil)} />
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <PeriodCell until={v.insuranceUntil} expired={isExpired('insurance', v.insuranceUntil)} />
                   </td>
                   <td className="px-2 py-2.5" onClick={(e) => e.stopPropagation()}>
                     <CertView

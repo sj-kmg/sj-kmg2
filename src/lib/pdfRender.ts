@@ -93,3 +93,44 @@ export async function pdfFirstPageJpeg(pdf: Buffer): Promise<Buffer | null> {
     return null;
   }
 }
+
+/**
+ * 문서의 글자층 — 스캔본이면 빈 문자열.
+ *
+ * 사진 변환과 같은 자료 경로(wasm·글꼴·cMap)를 쓴다. 특히 cMap이 없으면 한글이
+ * 깨져 나와, 서류에 '보험기간' 같은 말이 있어도 못 알아본다.
+ * unpdf에도 같은 기능이 있지만 자료 위치를 스스로 찾는데, 배포본에서는 그 방식이
+ * 통하지 않아 조용히 한글만 어긋날 수 있다. 그래서 여기서 직접 읽는다.
+ */
+export async function pdfText(pdf: Buffer, maxPages = 3): Promise<string> {
+  try {
+    const [pdfjs, dirs] = await Promise.all([
+      import('pdfjs-dist/legacy/build/pdf.mjs'),
+      Promise.resolve(assetDirs()),
+    ]);
+    const task = pdfjs.getDocument({
+      data: new Uint8Array(pdf),
+      ...dirs,
+      cMapPacked: true,
+      disableFontFace: true,
+      useSystemFonts: false,
+    });
+    try {
+      const doc = await task.promise;
+      const parts: string[] = [];
+      for (let n = 1; n <= Math.min(doc.numPages, maxPages); n += 1) {
+        const page = await doc.getPage(n);
+        const content = await page.getTextContent();
+        for (const item of content.items) {
+          if ('str' in item) parts.push(item.str);
+        }
+      }
+      return parts.join(' ');
+    } finally {
+      await task.destroy();
+    }
+  } catch (e) {
+    console.error('문서 글자 읽기 실패:', e);
+    return '';
+  }
+}
