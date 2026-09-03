@@ -3,15 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { certPhoto, fileHref } from '@/lib/ids';
 import { SyncError, uploadDatedCert } from '@/lib/sync';
-import {
-  CERT_FILE_LABEL,
-  CERT_LABEL,
-  certStatus,
-  summarize,
-  worstStatus,
-  type CertKind,
-  type CertStatus,
-} from '@/lib/certExpiry';
+import { certStatus, type CertKind } from '@/lib/certExpiry';
 import { useCertPhoto } from '@/lib/useCertPhoto';
 import { modeBadge, useSyncedLog } from '@/lib/useSyncedLog';
 import { useRole } from '@/lib/useRole';
@@ -42,6 +34,7 @@ function CertView({
   inputId,
   onFile,
   fullscreen,
+  expired,
 }: {
   label: string;
   url: string | undefined;
@@ -52,6 +45,8 @@ function CertView({
   onFile: (file: File | undefined) => void;
   /** 휴대폰 — 좁은 칸에 끼워 넣지 않고 화면 전체에 크게 띄운다 */
   fullscreen?: boolean;
+  /** 검사유효기간·보험기간이 지난 서류 — [교체]를 빨갛게 해 눈에 걸리게 한다 */
+  expired?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [broken, setBroken] = useState(false);
@@ -136,8 +131,12 @@ function CertView({
           <>
             <label
               htmlFor={inputId}
-              className="cursor-pointer rounded border border-dashed border-slate-300 px-1.5 py-1 text-[11px] whitespace-nowrap text-slate-500 hover:border-[#1f3864] hover:text-[#1f3864]"
-              title={`${label} 첨부·교체`}
+              className={`cursor-pointer rounded border px-1.5 py-1 text-[11px] whitespace-nowrap ${
+                expired
+                  ? 'border-red-600 bg-red-600 font-semibold text-white hover:bg-red-700'
+                  : 'border-dashed border-slate-300 text-slate-500 hover:border-[#1f3864] hover:text-[#1f3864]'
+              }`}
+              title={expired ? `${label} 기간이 지났습니다 — 새 서류로 교체해 주세요` : `${label} 첨부·교체`}
             >
               {uploading ? '업로드중' : url ? '교체' : '첨부'}
             </label>
@@ -181,33 +180,6 @@ function CertView({
           <div className="mt-1.5 flex flex-wrap items-center gap-2 px-0.5">{actions}</div>
         </div>
       )}
-    </div>
-  );
-}
-
-/** 만료 배지 — 여유가 있으면 아무것도 그리지 않는다 */
-function ExpiryBadge({ status }: { status: CertStatus }) {
-  if (status.level === 'ok') return null;
-  return (
-    <span
-      className={`rounded px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap ${status.badgeClass}`}
-      title={status.note}
-    >
-      {status.badge}
-    </span>
-  );
-}
-
-/** 서류 밑에 붙는 한 줄 — 만료일과 배지 */
-function ExpiryLine({ status }: { status: CertStatus }) {
-  return (
-    <div className="mt-1 flex flex-wrap items-center gap-1">
-      {status.until ? (
-        <span className={`font-mono text-[10px] ${status.level === 'expired' ? 'text-red-600' : 'text-slate-400'}`}>
-          ~{status.until}
-        </span>
-      ) : null}
-      <ExpiryBadge status={status} />
     </div>
   );
 }
@@ -344,29 +316,8 @@ export default function YnccVehicles() {
 
   const shown = vehicles.filter((v) => categoryOf(v) === tab);
 
-  /** 이 차량의 두 서류 상태 — 검사유효기간·보험기간 */
-  const statusesOf = (v: YnccVehicle): CertStatus[] => [
-    certStatus('inspection', v.inspectionUntil),
-    certStatus('insurance', v.insuranceUntil),
-  ];
-  /** 목록에 배지 하나만 달 때 쓰는, 가장 급한 서류 (여유가 있으면 null) */
-  const alertOf = (v: YnccVehicle) => worstStatus(statusesOf(v));
-  const overview = summarize(vehicles.flatMap(statusesOf));
-  /**
-   * 만료일을 못 읽은 서류 — 차량번호와 어떤 서류인지 그대로 적어 둔다.
-   * 스캔 서류는 글자층이 없어 자동으로 못 읽으므로, 사람이 실물을 보고 넣어야 한다.
-   */
-  const unreadable = vehicles
-    .map((v) => ({ plate: v.plate, kinds: statusesOf(v).filter((st) => st.level === 'unknown') }))
-    .filter((r) => r.kinds.length > 0);
-  const unreadableText = unreadable
-    .map((r) => `${r.plate} — ${r.kinds.map((k) => `${CERT_FILE_LABEL[k.kind]}(${CERT_LABEL[k.kind]})`).join(', ')}`)
-    .join(String.fromCharCode(10));
-  /** 교체가 필요하거나 곧 필요한 차량 — 위쪽 요약에 이름을 적어 준다 */
-  const needsAction = vehicles.filter((v) => {
-    const w = alertOf(v);
-    return w?.level === 'expired' || w?.level === 'soon';
-  });
+  /** 기간이 지난 서류는 [교체]를 빨갛게 — 목록을 훑다 바로 눈에 걸리게 한다 */
+  const isExpired = (kind: CertKind, until: string | undefined) => certStatus(kind, until).level === 'expired';
 
   // 기존 차량 선택 시 현재 등록 내용을 입력창에 불러온다
   const selectPlate = (plate: string) => {
@@ -495,61 +446,6 @@ export default function YnccVehicles() {
         </div>
 
         {/*
-          서류 기간 요약 — 기간이 끝난 서류를 그대로 두면 현장에서 무효라,
-          목록을 훑지 않아도 바로 알 수 있게 맨 위에 모아 둔다.
-        */}
-        {(overview.expired > 0 || overview.soon > 0 || overview.unknown > 0) && (
-          <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-              {overview.expired > 0 && (
-                <span className="font-semibold text-red-600">기간 지남 {overview.expired}건 — 첨부파일 교체 필요</span>
-              )}
-              {overview.soon > 0 && <span className="font-semibold text-orange-600">30일 내 만료 {overview.soon}건</span>}
-              {overview.unknown > 0 && <span className="text-slate-400">만료일 미입력 {overview.unknown}건</span>}
-            </div>
-            {needsAction.length > 0 && (
-              <p className="mt-1 text-[11px] text-slate-500">
-                {needsAction.map((v) => {
-                  const w = alertOf(v)!;
-                  return `${v.plate} ${CERT_FILE_LABEL[w.kind]}(${w.badge})`;
-                }).join(' · ')}
-              </p>
-            )}
-
-            {/*
-              만료일을 못 읽은 서류 — 스캔본은 글자층이 없어 자동으로는 알 수 없다.
-              어느 차량의 어떤 서류인지 그대로 적어 두고, 그대로 복사해 물어볼 수 있게 한다.
-            */}
-            {unreadable.length > 0 && (
-              <div className="mt-2 rounded border border-slate-200 bg-white px-2 py-1.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] font-semibold text-slate-600">만료일을 읽지 못한 서류</span>
-                  <button
-                    onClick={() => void navigator.clipboard?.writeText(unreadableText)}
-                    className="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-500 hover:border-[#1f3864] hover:text-[#1f3864]"
-                    title="목록을 복사합니다"
-                  >
-                    복사
-                  </button>
-                </div>
-                <ul className="mt-1 space-y-0.5">
-                  {unreadable.map((r) => (
-                    <li key={r.plate} className="text-[11px] text-slate-500">
-                      <span className="font-semibold text-slate-700">{r.plate}</span>
-                      {' — '}
-                      {r.kinds.map((k) => `${CERT_FILE_LABEL[k.kind]}(${CERT_LABEL[k.kind]})`).join(', ')}
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-1 text-[10px] text-slate-400">
-                  스캔한 서류는 글자를 읽을 수 없어 자동으로 채워지지 않습니다. 서류를 보고 위 입력창에 직접 넣어 주세요.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/*
           분류 탭 — 차량점검내역과 같은 세 갈래로 나눈다.
           위 요약은 탭과 상관없이 전체 기준이라, 다른 탭의 만료를 놓치지 않는다.
         */}
@@ -668,8 +564,6 @@ export default function YnccVehicles() {
                     {v.registrant || '등록자 미정'}
                   </span>
                   {v.regDate && <span className="font-mono text-[11px] text-slate-400">{v.regDate}</span>}
-                  {/* 접혀 있어도 교체가 필요한 차량은 바로 눈에 띄어야 한다 */}
-                  {alertOf(v) && <ExpiryBadge status={alertOf(v)!} />}
                   <span className="ml-auto text-slate-300">{isOpen ? '▲' : '▼'}</span>
                 </button>
 
@@ -686,10 +580,10 @@ export default function YnccVehicles() {
                           canEdit={canEdit}
                           uploading={uploading === `${v.id}:regCertFile`}
                           inputId={`yv-m-reg-${v.id}`}
+                          expired={isExpired('inspection', v.inspectionUntil)}
                           fullscreen
                           onFile={(f) => void attach(v, 'regCertFile', f)}
                         />
-                        <ExpiryLine status={certStatus('inspection', v.inspectionUntil)} />
                       </div>
                       <div>
                         <p className="mb-1 text-[11px] font-semibold text-slate-500">보험증권</p>
@@ -700,10 +594,10 @@ export default function YnccVehicles() {
                           canEdit={canEdit}
                           uploading={uploading === `${v.id}:insuranceCertFile`}
                           inputId={`yv-m-ins-${v.id}`}
+                          expired={isExpired('insurance', v.insuranceUntil)}
                           fullscreen
                           onFile={(f) => void attach(v, 'insuranceCertFile', f)}
                         />
-                        <ExpiryLine status={certStatus('insurance', v.insuranceUntil)} />
                       </div>
                     </div>
                   </div>
@@ -759,9 +653,9 @@ export default function YnccVehicles() {
                       canEdit={canEdit}
                       uploading={uploading === `${v.id}:regCertFile`}
                       inputId={`yv-reg-${v.id}`}
+                      expired={isExpired('inspection', v.inspectionUntil)}
                       onFile={(f) => void attach(v, 'regCertFile', f)}
                     />
-                    <ExpiryLine status={certStatus('inspection', v.inspectionUntil)} />
                   </td>
                   <td className="px-2 py-2.5" onClick={(e) => e.stopPropagation()}>
                     <CertView
@@ -771,9 +665,9 @@ export default function YnccVehicles() {
                       canEdit={canEdit}
                       uploading={uploading === `${v.id}:insuranceCertFile`}
                       inputId={`yv-ins-${v.id}`}
+                      expired={isExpired('insurance', v.insuranceUntil)}
                       onFile={(f) => void attach(v, 'insuranceCertFile', f)}
                     />
-                    <ExpiryLine status={certStatus('insurance', v.insuranceUntil)} />
                   </td>
                   <td className="px-4 py-2.5 font-mono text-[11px] text-slate-400">
                     {v.updatedAt ? new Date(v.updatedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
@@ -799,11 +693,11 @@ export default function YnccVehicles() {
         </div>
         <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
           [🖼 보기]를 누르면 서류가 사진으로 바로 뜹니다. 사진을 길게 누르거나 [⤓ 사진 저장]으로 휴대폰에 저장할 수
-          있고, 인쇄가 필요하면 [원본 PDF]를 쓰면 됩니다. 서류 밑의 날짜는 검사유효기간·보험기간이 끝나는 날이며,
-          한 달 전부터 D-Day가, 지나면 [교체 필요]가 뜹니다.
+          있고, 인쇄가 필요하면 [원본 PDF]를 쓰면 됩니다. [교체]가 빨갛게 보이면 검사유효기간이나 보험기간이 지난
+          서류이니 새 서류로 바꿔 주세요.
           {canEdit
-            ? ' 차량번호는 고정이고 등록일자·차량 등록자만 수시로 갱신됩니다. 표에서 차량을 클릭하면 위 입력창으로 불러와 갱신할 수 있고, 서류는 [교체]로 바꿀 수 있습니다. 만료일은 서류를 올릴 때 자동으로 읽지만, 스캔 서류는 글자가 없어 못 읽으므로 [만료일 확인]이 뜨면 직접 넣어 주세요.'
-            : ' 내용 수정과 서류 교체는 관리자만 할 수 있습니다.'}
+            ? ' 차량번호는 고정이고 등록일자·차량 등록자만 수시로 갱신됩니다. 표에서 차량을 클릭하면 위 입력창으로 불러와 갱신할 수 있고, 서류는 [교체]로 바꿀 수 있습니다. 만료일은 서류를 올릴 때 자동으로 읽지만, 스캔 서류는 글자가 없어 못 읽으므로 직접 넣어 주세요.'
+            : ' 차량 등록자만 고칠 수 있고, 서류 교체는 관리자에게 요청해 주세요.'}
         </p>
       </div>
     </div>
