@@ -19,6 +19,8 @@ import { useRole } from '@/lib/useRole';
 import { CHEM_WORKERS_KEY, YNCC_WORKERS_KEY, type EduSheetWorker } from '@/lib/yncc';
 import { LABOR_CATEGORIES, laborColor } from '@/lib/workforce';
 import { useSortable } from '@/lib/useSortable';
+import SheetExport from './SheetExport';
+import type { ExportSpec } from '@/lib/sheetExport';
 import { CELL, SortButton } from './SheetUI';
 
 /**
@@ -101,9 +103,51 @@ function fileToDataUrl(file: File): Promise<string> {
  * 주민등록번호 전체는 민감정보라 저장하지 않고, 앞 6자리에서 생년월일만 뽑아 쓴다.
  * 이름이 이미 있는 사람은 아예 건너뛴다 (기존 기록을 건드리지 않는다).
  */
+/**
+ * 지금 반영해야 할 초기 자료 묶음 이름.
+ * 이 표식이 붙은 기록이 하나라도 있으면 아래 대장은 이미 깔린 것이므로 건너뛴다 —
+ * 지운 인원이 새로고침마다 되살아나지 않게 하려는 것이다.
+ * 대장에 사람을 새로 넣을 때는 이 이름을 바꿔 준다.
+ */
+const ROSTER_SEED_TAG = '2026-09-04-공영';
+
 const DEFAULT_ROSTER: { category: string; name: string; birth: string; phone: string }[] = [
   // 배영일·이진호는 이미 등록돼 있어 넣지 않는다 (이름이 겹치면 건너뛴다)
   { category: '공영인력', name: '김광모', birth: '1978-09-25', phone: '010-2767-4098' },
+
+  /*
+   * 공영인력 — 「인력 신상명세표.xlsx」 인력명단 시트에서 옮김 (2026-09-04).
+   * 이미 등록돼 있던 7명(길현민·류정민·배영일·오재정·유정환·이승훈·이진호)은 뺐다.
+   * 생년월일은 주민번호 앞 6자리와 성별코드로만 만들고, 뒷자리는 어디에도 남기지 않는다.
+   */
+  { category: '공영인력', name: '고병연', birth: '1990-08-26', phone: '010-7486-6008' },
+  { category: '공영인력', name: '권용빈', birth: '1994-04-07', phone: '010-4976-0322' },
+  { category: '공영인력', name: '김경식', birth: '1976-01-05', phone: '010-4588-8265' },
+  { category: '공영인력', name: '김광춘', birth: '1981-03-24', phone: '010-5436-0550' },
+  { category: '공영인력', name: '김기환', birth: '1966-03-18', phone: '010-8406-0880' },
+  { category: '공영인력', name: '김명호', birth: '1964-06-13', phone: '010-6899-3005' },
+  { category: '공영인력', name: '김민철', birth: '1980-01-15', phone: '010-4967-5545' },
+  { category: '공영인력', name: '김성룡', birth: '1966-01-24', phone: '010-3628-6221' },
+  { category: '공영인력', name: '김은영', birth: '1978-11-10', phone: '010-8181-0111' },
+  { category: '공영인력', name: '김인수', birth: '1957-11-05', phone: '010-4635-2362' },
+  { category: '공영인력', name: '김정식', birth: '1967-03-28', phone: '010-9342-9207' },
+  { category: '공영인력', name: '김철영', birth: '1962-02-01', phone: '010-9460-0969' },
+  { category: '공영인력', name: '김치웅', birth: '1993-11-10', phone: '010-8173-2362' },
+  { category: '공영인력', name: '김학찬', birth: '1966-01-25', phone: '010-2977-9543' },
+  { category: '공영인력', name: '박금례', birth: '1961-03-27', phone: '010-5667-9423' },
+  { category: '공영인력', name: '박미숙', birth: '1966-05-11', phone: '010-6220-9556' },
+  { category: '공영인력', name: '박선자', birth: '1960-09-07', phone: '010-9036-0511' },
+  { category: '공영인력', name: '박용덕', birth: '1970-04-01', phone: '010-2490-6160' },
+  { category: '공영인력', name: '박홍철', birth: '1977-01-28', phone: '010-4232-1345' },
+  { category: '공영인력', name: '배서준', birth: '1990-01-29', phone: '010-9760-6455' },
+  { category: '공영인력', name: '신윤성', birth: '1997-09-19', phone: '010-8925-0047' },
+  { category: '공영인력', name: '양재덕', birth: '1961-02-24', phone: '010-3623-0679' },
+  { category: '공영인력', name: '엄성현', birth: '1965-08-19', phone: '010-2733-4407' },
+  { category: '공영인력', name: '이정식', birth: '1959-08-22', phone: '010-9400-1513' },
+  { category: '공영인력', name: '이현준', birth: '2002-12-23', phone: '010-4109-1223' },
+  { category: '공영인력', name: '조운용', birth: '1964-01-02', phone: '010-5660-2749' },
+  { category: '공영인력', name: '조진영', birth: '1971-02-28', phone: '010-4929-7772' },
+  { category: '공영인력', name: '탁성호', birth: '1981-02-21', phone: '010-5558-1110' },
 ];
 
 /**
@@ -372,7 +416,11 @@ export default function LaborRoster() {
         }
       }
 
-      // 2) 원본 자료 반영
+      // 2) 원본 자료 반영 — 이미 깔린 묶음이면 건너뛴다 (지운 인원을 되살리지 않는다)
+      if (getRows().some((r) => r.seedTag === ROSTER_SEED_TAG)) {
+        void mergeDuplicates();
+        return;
+      }
       const added = new Set<string>();
       const seedRow = (d: (typeof DEFAULT_WORKERS)[number] | (typeof DEFAULT_ROSTER)[number]) => {
         if (added.has(normName(d.name))) return;
@@ -388,6 +436,7 @@ export default function LaborRoster() {
           // 이미 붙어 있는 특검확인서는 모두 벤젠·톨루엔·크실렌이 적힌 연간 검진이라
           // 그 검진일로 세 물질을 함께 잡는다 (벤젠만 재검하면 그때 벤젠 날짜만 바뀐다)
           hazards: spDate ? applyHazardCheck([], [...WATCHED_HAZARDS], spDate) : undefined,
+          seedTag: ROSTER_SEED_TAG,
         };
         const existing = findByName(d.name);
         if (existing) {
@@ -539,6 +588,25 @@ export default function LaborRoster() {
   const badge = saveBadge(status, mode);
   const label = 'mb-1 block text-[11px] font-semibold text-slate-500';
 
+  /** 엑셀·인쇄에 넘길 표 — 지금 보고 있는 소속 탭 기준 */
+  const exportSpec = (): ExportSpec<LaborWorker> => ({
+    title: `인력관리 (${tab})`,
+    landscape: true,
+    columns: [
+      { label: '소속', value: (r) => r.category || '미지정', width: 11 },
+      { label: '성명', value: (r) => r.name, width: 10 },
+      { label: '생년월일', value: (r) => r.birth ?? '', width: 12 },
+      { label: '휴대폰', value: (r) => r.phone ?? '', width: 15 },
+      { label: '일반검진', value: (r) => r.generalHealthDate ?? '', width: 12 },
+      { label: '특수검진', value: (r) => r.specialHealthDate ?? '', width: 12 },
+      { label: '유해화학물질', value: (r) => r.chemDate ?? '', width: 13 },
+      { label: 'YNCC 시작', value: (r) => r.ynccStart ?? '', width: 12 },
+      { label: 'YNCC 종료', value: (r) => r.ynccEnd ?? '', width: 12 },
+      { label: '비고', value: (r) => r.note ?? '', align: 'left', width: 18 },
+    ],
+    rows: shown,
+  });
+
   return (
     <div className="w-full">
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -548,6 +616,7 @@ export default function LaborRoster() {
         </h3>
         {badge && <span className={`text-xs ${badge.className}`}>{badge.text}</span>}
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          <SheetExport spec={exportSpec} />
           <button
             onClick={() => void migrate()}
             disabled={migrating}

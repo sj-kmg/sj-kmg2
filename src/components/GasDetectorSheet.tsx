@@ -19,6 +19,8 @@ import { SyncError, uploadCert } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
 import { useSortable } from '@/lib/useSortable';
+import SheetExport from './SheetExport';
+import type { ExportSpec } from '@/lib/sheetExport';
 import { CELL, SheetToolbar, SortButton, TD_STICKY_POS, TH, TH_STICKY } from './SheetUI';
 import { fileHref } from '@/lib/ids';
 
@@ -136,6 +138,25 @@ export default function GasDetectorSheet() {
     return detectorKind(shown[i - 1].mgmtNo) === k ? null : k;
   };
 
+
+  /** 엑셀·인쇄에 넘길 표 */
+  const exportSpec = (): ExportSpec<GasDetector> => ({
+    title: '측정기 검·교정 현황',
+    landscape: true,
+    columns: [
+      { label: '관리번호', value: (r) => r.mgmtNo, width: 14 },
+      { label: 'MODEL', value: (r) => r.model, width: 16 },
+      { label: '용도', value: (r) => r.usage, width: 18 },
+      { label: '검교정일', value: (r) => r.calDate, width: 12 },
+      { label: '차기 검교정일', value: (r) => r.nextCalDate, width: 13 },
+      { label: '제조사', value: (r) => r.maker, width: 14 },
+      { label: '검교정업체', value: (r) => r.vendor, width: 16 },
+      { label: '상태', value: (r) => r.status, width: 8 },
+      { label: '비고', value: (r) => r.note ?? '', align: 'left', width: 20 },
+    ],
+    rows: [...rows].sort((a, b) => a.mgmtNo.localeCompare(b.mgmtNo, 'ko', { numeric: true })),
+  });
+
   return (
     <div className="w-full">
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -147,6 +168,7 @@ export default function GasDetectorSheet() {
             </span>
           </h3>
           <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+          <SheetExport spec={exportSpec} className="ml-auto" />
           {overdue > 0 && (
             <span className="rounded bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-700">
               교정 기한 초과 {overdue}대

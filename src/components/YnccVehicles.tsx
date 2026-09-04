@@ -11,6 +11,8 @@ import { useRole } from '@/lib/useRole';
 import { YNCC_VEHICLES_KEY, type YnccVehicle } from '@/lib/yncc';
 import { categoryOfPlate, VEHICLE_CATEGORIES, type VehicleCategory } from '@/lib/vehicleCheck';
 import { useSortable } from '@/lib/useSortable';
+import SheetExport from './SheetExport';
+import type { ExportSpec } from '@/lib/sheetExport';
 import { SortButton, TD_STICKY_POS, TH_STICKY } from './SheetUI';
 
 function todayStr(): string {
@@ -325,8 +327,15 @@ export default function YnccVehicles() {
     if (seededRef.current || mode === 'loading' || role !== 'admin') return;
     seededRef.current = true;
     const norm = (p: string) => p.replace(/\s/g, '');
+    /*
+     * 차량을 새로 만드는 건 **목록이 통째로 비어 있을 때만** 한다.
+     * 이미 쓰고 있는 목록에 없는 차량은 사람이 지운 것이므로 되살리지 않는다
+     * (지운 항목이 새로고침마다 돌아오던 문제).
+     */
+    const firstRun = entries.length === 0;
     for (const d of DEFAULT_ATTACHMENTS) {
       const existing = entries.find((e) => norm(e.plate) === norm(d.plate));
+      if (!existing && !firstRun) continue;
       // 사람이 넣어 둔 값은 건드리지 않고, 비어 있는 칸만 채운다
       const filled = {
         regCertFile: existing?.regCertFile || d.regCertFile,
@@ -561,6 +570,21 @@ export default function YnccVehicles() {
     );
   };
 
+  /** 엑셀·인쇄에 넘길 표 — 지금 보고 있는 분류 탭 기준 */
+  const exportSpec = (): ExportSpec<YnccVehicle> => ({
+    title: `YNCC 작업차량 등록 현황 (${tab})`,
+    columns: [
+      { label: '차량번호', value: (v) => v.plate, width: 14 },
+      { label: '등록일자', value: (v) => v.regDate, width: 12 },
+      { label: '차량 등록자', value: (v) => v.registrant || '미정', width: 12 },
+      { label: '검사유효기간', value: (v) => v.inspectionUntil || '미확인', width: 13 },
+      { label: '보험기간', value: (v) => v.insuranceUntil || '미확인', width: 13 },
+      { label: '차량등록증', value: (v) => (v.regCertFile ? '첨부됨' : '없음'), width: 11 },
+      { label: '보험증권', value: (v) => (v.insuranceCertFile ? '첨부됨' : '없음'), width: 11 },
+    ],
+    rows: shown,
+  });
+
   const label = 'mb-1 block text-xs font-semibold text-slate-500';
 
   return (
@@ -569,6 +593,7 @@ export default function YnccVehicles() {
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-bold text-slate-700">🚚 YNCC 작업차량 등록 현황</h3>
           <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+          <SheetExport spec={exportSpec} className="ml-auto" />
         </div>
 
         {/*

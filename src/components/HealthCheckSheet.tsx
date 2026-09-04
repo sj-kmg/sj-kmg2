@@ -24,6 +24,8 @@ import { SyncError, extractDocFields, uploadCert } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
 import { useSortable } from '@/lib/useSortable';
+import SheetExport from './SheetExport';
+import type { ExportSpec } from '@/lib/sheetExport';
 import { CELL, SheetToolbar, SortButton, TD_STICKY, TH, TH_STICKY } from './SheetUI';
 import { fileHref } from '@/lib/ids';
 
@@ -294,6 +296,21 @@ function Sheet({ kind, group }: { kind: HealthCheck['kind']; group: HealthCheck[
     );
   };
 
+  /** 엑셀·인쇄에 넘길 표 — 지금 화면에 보이는 목록 그대로 */
+  const exportSpec = (): ExportSpec<HealthCheck> => ({
+    title: `${HEALTH_LABEL[kind]} — ${group}`,
+    columns: [
+      { label: '성명', value: (r) => r.name, width: 12 },
+      { label: '생년월일', value: (r) => r.birth ?? '', width: 12 },
+      { label: '검진일자', value: (r) => r.checkDate, width: 12 },
+      { label: '갱신일자', value: (r) => r.renewDate, width: 12 },
+      { label: '유해인자', value: (r) => (r.hazards ?? []).map((h) => h.name).join(', '), align: 'left', width: 20 },
+      { label: '확인서', value: (r) => (r.certFile ? '첨부됨' : '없음'), width: 10 },
+      { label: '비고', value: (r) => r.note ?? '', align: 'left', width: 20 },
+    ],
+    rows: shown,
+  });
+
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -302,6 +319,7 @@ function Sheet({ kind, group }: { kind: HealthCheck['kind']; group: HealthCheck[
           <span className="ml-1.5 font-normal text-slate-400">{shown.length}명</span>
         </h3>
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+        <SheetExport spec={exportSpec} className="ml-auto" />
       </div>
 
       {autoNote && (

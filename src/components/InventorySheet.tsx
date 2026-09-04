@@ -14,6 +14,8 @@ import { SyncError, uploadCert } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
 import { useSortable } from '@/lib/useSortable';
+import SheetExport from './SheetExport';
+import type { ExportSpec } from '@/lib/sheetExport';
 import { CELL, SheetToolbar, SortButton, TD_STICKY_POS, TH, TH_STICKY } from './SheetUI';
 
 /** 새로 추가하는 행의 ID — 렌더 중 계산되지 않도록 모듈 함수로 분리한다 */
@@ -126,6 +128,21 @@ export default function InventorySheet() {
       active ? 'border-[#1f3864] bg-[#1f3864] text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-[#1f3864]'
     }`;
 
+
+  /** 엑셀·인쇄에 넘길 표 */
+  const exportSpec = (): ExportSpec<InventoryItem> => ({
+    title: '기자재 보유 현황',
+    columns: [
+      { label: '분류', value: (r) => r.category, width: 14 },
+      { label: '기자재명', value: (r) => r.name, align: 'left', width: 26 },
+      { label: '규격', value: (r) => r.spec, align: 'left', width: 20 },
+      { label: '보유수량', value: (r) => (r.qty === null ? '' : String(r.qty)), width: 10 },
+      { label: '단위', value: (r) => r.unit, width: 8 },
+      { label: '비고', value: (r) => r.note, align: 'left', width: 24 },
+    ],
+    rows: [...rows].sort((a, b) => a.category.localeCompare(b.category, 'ko') || a.name.localeCompare(b.name, 'ko')),
+  });
+
   return (
     <div className="w-full">
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -137,6 +154,7 @@ export default function InventorySheet() {
             </span>
           </h3>
           <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+          <SheetExport spec={exportSpec} className="ml-auto" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}

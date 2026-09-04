@@ -51,15 +51,21 @@ export async function collectGeneralAffairsStatus(now: Date): Promise<GeneralAff
     listEntriesSilently<HealthCheck>('health', HEALTH_KEY),
     listEntriesSilently<EquipCheck>('equipment', EQUIP_KEY),
   ]);
-  const equipIds = new Set(savedEquip.map((e) => e.id));
-  const equips = [...savedEquip, ...airDistributorSeed().filter((e) => !equipIds.has(e.id))];
-  const healthNames = new Set(savedHealth.filter((h) => h.kind === 'general').map((h) => h.name.trim()));
-  const health = [...savedHealth, ...healthGeneralSeed().filter((s) => !healthNames.has(s.name.trim()))];
-  // 아직 저장 전이면 기존 신청현황(초기 데이터)을 기준으로 표시
-  const cardIds = new Set(savedCards.map((c) => c.id));
-  const cards = [...savedCards, ...accessCardSeed().filter((s) => !cardIds.has(s.id))];
-  const plates = new Set(savedVehicles.map((v) => v.plate.trim()));
-  const vehicles = [...savedVehicles, ...passVehicleSeed().filter((s) => !plates.has(s.plate.trim()))];
+  /*
+   * 초기 대장(시드)은 **아직 저장된 기록이 하나도 없을 때만** 쓴다.
+   *
+   * 저장분과 시드를 합치면, 사람이 지운 항목이 "저장분에 없다"는 이유로 시드에서
+   * 되살아난다 (LG 상시차량에서 93가 9652를 지웠는데 메인 D-day에 계속 뜨던 원인).
+   * 기록이 한 건이라도 있으면 그 화면은 이미 쓰이고 있다는 뜻이므로 저장분이 곧 전부다.
+   */
+  const orEmpty = <T,>(saved: T[], seed: () => T[]): T[] => (saved.length > 0 ? saved : seed());
+
+  const equips = orEmpty(savedEquip, airDistributorSeed);
+  // 건강검진은 한 저장소를 일반·특수가 나눠 쓴다 — 일반 기록이 없을 때만 일반 대장을 깐다
+  const health =
+    savedHealth.some((h) => h.kind === 'general') ? savedHealth : [...savedHealth, ...healthGeneralSeed()];
+  const cards = orEmpty(savedCards, accessCardSeed);
+  const vehicles = orEmpty(savedVehicles, passVehicleSeed);
 
   const items = [
     ...cards

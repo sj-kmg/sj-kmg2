@@ -6,6 +6,8 @@ import { NOTICE_STYLE, daysUntil, noticeLevel } from '@/lib/education';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
 import { useSortable } from '@/lib/useSortable';
+import SheetExport from './SheetExport';
+import type { ExportSpec } from '@/lib/sheetExport';
 import { CELL, SheetToolbar, SortButton, TD_STICKY, TH, TH_STICKY } from './SheetUI';
 
 const APPLY_TYPES: AccessCard['applyType'][] = ['신규', '연장'];
@@ -65,6 +67,21 @@ export default function AccessCardSheet() {
     );
   };
 
+
+  /** 엑셀·인쇄에 넘길 표 */
+  const exportSpec = (): ExportSpec<AccessCard> => ({
+    title: 'LG 상시카드 신청현황',
+    columns: [
+      { label: '구분', value: (r) => r.applyType, width: 8 },
+      { label: '성명', value: (r) => r.name, width: 12 },
+      { label: '출입시작일', value: (r) => r.issueDate, width: 12 },
+      { label: '출입종료일', value: (r) => r.endDate, width: 12 },
+      { label: '아이디', value: (r) => r.loginId, width: 16 },
+      { label: '비고', value: (r) => r.note ?? '', align: 'left', width: 24 },
+    ],
+    rows: [...rows].sort((a, b) => a.name.localeCompare(b.name, 'ko')),
+  });
+
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -73,6 +90,7 @@ export default function AccessCardSheet() {
           <span className="ml-1.5 font-normal text-slate-400">{rows.length}명</span>
         </h3>
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+          <SheetExport spec={exportSpec} className="ml-auto" />
       </div>
 
       {/* 신규 · 연장 구분 표 */}

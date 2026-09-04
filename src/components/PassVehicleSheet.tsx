@@ -6,6 +6,8 @@ import { NOTICE_STYLE, daysUntil, noticeLevel } from '@/lib/education';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
 import { useSortable } from '@/lib/useSortable';
+import SheetExport from './SheetExport';
+import type { ExportSpec } from '@/lib/sheetExport';
 import { CELL, SheetToolbar, SortButton, TD_STICKY, TH, TH_STICKY } from './SheetUI';
 
 const KINDS: PassVehicle['kind'][] = ['일반차량', '특수차량'];
@@ -67,6 +69,21 @@ export default function PassVehicleSheet() {
     );
   };
 
+  /** 엑셀·인쇄에 넘길 표 — 화면에 보이는 순서 그대로 */
+  const exportSpec = (): ExportSpec<PassVehicle> => ({
+    title: 'LG 상시차량 출입 현황',
+    columns: [
+      { label: '구분', value: (r) => r.kind, width: 10 },
+      { label: '차량번호', value: (r) => r.plate, width: 14 },
+      { label: '대표 운전자', value: (r) => r.driver, width: 12 },
+      { label: '출입시작일', value: (r) => r.startDate, width: 12 },
+      { label: '출입종료일', value: (r) => r.endDate, width: 12 },
+      { label: '단위공장', value: (r) => r.plant ?? '', width: 14 },
+      { label: '비고', value: (r) => r.note ?? '', align: 'left', width: 22 },
+    ],
+    rows: [...rows].sort((a, b) => KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind) || a.plate.localeCompare(b.plate, 'ko', { numeric: true })),
+  });
+
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -75,6 +92,7 @@ export default function PassVehicleSheet() {
           <span className="ml-1.5 font-normal text-slate-400">{rows.length}대</span>
         </h3>
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+        <SheetExport spec={exportSpec} className="ml-auto" />
       </div>
 
       {/* 일반차량 · 특수차량 구분 표 */}

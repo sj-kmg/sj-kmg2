@@ -30,6 +30,12 @@ export interface LaborWorker {
   ynccStart?: string; // YNCC 교육기간 시작 (이수일)
   ynccEnd?: string; // YNCC 교육기간 종료 (교육유효종료일)
   note?: string;
+  /**
+   * 이 기록을 만든 초기 자료 묶음 표식.
+   * 표식이 붙은 기록이 하나라도 있으면 그 묶음은 이미 반영된 것으로 보고 다시 깔지 않는다.
+   * 사람이 지운 인원이 새로고침마다 되살아나는 일을 막는다.
+   */
+  seedTag?: string;
   updatedAt: string;
 }
 

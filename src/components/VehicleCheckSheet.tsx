@@ -23,6 +23,8 @@ import {
   type VehicleItemKind,
 } from '@/lib/vehicleCheck';
 import { useSortable } from '@/lib/useSortable';
+import SheetExport from './SheetExport';
+import type { ExportSpec } from '@/lib/sheetExport';
 import { CELL, SheetToolbar, SortButton, TD_STICKY, TH, TH_STICKY } from './SheetUI';
 
 function newId(prefix: string, seq: number): string {
@@ -180,6 +182,25 @@ export default function VehicleCheckSheet() {
       active ? 'border-[#1f3864] bg-[#1f3864] text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-[#1f3864]'
     }`;
 
+
+  /** 엑셀·인쇄에 넘길 표 — 정비항목마다 마지막 시행일을 한 칸씩 */
+  const exportSpec = (): ExportSpec<VehicleCheck> => ({
+    title: cat ? `차량점검내역 (${cat})` : '차량점검내역',
+    landscape: true,
+    columns: [
+      { label: '분류', value: (v) => v.category, width: 10 },
+      { label: '차량번호', value: (v) => v.plate, width: 13 },
+      { label: '장비명', value: (v) => v.name, align: 'left', width: 24 },
+      ...items.map((it) => ({
+        label: it.label,
+        width: 12,
+        value: (v: VehicleCheck) => v.dates?.[it.id] ?? '',
+      })),
+      { label: '비고', value: (v) => v.note ?? '', align: 'left' as const, width: 18 },
+    ],
+    rows: veh.rows.filter((r) => !cat || r.category === cat).sort(compareVehicle),
+  });
+
   return (
     <div className="w-full">
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -191,6 +212,7 @@ export default function VehicleCheckSheet() {
             </span>
           </h3>
           <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+          <SheetExport spec={exportSpec} className="ml-auto" />
           {overdue.over > 0 && (
             <span className="rounded bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-700">교체시기 초과 {overdue.over}건</span>
           )}
