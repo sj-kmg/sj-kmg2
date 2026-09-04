@@ -7,7 +7,8 @@ import { collectGeneralAffairsStatus, type GaDueItem, type GaUpcoming } from '@/
 
 /**
  * 메인 [공무관리 현황] 패널 — 공무관리(신청현황 등)에서 D-day 관리가 필요한 항목을 모아 표시.
- * 상시카드·상시차량·건강검진·측정기 검교정·차량 정비·장비 점검을 함께 본다.
+ * 상시카드·상시차량·건강검진·장비 점검을 함께 본다.
+ * 차량점검내역·측정기 검교정은 건수가 많아 목록을 덮어 버려 각자의 메뉴에서만 본다.
  */
 export default function GeneralAffairsPanel() {
   const [due, setDue] = useState<GaDueItem[] | null>(null);
@@ -61,8 +62,8 @@ export default function GeneralAffairsPanel() {
 function Footnote() {
   return (
     <p className="mt-2 border-t border-slate-100 pt-1.5 text-[10px] text-slate-400">
-      상시카드 D-{CARD_NOTICE_DAYS} · 상시차량/건강검진/측정기 검교정/차량 정비/장비 점검 D-{VEHICLE_NOTICE_DAYS}부터
-      표시 · 공무관리 메뉴와 연동
+      상시카드 D-{CARD_NOTICE_DAYS} · 상시차량/건강검진/장비 점검 D-{VEHICLE_NOTICE_DAYS}부터 표시 · 공무관리 메뉴와
+      연동
     </p>
   );
 }
