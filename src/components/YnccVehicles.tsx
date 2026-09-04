@@ -237,6 +237,48 @@ const DEFAULT_ATTACHMENTS: {
   },
 ];
 
+/**
+ * 서류를 직접 읽어 옮긴 유효기간 — 차량번호 → [검사유효기간, 보험기간] 만료일.
+ *
+ * 자동차등록증 29건은 모두 스캔본이라 글자층이 없어 기계로는 못 읽는다.
+ * 검사유효기간 표의 **마지막 줄**(손으로 덧쓴 갱신분)을 눈으로 확인해 옮겼다.
+ * 보험증권은 글자층이 있는 13건은 문서에서 그대로, 나머지는 마찬가지로 읽어 옮겼다.
+ *
+ * 802소3625·802소3635는 손글씨 연도가 인쇄된 숫자 위에 겹쳐 있어 확정하지 못했다.
+ * 넘겨짚어 넣으면 지난 서류를 유효한 것처럼 보여 주게 되므로 비워 둔다.
+ * 비어 있는 칸만 채우므로, 사람이 넣은 값은 덮어쓰지 않는다.
+ */
+const DEFAULT_PERIODS: Record<string, { inspection?: string; insurance?: string }> = {
+  '93너7439': { inspection: '2026-10-09', insurance: '2026-10-10' },
+  '854가9555': { inspection: '2028-08-09', insurance: '2027-08-29' },
+  '86주6774': { inspection: '2027-04-28', insurance: '2027-04-29' },
+  '83마2628': { inspection: '2026-08-31', insurance: '2027-02-27' },
+  '96머0525': { inspection: '2026-09-04', insurance: '2026-10-04' },
+  '86조6489': { inspection: '2026-12-04', insurance: '2026-11-27' },
+  '95우6541': { inspection: '2026-11-02', insurance: '2026-11-03' },
+  '83로6699': { inspection: '2026-12-07', insurance: '2027-06-08' },
+  '83두2898': { inspection: '2026-12-19', insurance: '2027-07-26' },
+  '95러9793': { inspection: '2026-10-02', insurance: '2026-09-19' },
+  '91오8390': { inspection: '2027-02-14', insurance: '2027-01-04' },
+  '85루1418': { inspection: '2027-06-24', insurance: '2027-06-25' },
+  '95어6296': { inspection: '2027-01-28', insurance: '2026-09-26' },
+  '89도8997': { inspection: '2026-09-14', insurance: '2027-09-07' },
+  '81러0891': { inspection: '2026-09-07', insurance: '2027-01-23' },
+  '97소1434': { inspection: '2026-09-27', insurance: '2027-04-25' },
+  '802소3625': { insurance: '2027-08-29' }, // 검사유효기간 판독 불가
+  '802소3635': { insurance: '2027-08-29' }, // 검사유효기간 판독 불가
+  '83너0462': { inspection: '2026-10-30', insurance: '2026-10-30' },
+  '986버1690': { inspection: '2027-01-06', insurance: '2026-12-15' },
+  '986버1665': { inspection: '2026-09-06', insurance: '2027-03-07' },
+  '815너8465': { inspection: '2027-08-31', insurance: '2026-10-21' },
+  '816도5194': { inspection: '2028-05-26', insurance: '2026-12-30' },
+  '986버1667': { inspection: '2026-11-19', insurance: '2026-09-25' },
+  '전남04바2827': { inspection: '2026-08-01', insurance: '2027-08-06' },
+  '전남04라3482': { inspection: '2027-01-15', insurance: '2027-02-22' },
+  '전남03나3645': { inspection: '2027-01-31' }, // 보험증권 미첨부
+  '02마1168': { inspection: '2026-09-02', insurance: '2027-09-03' },
+};
+
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -310,6 +352,17 @@ export default function YnccVehicles() {
           updatedAt: new Date().toISOString(),
         });
       }
+    }
+
+    // 서류에서 읽어 둔 유효기간 — 비어 있는 칸만 채운다
+    for (const v of entries) {
+      const period = DEFAULT_PERIODS[norm(v.plate)];
+      if (!period) continue;
+      const patch: Partial<YnccVehicle> = {};
+      if (!v.inspectionUntil && period.inspection) patch.inspectionUntil = period.inspection;
+      if (!v.insuranceUntil && period.insurance) patch.insuranceUntil = period.insurance;
+      if (Object.keys(patch).length === 0) continue;
+      void add({ ...v, ...patch, updatedAt: new Date().toISOString() });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, role]);
