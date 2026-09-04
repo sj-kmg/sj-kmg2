@@ -14,6 +14,8 @@ import {
 } from '@/lib/safety';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
+import SheetExport from './SheetExport';
+import type { ExportSpec } from '@/lib/sheetExport';
 import { CELL, SheetToolbar, TD_STICKY, TH, TH_STICKY } from './SheetUI';
 
 function newId(seq: number): string {
@@ -84,6 +86,26 @@ export default function SafetyStockSheet() {
     return now - before;
   };
 
+  /** 엑셀·인쇄에 넘길 표 — 확인일자마다 한 칸씩 붙인다 */
+  const exportSpec = (): ExportSpec<SafetyItem> => ({
+    title: '안전용품 재고 현황',
+    landscape: dates.length > 4,
+    columns: [
+      { label: '품명', value: (r: SafetyItem) => r.name, align: 'left' as const, width: 24 },
+      { label: '단위', value: (r: SafetyItem) => r.unit, width: 8 },
+      ...dates.map((d) => ({
+        label: d,
+        width: 11,
+        value: (r: SafetyItem) => {
+          const q = r.qtys?.[d];
+          return q === null || q === undefined ? '' : String(q);
+        },
+      })),
+      { label: '비고', value: (r: SafetyItem) => r.note, align: 'left' as const, width: 20 },
+    ],
+    rows: [...rows].sort(compareSafetyItem),
+  });
+
   return (
     <div className="w-full">
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -93,6 +115,7 @@ export default function SafetyStockSheet() {
             <span className="ml-1.5 font-normal text-slate-400">{rows.length}품목</span>
           </h3>
           <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+          <SheetExport spec={exportSpec} className="ml-auto" />
           <label className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-slate-600">
             확인일자
             <input

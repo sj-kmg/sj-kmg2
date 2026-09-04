@@ -7,6 +7,8 @@ import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
 import { YNCC_NOTICE_DAYS, type EduSheetWorker } from '@/lib/yncc';
 import { useSortable } from '@/lib/useSortable';
+import SheetExport from './SheetExport';
+import type { ExportSpec } from '@/lib/sheetExport';
 import { CELL, SheetToolbar, SortButton, TD_STICKY_POS, TH, TH_STICKY } from './SheetUI';
 import { fileHref } from '@/lib/ids';
 
@@ -148,6 +150,26 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
     ? shown.find((r) => r.name.trim() && r.offlineDate && r.onlineDate && r.offlineDate === r.onlineDate)
     : undefined;
 
+  /** 과정 이름 — 엑셀 제목과 파일 이름에 쓴다 */
+  const courseName =
+    variant === 'chem' ? '유해화학물질 안전교육' : variant === 'supervisor' ? '관리감독자 교육' : 'YNCC 출입 안전교육';
+
+  /** 엑셀·인쇄에 넘길 표 — 지금 화면에 보이는 목록 그대로 */
+  const exportSpec = (): ExportSpec<(typeof shown)[number]> => ({
+    title: `${courseName} — ${group}`,
+    columns: [
+      { label: '성명', value: (r) => r.name, width: 12 },
+      { label: '생년월일', value: (r) => r.birth ?? '', width: 12 },
+      ...(variant === 'supervisor' ? [{ label: '직책', value: (r: (typeof shown)[number]) => r.position ?? '', width: 14 }] : []),
+      { label: '집체교육 이수일자', value: (r) => r.offlineDate ?? '', width: 15 },
+      ...(variant === 'yncc'
+        ? [{ label: '교육유효종료일', value: (r: (typeof shown)[number]) => r.eduExpire ?? '', width: 14 }]
+        : [{ label: '온라인교육 이수일자', value: (r: (typeof shown)[number]) => r.onlineDate ?? '', width: 16 }]),
+      { label: '수료증', value: (r) => (r.certFile ? '첨부됨' : '없음'), width: 10 },
+    ],
+    rows: shown,
+  });
+
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -156,6 +178,7 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
           <span className="ml-1.5 font-normal text-slate-400">{shown.length}명</span>
         </h3>
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+        <SheetExport spec={exportSpec} className="ml-auto" />
         {conflict && (
           <span className="rounded bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-700">
             ⚠️ {conflict.name.trim()} — 집체·온라인 이수일자가 같습니다 ({conflict.offlineDate})

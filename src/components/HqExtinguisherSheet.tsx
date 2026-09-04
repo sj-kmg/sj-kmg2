@@ -14,6 +14,8 @@ import {
 import { useSyncedLog, modeBadge } from '@/lib/useSyncedLog';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { useSortable } from '@/lib/useSortable';
+import SheetExport from './SheetExport';
+import type { ExportSpec } from '@/lib/sheetExport';
 import { CELL, SheetToolbar, SortButton, TD_STICKY, TH, TH_STICKY } from './SheetUI';
 
 /**
@@ -89,6 +91,19 @@ export default function HqExtinguisherSheet() {
   const badge = modeBadge(roster.mode);
   const save = saveBadge(roster.status, roster.mode);
 
+  /** 엑셀·인쇄에 넘길 표 */
+  const exportSpec = (): ExportSpec<HqExtinguisher> => ({
+    title: '본사 소화기 현황',
+    columns: [
+      { label: '위치', value: (r: HqExtinguisher) => r.location, align: 'left' as const, width: 22 },
+      { label: '품명 및 용량', value: (r: HqExtinguisher) => r.spec, align: 'left' as const, width: 24 },
+      { label: '소화기번호', value: (r: HqExtinguisher) => r.extNo, width: 14 },
+      { label: '제조년월', value: (r: HqExtinguisher) => r.madeAt, width: 12 },
+      { label: '비고', value: (r: HqExtinguisher) => r.note ?? '', align: 'left' as const, width: 20 },
+    ],
+    rows: sortCtl.apply(roster.rows, { no: (r) => r.extNo, place: (r) => r.location }),
+  });
+
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -97,6 +112,7 @@ export default function HqExtinguisherSheet() {
           <span className="ml-1.5 font-normal text-slate-400">{roster.rows.length}대</span>
         </h3>
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+        <SheetExport spec={exportSpec} className="ml-auto" />
         <div className="ml-auto flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-1 py-0.5">
           <button onClick={() => setYear(year - 1)} aria-label="이전 연도" className="rounded px-2 py-0.5 text-slate-400 hover:bg-white">
             ◀

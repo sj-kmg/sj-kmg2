@@ -16,6 +16,8 @@ import {
 } from '@/lib/healthFollowup';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { useSortable } from '@/lib/useSortable';
+import SheetExport from './SheetExport';
+import type { ExportSpec } from '@/lib/sheetExport';
 import BodyDiagram from './BodyDiagram';
 import { CELL, SortButton } from './SheetUI';
 
@@ -89,6 +91,24 @@ export default function HealthFollowup() {
 
   const badge = saveBadge(status, mode);
 
+  /** 엑셀·인쇄에 넘길 표 */
+  const exportSpec = (): ExportSpec<FollowupWorker> => ({
+    title: '건강검진 사후관리',
+    landscape: true,
+    columns: [
+      { label: '성명', value: (r: FollowupWorker) => r.name, width: 10 },
+      { label: '부서', value: (r: FollowupWorker) => r.dept ?? '', width: 12 },
+      { label: '생년월일', value: (r: FollowupWorker) => r.birth ?? '', width: 12 },
+      { label: '건강구분', value: (r: FollowupWorker) => r.grade, width: 10 },
+      { label: '검진소견', value: (r: FollowupWorker) => r.findings, align: 'left' as const, width: 28 },
+      { label: '사후관리 및 상담내용', value: (r: FollowupWorker) => r.action, align: 'left' as const, width: 30 },
+      { label: '업무수행적합여부', value: (r: FollowupWorker) => r.fitness, width: 14 },
+      { label: '재검일자', value: (r: FollowupWorker) => r.retestDate ?? '', width: 12 },
+      { label: '비고', value: (r: FollowupWorker) => r.note ?? '', align: 'left' as const, width: 18 },
+    ],
+    rows: sortCtl.apply(rows, {}),
+  });
+
   return (
     <div className="w-full">
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -97,6 +117,7 @@ export default function HealthFollowup() {
           <span className="ml-1.5 font-normal text-slate-400">{rows.length}명</span>
         </h3>
         {badge && <span className={`text-xs ${badge.className}`}>{badge.text}</span>}
+        <SheetExport spec={exportSpec} className="ml-auto" />
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => void undo()}

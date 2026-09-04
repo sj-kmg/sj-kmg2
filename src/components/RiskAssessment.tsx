@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import { deletePhoto, fileToResizedDataUrl, getPhoto, putPhoto } from '@/lib/photos';
 import { RiskAiError, SyncError, generateRiskRows, setPasscode, uploadPhoto } from '@/lib/sync';
 import { modeBadge, useSyncedLog } from '@/lib/useSyncedLog';
+import SheetExport from './SheetExport';
+import type { ExportSpec } from '@/lib/sheetExport';
 import { gradeByKey, riskLevelKey, riskProduct } from '@/lib/risk';
 import RiskEstimationGuide, { RiskResultSummary } from './RiskGuide';
 import { TD_STICKY, TH_STICKY } from './SheetUI';
@@ -395,6 +397,22 @@ export default function RiskAssessment() {
   const cellArea =
     'w-full resize-none rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-800 focus:border-[#1f3864] focus:outline-none';
 
+  /** 엑셀·인쇄에 넘길 표 — 평가서 목록 */
+  const exportSpec = (): ExportSpec<RiskEntry> => ({
+    title: '위험성평가 목록',
+    landscape: true,
+    columns: [
+      { label: '공사업체', value: (r: RiskEntry) => r.company, align: 'left' as const, width: 20 },
+      { label: '공사명', value: (r: RiskEntry) => r.workName, align: 'left' as const, width: 26 },
+      { label: '작업인원', value: (r: RiskEntry) => r.workers, width: 12 },
+      { label: '평가기간', value: (r: RiskEntry) => [r.periodFrom, r.periodTo].filter(Boolean).join(' ~ '), width: 22 },
+      { label: '평가방법', value: (r: RiskEntry) => r.method, width: 14 },
+      { label: '평가자', value: (r: RiskEntry) => r.assessor, width: 12 },
+      { label: '평가항목 수', value: (r: RiskEntry) => String(r.rows?.length ?? 0), width: 11 },
+    ],
+    rows: shown,
+  });
+
   return (
     <div className="space-y-6">
       {/* 작성 폼 */}
@@ -404,6 +422,7 @@ export default function RiskAssessment() {
             {editId ? `위험성평가 수정 (${editId})` : '위험성평가 작성'}
           </h3>
           <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+          <SheetExport spec={exportSpec} className="ml-auto" />
           {editId && (
             <button onClick={resetForm} className="ml-auto text-xs text-slate-400 hover:text-slate-600">
               ✕ 수정 취소 (새로 작성)

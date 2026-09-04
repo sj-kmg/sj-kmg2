@@ -10,6 +10,8 @@ import {
 import { modeBadge } from '@/lib/useSyncedLog';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { useSortable } from '@/lib/useSortable';
+import SheetExport from './SheetExport';
+import type { ExportSpec } from '@/lib/sheetExport';
 import { CELL, SheetToolbar, SortButton, TD_STICKY_POS, TH, TH_STICKY } from './SheetUI';
 
 const STATUS_STYLE: Record<VehicleExtinguisher['status'], string> = {
@@ -55,6 +57,20 @@ export default function VehicleExtinguisherSheet() {
   const shown = sortCtl.apply(rows, { plate: (r) => r.plate, checked: (r) => r.checkedAt ?? '' });
   const missing = rows.filter((r) => r.status === '미비치').length;
 
+  /** 엑셀·인쇄에 넘길 표 */
+  const exportSpec = (): ExportSpec<VehicleExtinguisher> => ({
+    title: '차량 소화기 현황',
+    columns: [
+      { label: '차량번호', value: (r: VehicleExtinguisher) => r.plate, width: 14 },
+      { label: '구분', value: (r: VehicleExtinguisher) => r.vehicleType, width: 16 },
+      { label: '소화기규격', value: (r: VehicleExtinguisher) => r.spec, align: 'left' as const, width: 22 },
+      { label: '상태', value: (r: VehicleExtinguisher) => r.status, width: 10 },
+      { label: '확인일자', value: (r: VehicleExtinguisher) => r.checkedAt ?? '', width: 12 },
+      { label: '비고', value: (r: VehicleExtinguisher) => r.note ?? '', align: 'left' as const, width: 20 },
+    ],
+    rows: shown,
+  });
+
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -63,6 +79,7 @@ export default function VehicleExtinguisherSheet() {
           <span className="ml-1.5 font-normal text-slate-400">{rows.length}대</span>
         </h3>
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+        <SheetExport spec={exportSpec} className="ml-auto" />
         {missing > 0 && (
           <span className="rounded bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-700">미비치 {missing}대</span>
         )}

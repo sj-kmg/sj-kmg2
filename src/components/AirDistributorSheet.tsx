@@ -20,6 +20,8 @@ import { SyncError, uploadCert } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
 import { useSortable } from '@/lib/useSortable';
+import SheetExport from './SheetExport';
+import type { ExportSpec } from '@/lib/sheetExport';
 import { CELL, SheetToolbar, SortButton, TD_STICKY_POS, TH, TH_STICKY } from './SheetUI';
 
 const META = EQUIP_META.AIR분배기;
@@ -126,6 +128,24 @@ export default function AirDistributorSheet() {
     );
   };
 
+  /** 엑셀·인쇄에 넘길 표 */
+  const exportSpec = (): ExportSpec<EquipCheck> => ({
+    title: '공기분배기 필터교체 점검',
+    landscape: true,
+    columns: [
+      { label: '설비', value: (r: EquipCheck) => r.equip, width: 14 },
+      { label: '호기', value: (r: EquipCheck) => String(r.unitNo), width: 7 },
+      { label: '설비명', value: (r: EquipCheck) => r.name, align: 'left' as const, width: 22 },
+      { label: '교체여부', value: (r: EquipCheck) => r.status || '', width: 10 },
+      { label: '교체일자', value: (r: EquipCheck) => r.doneAt, width: 12 },
+      { label: '차기 교체예정일', value: (r: EquipCheck) => r.nextDue, width: 14 },
+      { label: '조치 필요', value: (r: EquipCheck) => String(r.actionCount ?? 0), width: 9 },
+      { label: '담당자', value: (r: EquipCheck) => r.owner, width: 10 },
+      { label: '비고', value: (r: EquipCheck) => r.note, align: 'left' as const, width: 20 },
+    ],
+    rows,
+  });
+
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -134,6 +154,7 @@ export default function AirDistributorSheet() {
           <span className="ml-1.5 font-normal text-slate-400">총 관리대수 {air.length}</span>
         </h3>
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+        <SheetExport spec={exportSpec} className="ml-auto" />
         <span className="rounded bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
           {META.itemLabel} 완료 {done}
         </span>

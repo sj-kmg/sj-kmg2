@@ -5,6 +5,8 @@ import { putPhoto, getPhoto, deletePhoto, fileToResizedDataUrl } from '@/lib/pho
 import { uploadPhoto } from '@/lib/sync';
 import { useRole } from '@/lib/useRole';
 import { useSyncedLog, modeBadge } from '@/lib/useSyncedLog';
+import SheetExport from './SheetExport';
+import type { ExportSpec } from '@/lib/sheetExport';
 import { NEARMISS_KEY, type NearMissEntry } from '@/lib/nearmiss';
 
 function nowLocal(): string {
@@ -212,6 +214,21 @@ export default function NearMissReport() {
     'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-[#1f3864] focus:outline-none';
   const label = 'mb-1 block text-xs font-semibold text-slate-500';
 
+  /** 엑셀·인쇄에 넘길 표 */
+  const exportSpec = (): ExportSpec<NearMissEntry> => ({
+    title: '아차사고 접수 현황',
+    landscape: true,
+    columns: [
+      { label: '일시', value: (r: NearMissEntry) => r.datetime.replace('T', ' '), width: 16 },
+      { label: '장소', value: (r: NearMissEntry) => r.place, align: 'left' as const, width: 20 },
+      { label: '발견자', value: (r: NearMissEntry) => r.finder, width: 10 },
+      { label: '내용', value: (r: NearMissEntry) => r.content, align: 'left' as const, width: 40 },
+      { label: '개선대책', value: (r: NearMissEntry) => r.action, align: 'left' as const, width: 36 },
+      { label: '사진', value: (r: NearMissEntry) => String((r.photoUrls?.length ?? 0) + (r.photoIds?.length ?? 0)) + '장', width: 8 },
+    ],
+    rows: shown,
+  });
+
   return (
     <div className="grid gap-6 xl:grid-cols-5">
       {/* 작성 폼 */}
@@ -223,6 +240,7 @@ export default function NearMissReport() {
       >
         <div className="mb-3 flex items-center justify-between gap-2">
           <h3 className="text-sm font-bold text-slate-700">{editingId ? '아차사고 수정' : '아차사고 신고'}</h3>
+          <SheetExport spec={exportSpec} />
           {editingId ? (
             <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">수정 중</span>
           ) : (

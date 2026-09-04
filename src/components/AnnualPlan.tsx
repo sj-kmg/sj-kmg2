@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ANNUAL_PLAN_KEY,
   ANNUAL_PLAN_TASKS_KEY,
+  ANNUAL_TASKS,
   ANYTIME_TASKS,
   MONTH_LABEL,
   PERIOD_META,
@@ -18,6 +19,8 @@ import {
 } from '@/lib/annualPlan';
 import { CELL, SheetToolbar } from './SheetUI';
 import { modeBadge, useSyncedLog } from '@/lib/useSyncedLog';
+import SheetExport from './SheetExport';
+import type { ExportSpec } from '@/lib/sheetExport';
 import { useSheetLog } from '@/lib/useSheetLog';
 
 /** 공무관리 › 공무연간계획 — 해당 연도의 시기별 업무를 월별로 정리 */
@@ -124,6 +127,51 @@ export default function AnnualPlan() {
     );
   };
 
+  /**
+   * 엑셀·인쇄에 넘길 표 — 보고 있는 해의 월별 계획과 완료 여부.
+   * 한 줄이 '업무 1건'이고, 지정된 달마다 완료 표시를 칸으로 펼친다.
+   */
+  type PlanRow = { period: string; title: string; months: number[]; note: string };
+  const exportSpec = (): ExportSpec<PlanRow> => {
+    const rows: PlanRow[] = [
+      ...ANNUAL_TASKS.map((t: AnnualTask) => ({
+        period: t.period,
+        title: t.title,
+        months: t.months ?? [],
+        note: t.note ?? '',
+      })),
+      ...monthly.rows.map((t) => ({
+        period: t.period,
+        title: t.title,
+        months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+        note: t.note ?? '',
+      })),
+    ];
+    const doneAt = (taskTitle: string, m: number) => {
+      const t =
+        ANNUAL_TASKS.find((x: AnnualTask) => x.title === taskTitle) ??
+        monthly.rows.find((x) => x.title === taskTitle);
+      if (!t) return '';
+      const rec = entries.find((e) => e.id === checkId(year, m, t.id));
+      return rec?.done ? '완료' : '';
+    };
+    return {
+      title: `${year}년 공무 연간계획`,
+      landscape: true,
+      columns: [
+        { label: '구분', value: (r) => r.period, width: 12 },
+        { label: '업무', value: (r) => r.title, align: 'left', width: 34 },
+        ...Array.from({ length: 12 }, (_, i) => i + 1).map((m) => ({
+          label: `${m}월`,
+          width: 6,
+          value: (r: PlanRow) => (r.months.includes(m) ? doneAt(r.title, m) || '○' : ''),
+        })),
+        { label: '비고', value: (r) => r.note, align: 'left' as const, width: 18 },
+      ],
+      rows,
+    };
+  };
+
   return (
     <div className="w-full">
       {/* 요약 */}
@@ -137,6 +185,7 @@ export default function AnnualPlan() {
             ▶
           </button>
           <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+          <SheetExport spec={exportSpec} className="ml-auto" />
           <button
             onClick={() => setEditing(!editing)}
             className={`rounded-lg border px-2.5 py-1 text-xs font-medium ${

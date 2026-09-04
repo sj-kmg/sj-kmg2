@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { SafetyData } from '@/lib/types';
 import { useSyncedLog, modeBadge } from '@/lib/useSyncedLog';
+import SheetExport from './SheetExport';
+import type { ExportSpec } from '@/lib/sheetExport';
 import {
   LABOR_CATEGORIES,
   MAX_WORK_DAYS,
@@ -313,6 +315,23 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
     'w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 focus:border-[#1f3864] focus:outline-none';
   const label = 'mb-1 block text-xs font-semibold text-slate-500';
 
+  /** 엑셀·인쇄에 넘길 표 — 현장 필터가 걸려 있으면 그 현장만 */
+  const exportSpec = (): ExportSpec<WorkforceEntry> => ({
+    title: filterSite ? `작업인원 기록 (${filterSite})` : '작업인원 기록',
+    landscape: true,
+    columns: [
+      { label: '작업일자', value: (r: WorkforceEntry) => (r.endDate && r.endDate !== r.date ? `${r.date} ~ ${r.endDate}` : r.date), width: 22 },
+      { label: '현장명', value: (r: WorkforceEntry) => r.site, align: 'left' as const, width: 20 },
+      { label: '현장소장', value: (r: WorkforceEntry) => r.manager, width: 12 },
+      { label: '직원', value: (r: WorkforceEntry) => r.staff, align: 'left' as const, width: 22 },
+      { label: '인력', value: (r: WorkforceEntry) => (r.laborRows?.length ? r.laborRows.map((l) => `${l.category} ${l.name}`.trim()).join(', ') : (r.laborNames ?? '')), align: 'left' as const, width: 28 },
+      { label: '작업시간', value: (r: WorkforceEntry) => r.workHours, width: 12 },
+      { label: '작업내용', value: (r: WorkforceEntry) => r.work, align: 'left' as const, width: 30 },
+      { label: '장비현황', value: (r: WorkforceEntry) => r.equipment, align: 'left' as const, width: 22 },
+    ],
+    rows: shown,
+  });
+
   return (
     <div className="grid gap-6 xl:grid-cols-5">
       {/* 작성 폼 */}
@@ -326,6 +345,7 @@ export default function WorkforceLog({ data }: { data: SafetyData | null }) {
           <h3 className="text-sm font-bold text-slate-700">
             {editingId ? '작업인원 기록 수정' : '작업인원 기록'}
           </h3>
+          <SheetExport spec={exportSpec} />
           {editingId ? (
             <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">수정 중</span>
           ) : (

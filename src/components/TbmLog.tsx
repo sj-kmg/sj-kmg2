@@ -6,6 +6,8 @@ import { deletePhoto, fileToResizedDataUrl, getPhoto, putPhoto } from '@/lib/pho
 import { uploadPhoto } from '@/lib/sync';
 import { useRole } from '@/lib/useRole';
 import { useSyncedLog, modeBadge } from '@/lib/useSyncedLog';
+import SheetExport from './SheetExport';
+import type { ExportSpec } from '@/lib/sheetExport';
 import { TBM_KEY, tbmAttendees, tbmHazard, tbmMeasure, type TbmEntry } from '@/lib/tbm';
 
 function pad2(n: number): string {
@@ -280,6 +282,23 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
   const label = 'mb-1 block text-xs font-semibold text-slate-500';
   const filled = attendees.filter((n) => n.trim()).length;
 
+  /** 엑셀·인쇄에 넘길 표 — 지금 화면에 보이는 목록(검색·기간 적용) 그대로 */
+  const exportSpec = (): ExportSpec<TbmEntry> => ({
+    title: 'TBM 일지',
+    landscape: true,
+    columns: [
+      { label: '일시', value: (r: TbmEntry) => r.datetime.replace('T', ' '), width: 16 },
+      { label: '현장', value: (r: TbmEntry) => r.site, align: 'left' as const, width: 18 },
+      { label: '공사명', value: (r: TbmEntry) => r.place, align: 'left' as const, width: 20 },
+      { label: '금일작업내용', value: (r: TbmEntry) => r.work, align: 'left' as const, width: 30 },
+      { label: '진행자', value: (r: TbmEntry) => r.leader, width: 10 },
+      { label: '참석자', value: (r: TbmEntry) => (r.attendeeList?.length ? r.attendeeList.join(', ') : r.attendees), align: 'left' as const, width: 26 },
+      { label: '위험요인', value: (r: TbmEntry) => r.hazard ?? r.content ?? '', align: 'left' as const, width: 28 },
+      { label: '안전대책', value: (r: TbmEntry) => r.measure ?? '', align: 'left' as const, width: 28 },
+    ],
+    rows: shown,
+  });
+
   return (
     <div className="grid gap-6 xl:grid-cols-5">
       {/* 작성 폼 */}
@@ -301,6 +320,7 @@ export default function TbmLog({ data }: { data: SafetyData | null }) {
               </span>
             )}
             <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.text}</span>
+            <SheetExport spec={exportSpec} className="ml-auto" />
           </div>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
