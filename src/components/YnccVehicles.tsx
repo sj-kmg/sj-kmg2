@@ -196,6 +196,9 @@ function PeriodCell({ until, expired }: { until: string | undefined; expired: bo
   return <span className={`font-mono text-xs ${expired ? 'font-semibold text-red-600' : 'text-slate-600'}`}>{until}</span>;
 }
 
+/** 이 대장을 이미 깔았다는 표식 — 지운 차량이 되살아나지 않게 한다 */
+const SEED_MARKER = '__seeded';
+
 /**
  * 원본 문서를 반영해 둔 차량 — 최초 1회, **비어 있는 칸에만** 채워 넣는다.
  *
@@ -292,7 +295,10 @@ function fileToDataUrl(file: File): Promise<string> {
 
 /** 출입신청 — YNCC 작업차량 등록 현황 (차량번호 고정, 등록일자·등록자 수시 갱신) */
 export default function YnccVehicles() {
-  const { entries, mode, add, remove } = useSyncedLog<YnccVehicle>('yncc-vehicles', YNCC_VEHICLES_KEY);
+  const { entries, mode, add, remove, hasMarker, putMarker } = useSyncedLog<YnccVehicle>(
+    'yncc-vehicles',
+    YNCC_VEHICLES_KEY,
+  );
   const { role } = useRole();
   const [plateSel, setPlateSel] = useState(''); // '' = 신규 차량
   const [plateNew, setPlateNew] = useState('');
@@ -328,11 +334,12 @@ export default function YnccVehicles() {
     seededRef.current = true;
     const norm = (p: string) => p.replace(/\s/g, '');
     /*
-     * 차량을 새로 만드는 건 **목록이 통째로 비어 있을 때만** 한다.
-     * 이미 쓰고 있는 목록에 없는 차량은 사람이 지운 것이므로 되살리지 않는다
-     * (지운 항목이 새로고침마다 돌아오던 문제).
+     * 차량을 새로 만드는 건 **이 대장을 아직 한 번도 깔지 않았을 때만** 한다.
+     * 목록이 비었는지로 판단하면, 사람이 차량을 전부 지운 뒤 다시 접속했을 때
+     * 대장이 통째로 되살아난다. 그래서 서버에 남는 표식으로 판단한다.
      */
-    const firstRun = entries.length === 0;
+    const firstRun = !hasMarker(SEED_MARKER) && entries.length === 0;
+    void putMarker(SEED_MARKER);
     for (const d of DEFAULT_ATTACHMENTS) {
       const existing = entries.find((e) => norm(e.plate) === norm(d.plate));
       if (!existing && !firstRun) continue;

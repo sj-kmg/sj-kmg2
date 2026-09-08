@@ -16,6 +16,11 @@ interface Options<T> {
    * 지정하지 않으면 저장소 전체를 이 시드의 범위로 본다.
    */
   seedScope?: (row: T) => boolean;
+  /**
+   * 한 저장소를 여러 화면이 나눠 쓸 때, 화면마다 다른 표식을 남기기 위한 이름.
+   * (건강검진의 일반/특수처럼 seedScope를 쓰는 화면은 반드시 서로 다르게 준다)
+   */
+  seedKey?: string;
   /** 빈 행 판별 — 이름·번호 등 핵심값이 비어 있으면 저장하지 않는다 */
   isBlank: (row: T) => boolean;
   /** 표시 정렬 */
@@ -33,8 +38,8 @@ const SAVE_DELAY = 700;
  *   이렇게 해야 이후의 삭제가 서버에 남아, 지운 행이 되살아나지 않는다.
  */
 export function useSheetLog<T extends { id: string }>(type: LogType, localKey: string, opts: Options<T>) {
-  const { seed, seedScope, isBlank, sort } = opts;
-  const { entries, mode, add, remove } = useSyncedLog<T>(type, localKey);
+  const { seed, seedScope, seedKey, isBlank, sort } = opts;
+  const { entries, mode, add, remove, hasMarker, putMarker } = useSyncedLog<T>(type, localKey);
 
   const [rows, setRowsState] = useState<T[]>([]);
   const [status, setStatus] = useState<SaveStatus>('idle');
@@ -93,6 +98,15 @@ export function useSheetLog<T extends { id: string }>(type: LogType, localKey: s
     });
   }, [entries, mode, sortRows, setRows]);
 
+  /**
+   * 이 화면 몫의 대장을 깔았다는 표식 문서 id.
+   *
+   * 앞뒤가 모두 `__`인 이름(`__seeded__`)은 Firestore가 예약어로 막아 저장되지 않는다.
+   * 뒤쪽 밑줄을 빼서 피한다. seedKey는 서버가 id에 영문·숫자·`_`·`-`만 받으므로
+   * 한글을 쓰지 않는다.
+   */
+  const markerId = `__seeded${seedKey ? `-${seedKey}` : ''}`;
+
   // 저장 이력이 없으면 기존 대장을 최초 1회 자동 등록
   useEffect(() => {
     if (mode === 'loading' || seeded.current) return;
@@ -104,8 +118,21 @@ export function useSheetLog<T extends { id: string }>(type: LogType, localKey: s
      * 한 저장소를 두 화면이 나눠 쓰는 경우(건강검진의 일반/특수)에
      * 전체 기록 수로 판단하면, 다른 화면 기록 때문에 이쪽 시드가 통째로 막힌다.
      */
+    /*
+     * 한 번 깐 대장은 두 번 깔지 않는다 — 서버에 남긴 표식으로 판단한다.
+     *
+     * 예전에는 "지금 행이 하나도 없으면 처음"으로 봤다. 그래서 사용자가 그 화면의
+     * 행을 모두 지우면 다음 접속에 대장이 통째로 다시 깔려, 지운 내용이 되살아났다.
+     * 표식은 서버에 남으므로 기기를 바꿔도, 행을 다 지워도 같은 판단을 한다.
+     */
+    if (hasMarker(markerId)) return;
+
     const mine = seedScopeRef.current ? entries.filter(seedScopeRef.current) : entries;
-    if (mine.length > 0) return;
+    if (mine.length > 0) {
+      // 이미 쓰고 있던 화면 — 대장은 건드리지 않고 표식만 남긴다
+      void putMarker(markerId);
+      return;
+    }
     void (async () => {
       setStatus('saving');
       const stamped = seed.map((s) => ({ ...s, updatedAt: new Date().toISOString() }));
@@ -118,10 +145,13 @@ export function useSheetLog<T extends { id: string }>(type: LogType, localKey: s
           return;
         }
       }
+      // 다 깔고 나서 표식을 남긴다 — 중간에 실패하면 표식이 없어 다음에 다시 시도한다
+      await putMarker(markerId);
       setStatus('saved');
       setTimeout(() => setStatus('idle'), 1500);
     })();
-  }, [mode, entries.length, seed, add]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, entries.length, seed, add, markerId]);
 
   useEffect(() => {
     const map = timers.current;
@@ -242,9 +272,17 @@ export function useSheetLog<T extends { id: string }>(type: LogType, localKey: s
       pending.current.delete(id);
       drafts.current.delete(id);
       editSeq.current.delete(id);
+      const before = rowsRef.current;
       setRows((cur) => cur.filter((r) => r.id !== id));
       setStatus('saving');
-      await remove(id);
+      const ok = await remove(id);
+      if (!ok) {
+        // 서버에 그대로 남아 있다 — 화면에서도 되돌려 놓는다.
+        // 그러지 않으면 지운 줄 알았던 기록이 다음 접속에 되살아난다.
+        setRows(before);
+        setStatus('error');
+        return;
+      }
       setStatus('saved');
       setTimeout(() => setStatus((s) => (s === 'saved' ? 'idle' : s)), 1500);
     },

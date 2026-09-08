@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { keepAttachments } from './attachments';
 import {
   enqueue,
@@ -247,32 +247,55 @@ export function useSyncedLog<T extends { id: string }>(type: LogType, localKey: 
     [mode, type, localKey],
   );
 
+  /**
+   * 기록 삭제 — 서버에서 지워졌으면 true.
+   *
+   * false를 돌려주면 **서버에는 아직 남아 있다**는 뜻이므로, 부르는 쪽은 화면에서도
+   * 지우지 말아야 한다. 화면에서만 지우면 새로고침했을 때 그 기록이 되살아난다.
+   */
   const remove = useCallback(
-    async (id: string): Promise<void> => {
+    async (id: string): Promise<boolean> => {
       if (mode === 'server') {
         try {
           await removeEntryRemote(type, id);
         } catch (e) {
           if (isRetriable(e)) {
+            // 잠깐 끊긴 경우 — 대기열에 넣어 두면 연결되는 대로 지워진다
             enqueue({ type, action: 'remove', id });
           } else {
             alert('서버에서 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.');
-            return;
+            return false;
           }
         }
         setEntries((list) => list.filter((e) => e.id !== id));
-        return;
+        return true;
       }
       setEntries((list) => {
         const next = list.filter((e) => e.id !== id);
         saveLocal(localKey, next);
         return next;
       });
+      return true;
     },
     [mode, type, localKey],
   );
 
-  return { entries, mode, pending, add, remove, reload: load, flush: flushOutbox };
+  /*
+   * 표식 문서 — id가 `__`로 시작한다. 사람이 볼 기록이 아니라 "이 대장은 이미 깔았다" 같은
+   * 사실을 서버에 남겨 두는 용도라, 화면에 넘기는 목록에서는 빼 준다.
+   */
+  const visible = useMemo(() => entries.filter((e) => !String(e.id).startsWith('__')), [entries]);
+
+  /** 이 표식이 서버에 남아 있는가 */
+  const hasMarker = useCallback((id: string) => entries.some((e) => String(e.id) === id), [entries]);
+
+  /** 표식 남기기 — 한 번 남으면 기기·접속을 가리지 않고 같은 판단을 한다 */
+  const putMarker = useCallback(
+    (id: string) => add({ id, updatedAt: new Date().toISOString() } as unknown as T),
+    [add],
+  );
+
+  return { entries: visible, mode, pending, add, remove, reload: load, flush: flushOutbox, hasMarker, putMarker };
 }
 
 /** 저장 모드 안내 배지 */

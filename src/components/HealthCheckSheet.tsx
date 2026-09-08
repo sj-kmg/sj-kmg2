@@ -173,6 +173,8 @@ function Sheet({ kind, group }: { kind: HealthCheck['kind']; group: HealthCheck[
       seed,
       // 일반·특수가 같은 저장소를 쓰므로, 이 화면 몫만 보고 최초 등록 여부를 판단한다
       seedScope: (r) => r.kind === kind && r.group === group,
+      // 표식 id에는 영문·숫자만 쓸 수 있어 그룹 이름을 영문으로 바꿔 둔다
+      seedKey: `${kind}-${group === '직원' ? 'staff' : 'labor'}`,
       isBlank: (r) => !r.name.trim(),
       sort: (a, b) => a.name.localeCompare(b.name, 'ko'),
     },
