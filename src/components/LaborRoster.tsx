@@ -109,7 +109,12 @@ function fileToDataUrl(file: File): Promise<string> {
  * 지운 인원이 새로고침마다 되살아나지 않게 하려는 것이다.
  * 대장에 사람을 새로 넣을 때는 이 이름을 바꿔 준다.
  */
-const ROSTER_SEED_TAG = '2026-09-04-공영';
+/*
+ * 2026-09-08에 이름을 바꾼 이유 —
+ * 9/4 판은 표식만 저장되고 인원은 저장되지 않았다(addRow가 화면에만 넣었다).
+ * 그 표식 때문에 대장이 다시 깔리지 않아, 새 이름을 줘 한 번 더 돌게 한다.
+ */
+const ROSTER_SEED_TAG = '2026-09-08-공영';
 
 const DEFAULT_ROSTER: { category: string; name: string; birth: string; phone: string }[] = [
   // 배영일·이진호는 이미 등록돼 있어 넣지 않는다 (이름이 겹치면 건너뛴다)

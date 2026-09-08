@@ -128,6 +128,20 @@ export function useSheetLog<T extends { id: string }>(type: LogType, localKey: s
     return () => map.forEach(clearTimeout);
   }, []);
 
+  /*
+   * 저장이 끝나기 전에 창을 닫으면 방금 넣은 내용이 서버에 남지 않는다.
+   * 자동저장은 잠깐 기다렸다 보내므로, 그 사이에 닫으면 조용히 사라진다.
+   * 아직 보낼 게 남아 있으면 브라우저가 "나가시겠습니까"를 묻게 한다.
+   */
+  useEffect(() => {
+    const warn = (e: BeforeUnloadEvent) => {
+      if (pending.current.size === 0) return;
+      e.preventDefault();
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, []);
+
   /** 되돌리기용 스냅샷 — 변경 직전 상태를 최대 30단계 보관 */
   const snapshot = useCallback(() => {
     historyRef.current = [...historyRef.current.slice(-29), rowsRef.current];
@@ -192,14 +206,28 @@ export function useSheetLog<T extends { id: string }>(type: LogType, localKey: s
     [snapshot, scheduleSave, setRows],
   );
 
-  /** 행 추가 — 내용을 채우면 그때 저장된다 */
+  /**
+   * 행 추가.
+   *
+   * [+ 행 추가]로 만드는 **빈 행**은 사용자가 값을 채울 때 저장한다(작성 중인 행을
+   * 서버에 남기지 않으려는 것).
+   * 반면 **값이 이미 들어 있는 행**(대장 반영·불러오기 등)은 사용자가 더 손댈 일이
+   * 없으므로 곧바로 저장한다.
+   *
+   * 예전에는 둘 다 저장하지 않아, 값이 채워진 채 추가된 인원이 화면에만 보이고
+   * 서버에는 없었다. 새로고침하면 통째로 사라져 "어제 넣은 인원이 다 지워졌다"가 됐다.
+   */
   const addRow = useCallback(
     (row: T) => {
       snapshot();
-      drafts.current.add(row.id);
       setRows((cur) => [...cur, row]);
+      if (isBlankRef.current(row)) {
+        drafts.current.add(row.id);
+        return;
+      }
+      scheduleSave(row.id);
     },
-    [snapshot, setRows],
+    [snapshot, setRows, scheduleSave],
   );
 
   /** 행 삭제 — 즉시 반영 (되돌리기로 복구 가능) */
