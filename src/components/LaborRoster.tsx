@@ -2,7 +2,16 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { HEALTH_KEY, type HealthCheck } from '@/lib/health';
-import { LABOR_ROSTER_KEY, LABOR_TABS, UNASSIGNED, autoFillFromDoc, blankWorker, type LaborWorker } from '@/lib/laborRoster';
+import {
+  LABOR_ROSTER_KEY,
+  LABOR_TABS,
+  UNASSIGNED,
+  autoFillFromDoc,
+  blankWorker,
+  specialHealthPatch,
+  type LaborWorker,
+  type SpecialHealthEntry,
+} from '@/lib/laborRoster';
 import { formatPhone } from '@/lib/format';
 import { NOTICE_STYLE, eduEndDate } from '@/lib/education';
 import {
@@ -192,6 +201,114 @@ function normName(s: string): string {
   return NAME_ALIAS[key] ?? key;
 }
 
+/**
+ * 새로 올라온 특수건강진단 확인서 — 2026-09-10 공영인력분.
+ *
+ * 규칙은 하나다. **이미 붙어 있는 서류와 같으면 무시하고, 더 최신이면 갱신한다.**
+ * 그래서 파일 경로(`cert`)는 정말 새로 붙일 것에만 적는다. 유정환·오재정처럼 같은 파일이
+ * 이미 올라가 있으면 비워 두고 날짜·유해인자만 맞춘다.
+ *
+ * `hazards`는 서류에 적힌 그대로다. 한 장으로 세 물질을 다 잡지 않는 이유는 벤젠만
+ * 다시 받는 재검이 있기 때문이다 (이승훈이 그 경우).
+ */
+const SPECIAL_HEALTH_DOCS: SpecialHealthEntry[] = [
+  {
+    name: '김민철',
+    category: '공영인력',
+    birth: '1980-01-15',
+    docs: [
+      {
+        checkedAt: '2026-01-12',
+        hazards: ['벤젠', '톨루엔', '크실렌'],
+        cert: '/certs/labor-roster/공영인력/김민철_특검확인서.pdf',
+      },
+    ],
+  },
+  {
+    name: '김은영',
+    category: '공영인력',
+    birth: '1978-11-10',
+    phone: '010-8181-0111',
+    docs: [
+      {
+        checkedAt: '2025-09-02',
+        hazards: ['벤젠', '톨루엔', '크실렌'],
+        cert: '/certs/labor-roster/공영인력/김은영_특검확인서.pdf',
+      },
+    ],
+  },
+  {
+    name: '김정식',
+    category: '공영인력',
+    birth: '1967-03-28',
+    docs: [
+      {
+        checkedAt: '2025-02-14',
+        hazards: ['벤젠', '톨루엔', '크실렌'],
+        cert: '/certs/labor-roster/공영인력/김정식_특검확인서.pdf',
+      },
+    ],
+  },
+  {
+    name: '김학찬',
+    category: '공영인력',
+    birth: '1966-01-25',
+    docs: [
+      {
+        checkedAt: '2025-07-14',
+        hazards: ['벤젠', '톨루엔', '크실렌'],
+        cert: '/certs/labor-roster/공영인력/김학찬_특검확인서.pdf',
+      },
+    ],
+  },
+  {
+    name: '신윤성',
+    category: '공영인력',
+    birth: '1997-09-19',
+    phone: '010-8925-0047',
+    docs: [
+      {
+        checkedAt: '2025-10-16',
+        hazards: ['벤젠', '톨루엔', '크실렌'],
+        cert: '/certs/labor-roster/공영인력/신윤성_특검확인서.jpg',
+      },
+    ],
+  },
+  {
+    // 명부에 없던 인원 — 확인서를 보고 새로 등록한다
+    name: '이시훈',
+    category: '공영인력',
+    birth: '1980-03-25',
+    docs: [
+      {
+        checkedAt: '2025-10-16',
+        hazards: ['벤젠', '톨루엔', '크실렌'],
+        cert: '/certs/labor-roster/공영인력/이시훈_특검확인서.jpg',
+      },
+    ],
+  },
+  // 확인서는 이미 올라와 있고 검진일자만 비어 있었다
+  { name: '유정환', docs: [{ checkedAt: '2026-03-14', hazards: ['벤젠', '톨루엔', '크실렌'] }] },
+  // 붙어 있는 확인서가 26.09.01자인데 검진일자는 예전(26.04.11) 것이 남아 있었다
+  { name: '오재정', docs: [{ checkedAt: '2026-09-01', hazards: ['벤젠', '톨루엔', '크실렌'] }] },
+  {
+    /*
+     * 붙어 있는 확인서 두 장을 다시 읽었다.
+     * 07-28은 **벤젠만** 받은 재검이라, 톨루엔·크실렌의 마지막 검진은 01-17이 맞다.
+     * 지금 기록은 유해인자를 못 읽어 세 물질을 모두 07-28로 잡아 둔 상태라 되세운다.
+     */
+    name: '이승훈',
+    rebuildHazards: true,
+    docs: [
+      { checkedAt: '2026-01-17', hazards: ['벤젠', '톨루엔', '크실렌'] },
+      { checkedAt: '2026-07-28', hazards: ['벤젠'] },
+    ],
+  },
+];
+
+/** 위 묶음을 반영했다는 표식 — 한 번만 돈다 (지운 인원이 되살아나지 않게) */
+const SPECIAL_HEALTH_BATCH = '2026-09-10-labor-special';
+
 /** 사람을 알아보는 값들 — 이 칸들이 채워진 정도로 "내용이 많은 기록"을 가린다 */
 const CONTENT_KEYS: (keyof LaborWorker)[] = [
   'category',
@@ -299,7 +416,8 @@ function fillBlank<T extends object>(base: T, patch: Partial<T>): { next: T; cha
  * 인원별로 특수검진 첨부파일·유해화학물질 첨부파일·YNCC 교육기간·일반검진일자를 한곳에서 본다.
  */
 export default function LaborRoster() {
-  const { rows, getRows, mode, status, setRow, addRow, removeRow, undo, canUndo } = useSheetLog<LaborWorker>(
+  const { rows, getRows, mode, status, setRow, addRow, removeRow, undo, canUndo, batchDone, markBatchDone } =
+    useSheetLog<LaborWorker>(
     'labor-roster',
     LABOR_ROSTER_KEY,
     {
@@ -482,6 +600,57 @@ export default function LaborRoster() {
 
       // 3) 이미 쌓여 있던 중복 합치기
       void mergeDuplicates();
+    }, 0);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, role]);
+
+  /*
+   * 새로 올라온 서류 반영 — "중복은 무시, 최신이면 갱신".
+   *
+   * 서류는 작업별 폴더에도, 인력사 묶음에도 같은 것이 들어 있어 몇 번이고 다시 올라온다.
+   * 그래서 판단은 서류에 적힌 **검진일자**로만 한다 (파일 이름이나 올린 시각이 아니라).
+   * 표식을 서버에 남겨 한 번만 돌고, 그 뒤에 사람이 지운 내용은 되살아나지 않는다.
+   */
+  const docsRef = useRef(false);
+  useEffect(() => {
+    if (docsRef.current || mode === 'loading' || role === 'viewer') return;
+    if (batchDone(SPECIAL_HEALTH_BATCH)) {
+      docsRef.current = true;
+      return;
+    }
+    docsRef.current = true;
+
+    const timer = setTimeout(() => {
+      const done: string[] = [];
+      for (const entry of SPECIAL_HEALTH_DOCS) {
+        const cur = findByName(entry.name);
+        if (!cur) {
+          // 명부에 없던 사람 — 확인서에 적힌 대로 새로 만든다
+          const first = entry.docs[0];
+          addRow({
+            id: nameId('LW', entry.name),
+            category: entry.category ?? '',
+            name: entry.name,
+            birth: entry.birth,
+            phone: entry.phone,
+            specialHealthDate: first.checkedAt,
+            specialHealthCert: first.cert,
+            hazards: applyHazardCheck([], first.hazards, first.checkedAt),
+            updatedAt: '',
+          });
+          done.push(`${entry.name} 신규 등록`);
+          continue;
+        }
+        const patch = specialHealthPatch(cur, entry);
+        if (patch) {
+          setRow(cur.id, patch);
+          done.push(`${entry.name} ${patch.specialHealthDate ?? '유해인자'}`);
+        }
+      }
+      void markBatchDone(SPECIAL_HEALTH_BATCH);
+      if (done.length > 0) setAutoNote(`📄 새 특검확인서를 반영했습니다 — ${done.join(' · ')}`);
     }, 0);
 
     return () => clearTimeout(timer);

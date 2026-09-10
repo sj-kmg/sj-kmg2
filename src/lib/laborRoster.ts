@@ -7,6 +7,7 @@
  * 병합해 최초 1회 가져올 수 있다 (덮어쓰지 않고 채워져 있지 않은 값만 채운다).
  */
 import { WATCHED_HAZARDS, applyHazardCheck, watchedHazardsIn, type HazardWatch } from './hazardWatch';
+import { changedFields, shouldApply } from './docBatch';
 import { LABOR_CATEGORIES } from './workforce';
 
 export interface LaborWorker {
@@ -120,3 +121,78 @@ export function autoFillFromDoc(
   }
   return { patch, filled };
 }
+
+/**
+ * 손에 들고 있는 특수건강진단 확인서 한 장.
+ *
+ * `hazards`는 서류에 **적혀 있는** 감시 물질만 담는다. 벤젠만 다시 받은 확인서라면
+ * 벤젠 하나뿐이고, 그러면 톨루엔·크실렌 날짜는 예전 그대로 남는다 (물질마다 갱신주기가
+ * 달라 한 장으로 세 물질을 다 잡으면 실제보다 늦게 알림이 뜬다).
+ */
+export interface SpecialHealthDoc {
+  /** 서류에 적힌 검진일자 */
+  checkedAt: string;
+  /** 서류에 적힌 감시 물질 (WATCHED_HAZARDS 중) */
+  hazards: string[];
+  /** 붙일 파일 — 이미 같은 서류가 붙어 있으면 비워 둔다 */
+  cert?: string;
+}
+
+/** 한 사람 몫으로 들어온 특검 서류 묶음 */
+export interface SpecialHealthEntry {
+  name: string;
+  docs: SpecialHealthDoc[];
+  birth?: string;
+  phone?: string;
+  category?: string;
+  /**
+   * 이 묶음이 그 사람의 감시 물질 기록 **전부**일 때만 참.
+   *
+   * 참이면 물질별 날짜를 서류만 보고 다시 세운다. 유해인자를 못 읽어 "3종 모두"로
+   * 잡아 둔 기록을 서류대로 되돌리려는 것 — 그때는 날짜가 뒤로 물러날 수도 있다.
+   * 거짓이면 앞으로만 민다 (예전 서류를 뒤늦게 붙여도 최신 날짜가 밀리지 않게).
+   */
+  rebuildHazards?: boolean;
+}
+
+/**
+ * 특검 서류 묶음을 기록에 반영한다 — 바뀌는 칸만 돌려주고, 없으면 null.
+ *
+ * 날짜·첨부는 **가장 나중 서류** 기준이고, 물질별 날짜는 서류마다 따로 잡는다.
+ * 같은 날짜의 서류가 이미 반영돼 있으면 아무것도 바꾸지 않는다 (중복 무시).
+ */
+export function specialHealthPatch(
+  cur: LaborWorker,
+  entry: SpecialHealthEntry,
+): Partial<LaborWorker> | null {
+  const docs = [...entry.docs].filter((d) => d.checkedAt).sort((a, b) => a.checkedAt.localeCompare(b.checkedAt));
+  if (docs.length === 0) return null;
+  const last = docs[docs.length - 1];
+
+  // 물질별 마지막 검진일 — 되세우기면 빈 목록에서, 아니면 지금 기록 위에서 쌓는다
+  let hazards = entry.rebuildHazards ? [] : (cur.hazards ?? []);
+  for (const d of docs) {
+    const names = d.hazards.filter((h) => (WATCHED_HAZARDS as readonly string[]).includes(h));
+    hazards = applyHazardCheck(hazards, names, d.checkedAt);
+  }
+  const sortHaz = (list: HazardWatch[]) => [...list].sort((a, b) => a.name.localeCompare(b.name));
+
+  const patch: Partial<LaborWorker> = {
+    birth: cur.birth || entry.birth,
+    phone: cur.phone?.trim() || entry.phone,
+    category: cur.category || entry.category,
+  };
+  // 검진일·첨부는 지금 것보다 나중 서류일 때만 손댄다
+  if (shouldApply(cur.specialHealthDate, last.checkedAt)) {
+    patch.specialHealthDate = last.checkedAt;
+    if (last.cert) patch.specialHealthCert = last.cert;
+  } else if (!cur.specialHealthCert && last.cert) {
+    // 날짜는 이미 맞는데 파일만 빠진 경우
+    patch.specialHealthCert = last.cert;
+  }
+  if (JSON.stringify(sortHaz(hazards)) !== JSON.stringify(sortHaz(cur.hazards ?? []))) {
+    patch.hazards = hazards;
+  }
+  return changedFields(cur, patch);
+}
+

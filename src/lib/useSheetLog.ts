@@ -335,6 +335,16 @@ export function useSheetLog<T extends { id: string }>(type: LogType, localKey: s
    */
   const getRows = useCallback(() => rowsRef.current, []);
 
+  /**
+   * 서류 묶음처럼 화면이 직접 돌리는 한 번짜리 반영에도 같은 표식을 쓴다.
+   *
+   * 표식은 서버에 남으므로 기기를 바꿔도, 그 뒤에 행을 지워도 같은 판단을 한다.
+   * 이걸 안 쓰고 "값이 비었으면 처음"으로 보면, 사람이 지운 내용이 다음 접속에
+   * 되살아난다 — 대장 시드에서 이미 겪은 일이다.
+   */
+  const batchDone = useCallback((key: string) => hasMarker(`__done-${key}`), [hasMarker]);
+  const markBatchDone = useCallback((key: string) => putMarker(`__done-${key}`), [putMarker]);
+
   return {
     rows,
     getRows,
@@ -345,6 +355,8 @@ export function useSheetLog<T extends { id: string }>(type: LogType, localKey: s
     removeRow,
     undo,
     canUndo: undoCount > 0,
+    batchDone,
+    markBatchDone,
   };
 }
 
