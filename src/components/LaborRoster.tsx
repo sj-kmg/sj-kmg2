@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { HEALTH_KEY, type HealthCheck } from '@/lib/health';
 import { LABOR_ROSTER_KEY, LABOR_TABS, UNASSIGNED, autoFillFromDoc, blankWorker, type LaborWorker } from '@/lib/laborRoster';
 import { formatPhone } from '@/lib/format';
-import { NOTICE_STYLE } from '@/lib/education';
+import { NOTICE_STYLE, eduEndDate } from '@/lib/education';
 import {
   HAZARD_CYCLE_MONTHS,
   WATCHED_HAZARDS,
@@ -322,6 +322,25 @@ export default function LaborRoster() {
   useEffect(() => setToday(new Date()), []);
   const seededRef = useRef(false);
   const sortCtl = useSortable<LaborWorker>();
+
+  /**
+   * YNCC 교육기간 종료일 채우기 — 시작일만 있고 종료일이 빈 기록을 1년 뒤로 맞춘다.
+   *
+   * 자동 계산을 넣기 전에 등록된 인원, 그리고 [기존 인력 데이터 불러오기]로 종료일 없이
+   * 넘어온 인원까지 한 번씩 훑어 채운다. 한 번 채운 기록은 다시 건드리지 않으므로,
+   * 사람이 일부러 종료일을 비워 두면 그대로 둔다.
+   */
+  const endFilled = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (mode === 'loading') return;
+    for (const r of rows) {
+      if (!r.ynccStart || r.ynccEnd || endFilled.current.has(r.id)) continue;
+      const end = eduEndDate(r.ynccStart);
+      if (!end) continue;
+      endFilled.current.add(r.id);
+      setRow(r.id, { ynccEnd: end });
+    }
+  }, [rows, mode, setRow]);
 
   const shown = sortCtl.apply(
     rows.filter((r) => (tab === UNASSIGNED ? !r.category : r.category === tab)),
@@ -873,8 +892,9 @@ export default function LaborRoster() {
                             <input
                               type="date"
                               aria-label="YNCC 교육기간 시작"
+                              title="시작일을 넣으면 종료일이 1년 뒤로 자동으로 채워집니다"
                               value={r.ynccStart ?? ''}
-                              onChange={(e) => setRow(r.id, { ynccStart: e.target.value })}
+                              onChange={(e) => setRow(r.id, { ynccStart: e.target.value, ynccEnd: eduEndDate(e.target.value) })}
                               className={`${CELL} bg-white`}
                             />
                           </div>
@@ -883,6 +903,7 @@ export default function LaborRoster() {
                             <input
                               type="date"
                               aria-label="YNCC 교육기간 종료"
+                              title="시작일 + 1년 - 1일로 자동 계산됩니다 — 다르면 직접 고칠 수 있습니다"
                               value={r.ynccEnd ?? ''}
                               onChange={(e) => setRow(r.id, { ynccEnd: e.target.value })}
                               className={`${CELL} bg-white`}

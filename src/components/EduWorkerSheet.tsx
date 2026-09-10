@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { NOTICE_STYLE, chemicalRenewalFromDates, daysUntil, noticeLevel } from '@/lib/education';
+import { NOTICE_STYLE, chemicalRenewalFromDates, daysUntil, eduEndDate, noticeLevel } from '@/lib/education';
 import { SyncError, uploadCert, type LogType } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
@@ -53,6 +53,25 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
   const seq = useRef(0);
 
   useEffect(() => setToday(new Date()), []);
+
+  /**
+   * 교육유효종료일 채우기 — 이수일자만 있고 종료일이 빈 기록을 1년 뒤로 맞춘다.
+   * 자동 계산을 넣기 전에 등록된 인원까지 한 번씩 훑는다. 한 번 채운 기록은 다시
+   * 건드리지 않으므로, 사람이 일부러 비워 두면 그대로 둔다. (종료일을 따로 들고 있는
+   * YNCC출입만 해당 — 유해화학물질·관리감독자는 이수일자에서 그때그때 계산한다)
+   */
+  const endFilled = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (variant !== 'yncc' || mode === 'loading') return;
+    for (const r of rows) {
+      const start = r.offlineDate || r.lastEdu;
+      if (!start || r.eduExpire || endFilled.current.has(r.id)) continue;
+      const end = eduEndDate(start);
+      if (!end) continue;
+      endFilled.current.add(r.id);
+      setRow(r.id, { eduExpire: end });
+    }
+  }, [rows, mode, variant, setRow]);
 
   // 구버전 최근교육일(lastEdu)은 집체 이수일자로 보여 준다
   const listed = rows
@@ -227,8 +246,16 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
                     <input
                       aria-label={variant === 'supervisor' ? '이수일자' : '집체교육 이수일자'}
                       type="date"
+                      title={variant === 'yncc' ? '이수일자를 넣으면 교육유효종료일이 1년 뒤로 자동으로 채워집니다' : undefined}
                       value={r.offlineDate ?? ''}
-                      onChange={(e) => setRow(r.id, { offlineDate: e.target.value })}
+                      onChange={(e) =>
+                        setRow(
+                          r.id,
+                          variant === 'yncc'
+                            ? { offlineDate: e.target.value, eduExpire: eduEndDate(e.target.value) }
+                            : { offlineDate: e.target.value },
+                        )
+                      }
                       className={CELL}
                     />
                   </td>
@@ -246,7 +273,14 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
                   )}
                   {variant === 'yncc' ? (
                     <td className="px-1.5 py-1.5">
-                      <input aria-label="교육유효종료일" type="date" value={r.eduExpire ?? ''} onChange={(e) => setRow(r.id, { eduExpire: e.target.value })} className={CELL} />
+                      <input
+                        aria-label="교육유효종료일"
+                        type="date"
+                        title="이수일자 + 1년 - 1일로 자동 계산됩니다 — 다르면 직접 고칠 수 있습니다"
+                        value={r.eduExpire ?? ''}
+                        onChange={(e) => setRow(r.id, { eduExpire: e.target.value })}
+                        className={CELL}
+                      />
                     </td>
                   ) : (
                     <td className="px-2 py-1.5 font-mono text-[11px] font-semibold whitespace-nowrap text-slate-600">

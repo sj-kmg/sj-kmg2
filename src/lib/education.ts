@@ -127,6 +127,23 @@ export function renewalDateFor(course: EduCourse, record: EduRecord): string {
   return `${year}-01-01`;
 }
 
+/**
+ * 교육 1년 유효기간의 마지막 날 — 이수일 + 1년 - 1일.
+ *
+ * 이수한 날부터 꼭 1년이 유효기간이라, 끝나는 날은 1년 뒤 **하루 전**이다
+ * (2026-01-30 이수 → 2027-01-29 까지). 이미 등록된 YNCC 기록이 모두 이 셈법이라
+ * 새로 채우는 값도 같은 규칙을 쓴다. 날짜가 비었거나 형식이 어긋나면 빈 값 —
+ * 시작일을 지우면 종료일도 함께 비워지도록 하려는 것이다.
+ */
+export function eduEndDate(startDate: string): string {
+  const d = new Date(`${startDate}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return '';
+  d.setFullYear(d.getFullYear() + 1);
+  d.setDate(d.getDate() - 1);
+  const p = (n: number) => (n < 10 ? `0${n}` : String(n));
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 /** 오늘부터 갱신 도래일까지 남은 일수 (지났으면 음수) */
 export function daysUntil(dateStr: string, today = new Date()): number {
   const target = new Date(`${dateStr}T00:00:00`);
