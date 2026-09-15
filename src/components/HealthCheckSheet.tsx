@@ -20,6 +20,7 @@ import {
   watchedHazardsIn,
   type HazardWatch,
 } from '@/lib/hazardWatch';
+import { shouldApply } from '@/lib/docBatch';
 import { SyncError, extractDocFields, uploadCert } from '@/lib/sync';
 import { saveBadge, useSheetLog } from '@/lib/useSheetLog';
 import { modeBadge } from '@/lib/useSyncedLog';
@@ -164,9 +165,39 @@ function CertRow({
   );
 }
 
+/**
+ * 새로 올라온 특수검진 확인서 (직원).
+ *
+ * 대장 시드는 이미 한 번 깔린 뒤라 거기에만 적어 두면 지금 쓰는 화면에는 반영되지 않는다.
+ * 그래서 서류가 새로 들어오면 여기에 적는다. 규칙은 대시보드 공통이다 —
+ * **이미 있는 것과 같으면 무시하고, 더 최신이면 갱신한다.**
+ *
+ * `hazards`는 확인서에 적힌 감시 물질만 담는다 (벤젠만 받은 재검이면 벤젠 하나).
+ */
+const SPECIAL_DOCS: {
+  name: string;
+  birth: string;
+  checkDate: string;
+  hazards: string[];
+  cert: string;
+}[] = [
+  {
+    // 여천전남병원 배치전건강검진 — 유해인자에 벤젠·톨루엔·크실렌이 모두 적혀 있다
+    name: '이태열',
+    birth: '1977-09-25',
+    checkDate: '2026-09-14',
+    hazards: ['벤젠', '톨루엔', '크실렌'],
+    cert: '/certs/health-special/이태열_특수검진_2026.pdf',
+  },
+];
+
+/** 위 묶음을 반영했다는 표식 — 한 번만 돈다 (지운 인원이 되살아나지 않게) */
+const SPECIAL_DOCS_BATCH = '2026-09-16-health-special';
+
 function Sheet({ kind, group }: { kind: HealthCheck['kind']; group: HealthCheck['group'] }) {
   const seed = useMemo(() => (kind === 'general' ? healthGeneralSeed() : healthSpecialSeed()), [kind]);
-  const { rows, getRows, mode, status, setRow, addRow, removeRow, undo, canUndo } = useSheetLog<HealthCheck>(
+  const { rows, getRows, mode, status, setRow, addRow, removeRow, undo, canUndo, batchDone, markBatchDone } =
+    useSheetLog<HealthCheck>(
     'health',
     HEALTH_KEY,
     {
@@ -198,6 +229,58 @@ function Sheet({ kind, group }: { kind: HealthCheck['kind']; group: HealthCheck[
     rows.filter((r) => r.kind === kind && r.group === group),
     { name: (r) => r.name, due: (r) => r.renewDate, hazard: (r) => mostUrgentHazard(r.hazards, today)?.renewAt ?? '' },
   );
+
+  /*
+   * 새로 올라온 확인서 반영 — "중복은 무시, 최신이면 갱신".
+   * 표식을 서버에 남겨 한 번만 돌고, 그 뒤에 사람이 지운 내용은 되살아나지 않는다.
+   */
+  const docsRef = useRef(false);
+  useEffect(() => {
+    if (!isSpecial || group !== '직원') return;
+    if (docsRef.current || mode === 'loading') return;
+    if (batchDone(SPECIAL_DOCS_BATCH)) {
+      docsRef.current = true;
+      return;
+    }
+    docsRef.current = true;
+
+    const timer = setTimeout(() => {
+      for (const doc of SPECIAL_DOCS) {
+        const cur = getRows().find(
+          (r) => r.kind === 'special' && r.group === '직원' && r.name.trim() === doc.name,
+        );
+        if (!cur) {
+          seq.current += 1;
+          addRow({
+            id: `HC-special-${doc.name}-${doc.checkDate}`.replace(/[^A-Za-z0-9_-]/g, ''),
+            kind: 'special',
+            group: '직원',
+            name: doc.name,
+            birth: doc.birth,
+            checkDate: doc.checkDate,
+            renewDate: healthRenewDate(doc.checkDate),
+            certFile: doc.cert,
+            hazards: applyHazardCheck([], doc.hazards, doc.checkDate),
+            updatedAt: '',
+          });
+          continue;
+        }
+        // 이미 있는 사람 — 이번 확인서가 더 최신일 때만 손댄다
+        if (!shouldApply(cur.checkDate, doc.checkDate)) continue;
+        setRow(cur.id, {
+          birth: cur.birth || doc.birth,
+          checkDate: doc.checkDate,
+          renewDate: healthRenewDate(doc.checkDate),
+          certFile: doc.cert,
+          hazards: applyHazardCheck(cur.hazards, doc.hazards, doc.checkDate),
+        });
+      }
+      void markBatchDone(SPECIAL_DOCS_BATCH);
+    }, 0);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, isSpecial, group]);
 
   const add = () => {
     seq.current += 1;

@@ -107,6 +107,7 @@ export function healthSpecialSeed(): HealthCheck[] {
     { name: '김선태', birth: '1966-06-14', checkDate: '2026-01-17' },
     { name: '권현철', birth: '1975-08-14', checkDate: '2026-01-28' },
     { name: '이철웅', birth: '1995-03-27', checkDate: '2026-07-01', halfOnly: true },
+    { name: '이태열', birth: '1977-09-25', checkDate: '2026-09-14' },
   ];
   return rows.map(({ name, birth, checkDate, benzene, halfOnly }, i) => {
     const withAll = applyHazardCheck([], ['벤젠', '톨루엔', '크실렌'], checkDate);
