@@ -29,6 +29,8 @@ const ASSETS = `${VERSION}-assets`;
 const NET_WAIT = 4000;
 /** 보여 줄 캐시본이 아예 없을 때만 조금 더 기다린다 (그래도 여기서 반드시 끝낸다) */
 const NET_WAIT_COLD = 12000;
+/** 캐시를 여는 데 걸리는 시간도 끊는다 — PC를 막 켠 직후에는 디스크가 느리다 */
+const CACHE_WAIT = 3000;
 
 /** 앱 껍데기로 미리 받아 두는 것들 */
 const PRECACHE = ['/', '/icon-192.png', '/apple-touch-icon.png'];
@@ -36,30 +38,39 @@ const PRECACHE = ['/', '/icon-192.png', '/apple-touch-icon.png'];
 /** 정해진 시간이 지나면 undefined로 끝나는 약속 — 네트워크와 경주시킨다 */
 const after = (ms) => new Promise((resolve) => setTimeout(resolve, ms, undefined));
 
-/** 한 건씩 따로 담는다 — `addAll`은 하나만 실패해도 전부 버려서, 아이콘 하나 때문에 껍데기가 통째로 비었다 */
-async function fillCache(cache, urls) {
-  await Promise.all(
-    urls.map(async (u) => {
-      try {
-        const res = await fetch(u, { cache: 'reload' });
-        if (res && res.ok) await cache.put(u, res);
-      } catch {
-        // 이 파일은 다음 기회에 — 나머지는 그대로 담긴다
-      }
-    }),
-  );
+/**
+ * 껍데기에 넣기 — 실패해도 조용히 넘어간다.
+ *
+ * 저장이 한 번 안 됐다고 담겨 있던 것을 버리지는 않는다. 정작 연결이 늦은 날
+ * 보여 줄 것이 없어지기 때문이다. 넘겨받은 응답은 **이미 떠 놓은 몫**이어야 한다
+ * (원본과 뜬 것을 둘 다 쥔 채로 미뤄 두면 캐시 전체가 멎는다 — 직접 겪었다).
+ */
+async function putShell(key, res) {
+  try {
+    const cache = await caches.open(SHELL);
+    await cache.put(key, res);
+  } catch {
+    // 못 담아도 앱이 열리는 데는 지장 없다
+  }
+}
+
+/** 한 건씩 차례로 담는다 — `addAll`은 하나만 실패해도 전부 버린다 */
+async function fillCache(urls) {
+  for (const u of urls) {
+    try {
+      const res = await fetch(u, { cache: 'reload' });
+      if (res && res.ok) await putShell(u, res);
+    } catch {
+      // 이 파일은 다음 기회에 — 나머지는 그대로 담긴다
+    }
+  }
 }
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
-      try {
-        const cache = await caches.open(SHELL);
-        // 설치가 네트워크 때문에 늘어지지 않게 여기서도 시간을 끊는다
-        await Promise.race([fillCache(cache, PRECACHE), after(15000)]);
-      } catch {
-        // 못 담아도 첫 화면 이동에서 다시 담긴다
-      }
+      // 설치가 네트워크 때문에 늘어지지 않게 여기서도 시간을 끊는다
+      await Promise.race([fillCache(PRECACHE), after(15000)]);
       await self.skipWaiting();
     })(),
   );
@@ -77,12 +88,7 @@ self.addEventListener('activate', (event) => {
       await self.clients.claim();
       // 새로 배포되면 화면 파일 이름(해시)이 바뀐다. 껍데기를 새로 받아 두어야
       // 다음에 연결이 늦을 때 없는 파일을 찾지 않는다.
-      try {
-        const cache = await caches.open(SHELL);
-        await Promise.race([fillCache(cache, ['/']), after(15000)]);
-      } catch {
-        // 화면 이동 때 다시 담긴다
-      }
+      await Promise.race([fillCache(['/']), after(15000)]);
     })(),
   );
 });
@@ -119,6 +125,28 @@ function offlinePage() {
   });
 }
 
+/**
+ * 앱이 **어떻게** 열렸는지 짧게 남긴다 (최근 30번).
+ *
+ * 화면이 안 뜨는 일이 생겼을 때, 서비스워커가 일을 했는지 아예 불리지도 않았는지
+ * 가려내려는 것이다. 둘은 원인이 완전히 다른데 겉보기로는 구분이 안 된다.
+ * 기록은 부수적인 일이라 실패해도 조용히 넘어간다.
+ */
+async function note(how, ms) {
+  try {
+    let list = [];
+    const prev = await caches.match('/__starts');
+    if (prev) list = await prev.json().catch(() => []);
+    list.push({ at: new Date().toISOString(), how, ms });
+    await putShell(
+      '/__starts',
+      new Response(JSON.stringify(list.slice(-30)), { headers: { 'content-type': 'application/json' } }),
+    );
+  } catch {
+    // 기록을 못 남겨도 앱이 열리는 데는 지장 없다
+  }
+}
+
 /** 지난번에 받아 둔 화면 */
 async function shell() {
   try {
@@ -136,15 +164,7 @@ async function shell() {
 async function fetchAndCache(req) {
   try {
     const res = await fetch(req);
-    if (res && res.ok) {
-      const copy = res.clone();
-      try {
-        const cache = await caches.open(SHELL);
-        await cache.put('/', copy);
-      } catch {
-        // 캐시에 못 담아도 이번 화면을 보여 주는 데는 지장 없다
-      }
-    }
+    if (res && res.ok) await putShell('/', res.clone());
     return res || undefined;
   } catch {
     return undefined;
@@ -157,18 +177,29 @@ async function fetchAndCache(req) {
  * 답이 제때 오면 그걸 쓰고, 늦으면 지난 화면을 먼저 띄운다.
  * 어느 쪽이든 몇 초 안에 반드시 무언가를 돌려주므로, 브라우저가 먼저 포기하는 일이 없다.
  */
-async function handleNavigate(fresh) {
-  const cached = await shell();
+async function handleNavigate(fresh, cachedPromise) {
+  const t0 = Date.now();
+  const 남기고 = (how, value) => {
+    void note(how, Date.now() - t0);
+    return value;
+  };
 
-  if (cached) {
-    const res = await Promise.race([fresh, after(NET_WAIT)]);
-    // 서버가 오류를 냈을 때도 지난 화면을 쓴다 — 앱은 열려 있어야 한다
-    return res && res.ok ? res : cached;
-  }
+  // 서버 응답과 캐시 읽기를 **둘 다 미리 걸어 둔 채** 시계를 잰다.
+  // 예전에는 캐시를 먼저 다 읽고 나서 시계를 재기 시작했는데, PC를 막 켠 직후에는
+  // 디스크가 차가워 캐시를 여는 데만 몇 초가 걸린다. 그만큼 전체 시간이 밀렸다.
+  const res = await Promise.race([fresh, after(NET_WAIT)]);
+  if (res && res.ok) return 남기고('network', res);
 
-  // 처음 여는 경우 — 보여 줄 게 없으니 조금 더 기다리되, 여기서 반드시 끝낸다
-  const res = await Promise.race([fresh, after(NET_WAIT_COLD)]);
-  return res || offlinePage();
+  // 서버가 늦다 — 지난번 화면을 쓴다 (이것도 오래 걸리면 더 기다리지 않는다)
+  const cached = await Promise.race([cachedPromise, after(CACHE_WAIT)]);
+  if (cached) return 남기고('cache', cached);
+
+  // 캐시도 없다. 서버가 뭐라도(오류 화면이라도) 답했으면 그걸 보여 준다
+  if (res) return 남기고(`server-${res.status}`, res);
+
+  // 처음 여는 경우 — 조금 더 기다려 보고, 여기서 반드시 끝낸다
+  const late = await Promise.race([fresh, cachedPromise, after(NET_WAIT_COLD)]);
+  return late ? 남기고('late', late) : 남기고('offline', offlinePage());
 }
 
 /** 정적 파일 — 캐시 우선. 어떤 경우에도 예외를 밖으로 던지지 않는다 */
@@ -205,10 +236,12 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api/')) return;
 
   if (req.mode === 'navigate') {
+    // 서버 받아 오기와 캐시 읽기를 **동시에** 시작한다 — 둘 중 먼저 되는 쪽을 쓴다
     const fresh = fetchAndCache(req);
+    const cached = shell();
     // 화면을 먼저 띄운 뒤에도 받아 오던 것을 끝까지 돌려 캐시를 갱신한다
     event.waitUntil(fresh);
-    event.respondWith(handleNavigate(fresh));
+    event.respondWith(handleNavigate(fresh, cached));
     return;
   }
 
