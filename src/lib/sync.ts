@@ -51,6 +51,35 @@ export function setPasscode(v: string): void {
   }
 }
 
+/*
+ * 동기화 암호가 필요하다는 사실만 알려 두는 자리.
+ *
+ * 예전에는 서버가 401을 내면 그 자리에서 `window.prompt`를 띄웠다. 그런데 이 창은
+ * 화면 전체를 멈춰 세운다 — 시트 화면은 저장소를 여러 개 한꺼번에 불러오므로 창이
+ * 겹겹이 쌓이면서 화면이 응답을 멈췄고, 브라우저가 앱을 죽여 "This page couldn't
+ * load"가 떴다. 그래서 이제는 **묻지 않고 표시만 남긴다.** 실제로 묻는 일은 사람이
+ * 버튼을 눌렀을 때만 한다 — 사람이 시작한 대화상자는 앱을 멈춰 세우지 않는다.
+ */
+let passcodeNeeded = false;
+const passcodeWatchers = new Set<() => void>();
+
+/** 암호가 있어야 서버와 맞출 수 있는 상태임을 알린다 */
+export function markPasscodeNeeded(): void {
+  if (passcodeNeeded) return;
+  passcodeNeeded = true;
+  passcodeWatchers.forEach((fn) => fn());
+}
+
+export function isPasscodeNeeded(): boolean {
+  return passcodeNeeded;
+}
+
+/** 화면에서 알림 띠를 띄우려고 지켜본다 */
+export function onPasscodeNeeded(fn: () => void): () => void {
+  passcodeWatchers.add(fn);
+  return () => passcodeWatchers.delete(fn);
+}
+
 export class SyncError extends Error {
   status: number;
   constructor(status: number) {

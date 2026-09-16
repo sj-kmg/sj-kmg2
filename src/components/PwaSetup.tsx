@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { chromeIntentUrl, detectEnv, kakaoExternalUrl, type Platform } from '@/lib/install';
 import { flushOutbox, onOutboxChange, outboxCount, startOutboxWatcher } from '@/lib/outbox';
+import { isPasscodeNeeded, onPasscodeNeeded, setPasscode } from '@/lib/sync';
 
 /** beforeinstallprompt — 크롬·삼성인터넷 계열에서 제공된다 */
 interface InstallEvent extends Event {
@@ -40,6 +41,8 @@ export default function PwaSetup() {
   const [guideOpen, setGuideOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [hidden, setHidden] = useState(true);
+  /** 서버와 맞추려면 동기화 암호가 필요한 상태 */
+  const [needPass, setNeedPass] = useState(false);
 
   useEffect(() => {
     const env = detectEnv();
@@ -67,6 +70,8 @@ export default function PwaSetup() {
     }
 
     setPending(outboxCount());
+    setNeedPass(isPasscodeNeeded());
+    const offPass = onPasscodeNeeded(() => setNeedPass(true));
     const offCount = onOutboxChange(setPending);
     const stopWatch = startOutboxWatcher();
 
@@ -77,6 +82,7 @@ export default function PwaSetup() {
     window.addEventListener('appinstalled', onInstalled);
 
     return () => {
+      offPass();
       offCount();
       stopWatch();
       window.removeEventListener('sj-install-ready', onReady);
@@ -156,7 +162,22 @@ export default function PwaSetup() {
   };
 
   const showInstall = !hidden && !standalone;
-  if (pending === 0 && !showInstall && !guideOpen) return null;
+  if (pending === 0 && !showInstall && !guideOpen && !needPass) return null;
+
+  /*
+   * 암호는 **사람이 눌렀을 때만** 받는다.
+   * 화면이 뜨는 도중에 자동으로 물으면 그 창이 화면을 멈춰 세워, 저장소를 여러 개
+   * 불러오는 화면(건강검진·인력관리)에서는 앱이 통째로 죽었다.
+   */
+  const enterPasscode = () => {
+    const entered = window.prompt(
+      '기록 동기화 암호를 입력하세요.\n(모든 기기에서 같은 기록을 보려면 관리자에게 받은 암호가 필요합니다.)',
+    );
+    if (entered && entered.trim()) {
+      setPasscode(entered.trim());
+      window.location.reload();
+    }
+  };
 
   /** 버튼 문구 — 지금 누르면 무슨 일이 일어나는지 그대로 쓴다 */
   const label = inApp
@@ -170,6 +191,27 @@ export default function PwaSetup() {
   return (
     <>
       <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col items-center gap-2 p-3 sm:items-end">
+        {/* 동기화 암호 안내 — 없으면 이 기기에만 저장된다 */}
+        {needPass && (
+          <div className="flex w-full max-w-md items-center gap-2 rounded-xl border border-sky-300 bg-sky-50 px-3 py-2 shadow-lg">
+            <span aria-hidden className="text-base">🔑</span>
+            <p className="min-w-0 flex-1 text-xs font-semibold text-sky-900">
+              지금은 이 기기에만 저장됩니다
+              <span className="block font-normal text-sky-800">
+                다른 기기와 같은 기록을 보려면 동기화 암호가 필요합니다.
+              </span>
+            </p>
+            <button
+              onClick={enterPasscode}
+              className="shrink-0 rounded-lg border border-sky-400 px-2.5 py-1 text-xs font-bold whitespace-nowrap text-sky-900"
+            >
+              암호 입력
+            </button>
+            <button onClick={() => setNeedPass(false)} aria-label="안내 닫기" className="shrink-0 px-1 text-sky-400">
+              ✕
+            </button>
+          </div>
+        )}
         {/* 미전송 기록 알림 — 신호가 없을 때 작성한 내용 */}
         {pending > 0 && (
           <div className="flex w-full max-w-md items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 shadow-lg">

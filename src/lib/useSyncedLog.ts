@@ -15,11 +15,27 @@ import {
   type LogType,
   SyncError,
   getPasscode,
-  setPasscode,
+  markPasscodeNeeded,
   listEntries,
   saveEntryRemote,
   removeEntryRemote,
 } from './sync';
+
+/**
+ * 경고창은 잠깐 사이에 한 번만 띄운다.
+ *
+ * `alert`도 `prompt`처럼 화면을 멈춰 세운다. 자동저장은 여러 건이 한꺼번에 나가므로,
+ * 서버가 막혀 있으면 경고창이 줄줄이 뜨면서 화면이 응답을 멈춘다.
+ * 사람에게 알리는 목적은 한 번이면 충분하다.
+ */
+let lastAlertAt = 0;
+
+function alertOnce(message: string): void {
+  const now = Date.now();
+  if (now - lastAlertAt < 10000) return;
+  lastAlertAt = now;
+  alert(message);
+}
 
 export type SyncMode = 'loading' | 'server' | 'local';
 
@@ -63,48 +79,6 @@ function saveLocal<T>(key: string, list: T[]): void {
 
 
 /**
- * 동기화 암호 묻기 — 화면을 한 번 열면 **딱 한 번만** 묻는다.
- *
- * `window.prompt`는 화면 전체를 멈춰 세운다. 그런데 시트 화면(건강검진·인력관리 등)은
- * 저장소를 여러 개 동시에 불러온다. 이때 서버가 401을 내면 이 창이 겹겹이 뜨면서
- * 화면이 응답을 멈추고, 브라우저가 앱을 죽여 "This page couldn't load"가 뜬다.
- * 그 두 메뉴에서만 나던 이유가 이것이다 — 한 번에 여는 저장소가 가장 많다.
- *
- * 그래서 묻는 건 화면당 한 번뿐이고, 한 번 취소하면 다시 묻지 않는다.
- * 암호가 없으면 이 브라우저에만 저장하는 방식으로 조용히 넘어간다.
- */
-let passcodeAsked = false;
-
-/**
- * 경고창은 잠깐 사이에 한 번만 띄운다.
- *
- * `alert`도 `prompt`와 마찬가지로 화면을 멈춰 세운다. 자동저장은 여러 건이 한꺼번에
- * 나가므로, 서버가 막혀 있으면 경고창이 줄줄이 뜨면서 화면이 응답을 멈춘다.
- * 사람에게 알리는 목적은 한 번이면 충분하다.
- */
-let lastAlertAt = 0;
-
-function alertOnce(message: string): void {
-  const now = Date.now();
-  if (now - lastAlertAt < 10000) return;
-  lastAlertAt = now;
-  alert(message);
-}
-
-function askPasscode(): boolean {
-  if (passcodeAsked) return false;
-  passcodeAsked = true;
-  const entered = window.prompt(
-    '기록 동기화 암호를 입력하세요.\n(모든 기기에서 같은 기록을 보려면 관리자에게 받은 암호가 필요합니다. 취소하면 이 브라우저에만 저장됩니다.)',
-  );
-  if (entered && entered.trim()) {
-    setPasscode(entered.trim());
-    return true;
-  }
-  return false;
-}
-
-/**
  * 현장 기록 저장 훅 — 서버 동기화 가능하면 서버, 아니면 로컬 저장.
  * 서버 연결 성공 시 이 브라우저에 남아 있던 로컬 기록을 자동으로 서버로 이관한다.
  */
@@ -142,14 +116,14 @@ export function useSyncedLog<T extends { id: string }>(type: LogType, localKey: 
       serverList = await tryServer();
     } catch (e) {
       if (e instanceof SyncError && e.status === 401) {
-        // 암호 필요 — 한 번 물어보고 재시도
-        if (askPasscode()) {
-          try {
-            serverList = await tryServer();
-          } catch {
-            serverList = null;
-          }
-        }
+        /*
+         * 암호가 필요하다. 하지만 **여기서 묻지는 않는다.**
+         * `window.prompt`는 화면을 멈춰 세우는데, 시트 화면은 저장소를 여러 개
+         * 한꺼번에 불러오므로 창이 겹겹이 쌓여 앱이 통째로 죽는다(실제로 겪었다).
+         * 표시만 남기고 이 브라우저 저장분으로 넘어간다 — 화면은 정상으로 뜬다.
+         * 암호는 화면 아래 알림 띠에서 사람이 직접 누를 때 받는다.
+         */
+        markPasscodeNeeded();
       }
     }
 
