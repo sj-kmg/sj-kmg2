@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { chromeIntentUrl, detectEnv, kakaoExternalUrl, type Platform } from '@/lib/install';
 import { flushOutbox, onOutboxChange, outboxCount, startOutboxWatcher } from '@/lib/outbox';
 import { isPasscodeNeeded, onPasscodeNeeded, setPasscode } from '@/lib/sync';
+import { recordScreenError } from './ScreenGuard';
 
 /** beforeinstallprompt — 크롬·삼성인터넷 계열에서 제공된다 */
 interface InstallEvent extends Event {
@@ -43,6 +44,25 @@ export default function PwaSetup() {
   const [hidden, setHidden] = useState(true);
   /** 서버와 맞추려면 동기화 암호가 필요한 상태 */
   const [needPass, setNeedPass] = useState(false);
+
+  /*
+   * 화면 밖에서 터지는 오류도 남긴다 (약속 실패·전역 오류).
+   * React 울타리는 그리는 도중의 오류만 잡으므로, 나머지는 여기서 받는다.
+   */
+  useEffect(() => {
+    const onErr = (e: ErrorEvent) => recordScreenError('window', e.message, e.error?.stack);
+    const onRej = (e: PromiseRejectionEvent) => {
+      const r = e.reason as { message?: string; stack?: string } | string;
+      recordScreenError('promise', typeof r === 'string' ? r : (r?.message ?? '알 수 없음'),
+        typeof r === 'string' ? undefined : r?.stack);
+    };
+    window.addEventListener('error', onErr);
+    window.addEventListener('unhandledrejection', onRej);
+    return () => {
+      window.removeEventListener('error', onErr);
+      window.removeEventListener('unhandledrejection', onRej);
+    };
+  }, []);
 
   useEffect(() => {
     const env = detectEnv();

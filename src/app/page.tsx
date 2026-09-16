@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { SafetyData } from '@/lib/types';
 import { loadData, saveData, clearData } from '@/lib/store';
 import FileDrop from '@/components/FileDrop';
+import ScreenGuard from '@/components/ScreenGuard';
 import MainHome from '@/components/MainHome';
 import Ledgers from '@/components/Ledgers';
 import TbmLog from '@/components/TbmLog';
@@ -504,7 +505,7 @@ export default function Page() {
 
         <main key={view === 'search' ? `search-${query}` : view} className="view-enter flex-1 p-4 lg:p-6">
           {!ready ? null : (
-            <>
+            <ScreenGuard view={view}>
               {view === 'main' && (
                 <MainHome
                   data={data}
@@ -573,7 +574,7 @@ export default function Page() {
                   )}
                 </div>
               )}
-            </>
+            </ScreenGuard>
           )}
         </main>
 
