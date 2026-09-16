@@ -75,6 +75,22 @@ function saveLocal<T>(key: string, list: T[]): void {
  */
 let passcodeAsked = false;
 
+/**
+ * 경고창은 잠깐 사이에 한 번만 띄운다.
+ *
+ * `alert`도 `prompt`와 마찬가지로 화면을 멈춰 세운다. 자동저장은 여러 건이 한꺼번에
+ * 나가므로, 서버가 막혀 있으면 경고창이 줄줄이 뜨면서 화면이 응답을 멈춘다.
+ * 사람에게 알리는 목적은 한 번이면 충분하다.
+ */
+let lastAlertAt = 0;
+
+function alertOnce(message: string): void {
+  const now = Date.now();
+  if (now - lastAlertAt < 10000) return;
+  lastAlertAt = now;
+  alert(message);
+}
+
 function askPasscode(): boolean {
   if (passcodeAsked) return false;
   passcodeAsked = true;
@@ -240,7 +256,7 @@ export function useSyncedLog<T extends { id: string }>(type: LogType, localKey: 
             if (isRetriable(err)) {
               enqueue({ type, action: 'save', id: entry.id, entry });
             } else {
-              alert(saveFailMessage(err));
+              alertOnce(saveFailMessage(err));
               return false;
             }
           }
@@ -275,7 +291,7 @@ export function useSyncedLog<T extends { id: string }>(type: LogType, localKey: 
             // 잠깐 끊긴 경우 — 대기열에 넣어 두면 연결되는 대로 지워진다
             enqueue({ type, action: 'remove', id });
           } else {
-            alert('서버에서 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+            alertOnce('서버에서 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.');
             return false;
           }
         }
