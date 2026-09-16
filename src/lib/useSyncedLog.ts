@@ -62,7 +62,22 @@ function saveLocal<T>(key: string, list: T[]): void {
 }
 
 
+/**
+ * 동기화 암호 묻기 — 화면을 한 번 열면 **딱 한 번만** 묻는다.
+ *
+ * `window.prompt`는 화면 전체를 멈춰 세운다. 그런데 시트 화면(건강검진·인력관리 등)은
+ * 저장소를 여러 개 동시에 불러온다. 이때 서버가 401을 내면 이 창이 겹겹이 뜨면서
+ * 화면이 응답을 멈추고, 브라우저가 앱을 죽여 "This page couldn't load"가 뜬다.
+ * 그 두 메뉴에서만 나던 이유가 이것이다 — 한 번에 여는 저장소가 가장 많다.
+ *
+ * 그래서 묻는 건 화면당 한 번뿐이고, 한 번 취소하면 다시 묻지 않는다.
+ * 암호가 없으면 이 브라우저에만 저장하는 방식으로 조용히 넘어간다.
+ */
+let passcodeAsked = false;
+
 function askPasscode(): boolean {
+  if (passcodeAsked) return false;
+  passcodeAsked = true;
   const entered = window.prompt(
     '기록 동기화 암호를 입력하세요.\n(모든 기기에서 같은 기록을 보려면 관리자에게 받은 암호가 필요합니다. 취소하면 이 브라우저에만 저장됩니다.)',
   );
@@ -214,15 +229,12 @@ export function useSyncedLog<T extends { id: string }>(type: LogType, localKey: 
         try {
           await saveEntryRemote(type, entry);
         } catch (e) {
-          let err = e;
-          if (e instanceof SyncError && e.status === 401 && askPasscode()) {
-            try {
-              await saveEntryRemote(type, entry);
-              err = null;
-            } catch (e2) {
-              err = e2;
-            }
-          }
+          /*
+           * 저장은 자동저장으로 배경에서 돈다. 여기서 암호 창을 띄우면 화면이 멈춰 서고,
+           * 여러 건이 겹치면 앱이 통째로 죽는다. 그래서 저장 중에는 묻지 않는다 —
+           * 못 보낸 기록은 미전송함에 넣어 두었다가 나중에 자동으로 보낸다.
+           */
+          const err = e;
           if (err) {
             // 네트워크 문제면 잃지 않도록 미전송함에 넣고 나중에 자동 전송한다
             if (isRetriable(err)) {
