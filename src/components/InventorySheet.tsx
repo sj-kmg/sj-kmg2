@@ -140,7 +140,11 @@ export default function InventorySheet() {
       { label: '단위', value: (r) => r.unit, width: 8 },
       { label: '비고', value: (r) => r.note, align: 'left', width: 24 },
     ],
-    rows: [...rows].sort((a, b) => a.category.localeCompare(b.category, 'ko') || a.name.localeCompare(b.name, 'ko')),
+    rows: [...rows].sort(
+      (a, b) =>
+        (a.category ?? '').localeCompare(b.category ?? '', 'ko') ||
+        (a.name ?? '').localeCompare(b.name ?? '', 'ko'),
+    ),
   });
 
   return (

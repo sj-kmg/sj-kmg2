@@ -383,7 +383,7 @@ export default function YnccVehicles() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, role]);
 
-  const vehicles = sortCtl.apply([...entries].sort((a, b) => a.plate.localeCompare(b.plate, 'ko')), {
+  const vehicles = sortCtl.apply([...entries].sort((a, b) => (a.plate ?? '').localeCompare(b.plate ?? '', 'ko')), {
     plate: (v) => v.plate,
     regDate: (v) => v.regDate,
     registrant: (v) => v.registrant,

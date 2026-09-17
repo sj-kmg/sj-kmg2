@@ -154,7 +154,7 @@ export default function GasDetectorSheet() {
       { label: '상태', value: (r) => r.status, width: 8 },
       { label: '비고', value: (r) => r.note ?? '', align: 'left', width: 20 },
     ],
-    rows: [...rows].sort((a, b) => a.mgmtNo.localeCompare(b.mgmtNo, 'ko', { numeric: true })),
+    rows: [...rows].sort((a, b) => (a.mgmtNo ?? '').localeCompare(b.mgmtNo ?? '', 'ko', { numeric: true })),
   });
 
   return (

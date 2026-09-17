@@ -50,7 +50,7 @@ export default function HealthFollowup() {
     {
       seed,
       isBlank: (r) => !r.name.trim(),
-      sort: (a, b) => a.name.localeCompare(b.name, 'ko'),
+      sort: (a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'ko'),
     },
   );
 

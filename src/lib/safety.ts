@@ -26,7 +26,7 @@ export const SAFETY_ITEMS_KEY = 'sj-safety-items:v1';
 export const SAFETY_UNITS = ['EA', '조', '벌', 'BOX', '단', '타', '개', '통'];
 
 export function compareSafetyItem(a: SafetyItem, b: SafetyItem): number {
-  return a.order - b.order || a.name.localeCompare(b.name, 'ko');
+  return a.order - b.order || (a.name ?? '').localeCompare(b.name ?? '', 'ko');
 }
 
 /** MM.DD 표시 (원본 대장 표기와 동일) */

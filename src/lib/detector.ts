@@ -67,7 +67,7 @@ export function compareDetector(a: GasDetector, b: GasDetector): number {
   const ka = KIND_ORDER.indexOf(detectorKind(a.mgmtNo));
   const kb = KIND_ORDER.indexOf(detectorKind(b.mgmtNo));
   if (ka !== kb) return (ka < 0 ? 99 : ka) - (kb < 0 ? 99 : kb);
-  return a.mgmtNo.localeCompare(b.mgmtNo, 'ko', { numeric: true });
+  return (a.mgmtNo ?? '').localeCompare(b.mgmtNo ?? '', 'ko', { numeric: true });
 }
 
 /**

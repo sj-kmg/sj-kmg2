@@ -43,7 +43,7 @@ export default function EduWorkerSheet({ logType, localKey, group, variant, seed
       seed,
       seedKey: group === '직원' ? 'staff' : 'labor',
       isBlank: (r) => !r.name.trim(),
-      sort: (a, b) => a.name.localeCompare(b.name, 'ko'),
+      sort: (a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'ko'),
     },
   );
 

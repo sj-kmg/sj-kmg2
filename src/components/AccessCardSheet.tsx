@@ -22,7 +22,7 @@ export default function AccessCardSheet() {
   const { rows, mode, status, setRow, addRow, removeRow, undo, canUndo } = useSheetLog<AccessCard>('cards', CARDS_KEY, {
     seed,
     isBlank: (r) => !r.name.trim(),
-    sort: (a, b) => a.name.localeCompare(b.name, 'ko'),
+    sort: (a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'ko'),
   });
 
   const sortCtl = useSortable<AccessCard>();
@@ -79,7 +79,7 @@ export default function AccessCardSheet() {
       { label: '아이디', value: (r) => r.loginId, width: 16 },
       { label: '비고', value: (r) => r.note ?? '', align: 'left', width: 24 },
     ],
-    rows: [...rows].sort((a, b) => a.name.localeCompare(b.name, 'ko')),
+    rows: [...rows].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'ko')),
   });
 
   return (

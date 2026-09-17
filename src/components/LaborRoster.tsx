@@ -422,7 +422,7 @@ export default function LaborRoster() {
     LABOR_ROSTER_KEY,
     {
       isBlank: (r) => !r.name.trim(),
-      sort: (a, b) => a.name.localeCompare(b.name, 'ko'),
+      sort: (a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'ko'),
     },
   );
 
@@ -497,7 +497,7 @@ export default function LaborRoster() {
       if (new Set(list.map((r) => r.birth).filter(Boolean)).size > 1) continue;
 
       const ordered = [...list].sort(
-        (a, b) => filledCount(b) - filledCount(a) || a.id.localeCompare(b.id),
+        (a, b) => filledCount(b) - filledCount(a) || (a.id ?? '').localeCompare(b.id ?? ''),
       );
       const [keep, ...drop] = ordered;
       let next = keep;

@@ -24,7 +24,7 @@ export default function PassVehicleSheet() {
     {
       seed,
       isBlank: (r) => !r.plate.trim(),
-      sort: (a, b) => a.plate.localeCompare(b.plate, 'ko', { numeric: true }),
+      sort: (a, b) => (a.plate ?? '').localeCompare(b.plate ?? '', 'ko', { numeric: true }),
     },
   );
 
@@ -81,7 +81,11 @@ export default function PassVehicleSheet() {
       { label: '단위공장', value: (r) => r.plant ?? '', width: 14 },
       { label: '비고', value: (r) => r.note ?? '', align: 'left', width: 22 },
     ],
-    rows: [...rows].sort((a, b) => KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind) || a.plate.localeCompare(b.plate, 'ko', { numeric: true })),
+    rows: [...rows].sort(
+      (a, b) =>
+        KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind) ||
+        (a.plate ?? '').localeCompare(b.plate ?? '', 'ko', { numeric: true }),
+    ),
   });
 
   return (

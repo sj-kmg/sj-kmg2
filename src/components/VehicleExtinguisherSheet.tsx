@@ -29,7 +29,7 @@ export default function VehicleExtinguisherSheet() {
     {
       seed,
       isBlank: (r) => !r.plate.trim(),
-      sort: (a, b) => a.plate.localeCompare(b.plate, 'ko'),
+      sort: (a, b) => (a.plate ?? '').localeCompare(b.plate ?? '', 'ko'),
     },
   );
 

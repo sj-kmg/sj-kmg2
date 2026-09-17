@@ -28,7 +28,9 @@ export default function HqExtinguisherSheet() {
     seed: rosterSeed,
     isBlank: (r) => !r.location.trim() && !r.extNo.trim(),
     // 위치별로 묶어 보이도록 정렬 — 저장소는 순서를 보장하지 않아 매번 정렬해야 안정적이다
-    sort: (a, b) => a.location.localeCompare(b.location, 'ko') || a.extNo.localeCompare(b.extNo, 'ko', { numeric: true }),
+    sort: (a, b) =>
+      (a.location ?? '').localeCompare(b.location ?? '', 'ko') ||
+      (a.extNo ?? '').localeCompare(b.extNo ?? '', 'ko', { numeric: true }),
   });
 
   const checkSeed = useMemo(() => hqExtinguisherCheckSeed(rosterSeed), [rosterSeed]);

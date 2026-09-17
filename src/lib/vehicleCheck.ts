@@ -93,11 +93,11 @@ export function compareVehicle(a: VehicleCheck, b: VehicleCheck): number {
   const ca = VEHICLE_CATEGORIES.indexOf(a.category);
   const cb = VEHICLE_CATEGORIES.indexOf(b.category);
   if (ca !== cb) return (ca < 0 ? 99 : ca) - (cb < 0 ? 99 : cb);
-  return a.plate.localeCompare(b.plate, 'ko', { numeric: true });
+  return (a.plate ?? '').localeCompare(b.plate ?? '', 'ko', { numeric: true });
 }
 
 export function compareItem(a: VehicleItem, b: VehicleItem): number {
-  return a.order - b.order || a.label.localeCompare(b.label, 'ko');
+  return a.order - b.order || (a.label ?? '').localeCompare(b.label ?? '', 'ko');
 }
 
 /**

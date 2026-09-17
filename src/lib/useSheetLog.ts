@@ -82,9 +82,25 @@ export function useSheetLog<T extends { id: string }>(type: LogType, localKey: s
     entriesRef.current = entries;
   });
 
+  /**
+   * 화면에 뿌릴 순서대로 정리한다.
+   *
+   * 표식(`__`로 시작하는 기록)은 사람이 볼 것이 아니라 여기서 한 번 더 걸러낸다.
+   * 표식에는 이름 같은 칸이 없어서, 이름순 정렬에 섞여 들어가면 그 자리에서
+   * 터지고 화면이 통째로 안 뜬다 — 실제로 건강검진·인력관리에서 그 일이 났다.
+   * 걸러 내는 곳은 이미 있지만, 저장이 밀렸다가 뒤늦게 합쳐지는 등 새는 길이
+   * 있어서 마지막 관문을 하나 더 둔다.
+   */
   const sortRows = useCallback((list: T[]) => {
+    const clean = list.filter((r) => !String(r?.id ?? '').startsWith('__'));
     const cmp = sortRef.current;
-    return cmp ? [...list].sort(cmp) : list;
+    if (!cmp) return clean;
+    // 비교 도중 잘못된 값이 하나 있어도 화면 전체가 죽지 않게 한다
+    try {
+      return [...clean].sort(cmp);
+    } catch {
+      return clean;
+    }
   }, []);
 
   // 서버·로컬 목록 → 화면 (작성 중이거나 저장 대기 중인 행은 화면 값을 그대로 둔다)

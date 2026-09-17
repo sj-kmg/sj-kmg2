@@ -43,7 +43,7 @@ export function compareInventory(a: InventoryItem, b: InventoryItem): number {
   const ca = INVENTORY_CATEGORIES.indexOf(a.category);
   const cb = INVENTORY_CATEGORIES.indexOf(b.category);
   if (ca !== cb) return (ca < 0 ? 99 : ca) - (cb < 0 ? 99 : cb);
-  return a.id.localeCompare(b.id, 'en', { numeric: true });
+  return (a.id ?? '').localeCompare(b.id ?? '', 'en', { numeric: true });
 }
 
 /**
