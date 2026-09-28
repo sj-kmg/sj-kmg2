@@ -9,6 +9,7 @@ import {
   autoFillFromDoc,
   blankWorker,
   specialHealthPatch,
+  type DocDiff,
   type LaborWorker,
   type SpecialHealthEntry,
 } from '@/lib/laborRoster';
@@ -434,6 +435,11 @@ export default function LaborRoster() {
   const [migrateNote, setMigrateNote] = useState('');
   /** 첨부서류에서 자동으로 채운 내용 안내 */
   const [autoNote, setAutoNote] = useState('');
+  /**
+   * 서류에는 있는데 지금 기록과 다른 값.
+   * 말없이 덮지 않고 나란히 보여 준 뒤, [서류대로 맞추기]를 누르면 그때 바꾼다.
+   */
+  const [docDiff, setDocDiff] = useState<{ rowId: string; name: string; differs: DocDiff[] } | null>(null);
   /** D-day 계산 기준 — 서버 렌더와 어긋나지 않도록 화면이 뜬 뒤 잡는다 */
   const [today, setToday] = useState<Date | null>(null);
   const seq = useRef(0);
@@ -695,13 +701,24 @@ export default function LaborRoster() {
       const f = await extractDocFields(dataUrl, HINT[field]);
       // 판독 중 사용자가 직접 고쳤을 수 있으므로 최신 값을 다시 확인한다
       const cur = getRows().find((x) => x.id === row.id) ?? row;
-      const { patch, filled } = autoFillFromDoc(cur, f, field, {
+      const { patch, filled, differs, read } = autoFillFromDoc(cur, f, field, {
         formatPhone,
         fallbackChemDate: `${yearFromFileName(file.name)}-01-01`,
         nameTaken: (n) => !!findByName(n, cur.id),
       });
       if (Object.keys(patch).length > 0) setRow(row.id, patch);
-      setAutoNote(filled.length > 0 ? `📄 서류에서 읽어 자동으로 채웠습니다 — ${filled.join(' · ')}` : '');
+
+      // 무엇을 읽었는지 늘 보여 준다 — 채운 게 없어도 "읽기는 했다"를 알 수 있게
+      if (filled.length > 0) {
+        setAutoNote(`📄 서류에서 읽어 자동으로 채웠습니다 — ${filled.join(' · ')}`);
+      } else if (read.length > 0) {
+        setAutoNote(`📄 서류에서 읽은 값 — ${read.join(' · ')}`);
+      } else {
+        setAutoNote('📄 이 서류에서는 날짜·유해인자를 읽어 내지 못했습니다. 아래 칸에 직접 입력해 주세요.');
+      }
+
+      // 지금 값과 다른 것은 함부로 덮지 않는다 — 나란히 보여 주고 사람이 정하게 한다
+      setDocDiff(differs.length > 0 ? { rowId: row.id, name: cur.name, differs } : null);
 
       // 서류의 이름이 다르면 사람이 확인하도록 알린다 (값은 바꾸지 않는다)
       if (f?.personName && cur.name.trim() && normName(f.personName) !== normName(cur.name)) {
@@ -852,6 +869,56 @@ export default function LaborRoster() {
         </p>
       )}
 
+      {/*
+        서류에는 있는데 지금 기록과 다른 값 — 말없이 덮지도, 말없이 버리지도 않는다.
+        나란히 보여 주고 [서류대로 맞추기]를 눌렀을 때만 바꾼다.
+      */}
+      {docDiff && (
+        <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
+          <div className="flex items-start gap-2">
+            <p className="flex-1 text-xs font-bold text-amber-900">
+              첨부한 서류의 값이 지금 기록과 다릅니다{docDiff.name ? ` — ${docDiff.name}` : ''}
+            </p>
+            <button
+              onClick={() => setDocDiff(null)}
+              className="shrink-0 text-amber-600 hover:text-amber-900"
+              aria-label="안내 닫기"
+            >
+              ✕
+            </button>
+          </div>
+          <ul className="mt-1.5 space-y-0.5">
+            {docDiff.differs.map((d) => (
+              <li key={d.label} className="text-[11px] text-amber-900">
+                <b>{d.label}</b> — 지금 <span className="font-mono">{d.mine}</span> · 서류{' '}
+                <span className="font-mono font-bold">{d.doc}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-2 flex gap-1.5">
+            <button
+              onClick={() => {
+                // 서류가 맞다고 사람이 판단한 것 — 날짜가 뒤로 물러나더라도 그대로 맞춘다
+                let merged: Partial<LaborWorker> = {};
+                for (const d of docDiff.differs) merged = { ...merged, ...d.patch };
+                setRow(docDiff.rowId, merged);
+                setAutoNote(`📄 서류대로 맞췄습니다 — ${docDiff.differs.map((d) => `${d.label} ${d.doc}`).join(' · ')}`);
+                setDocDiff(null);
+              }}
+              className="rounded-lg bg-amber-600 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-amber-700"
+            >
+              서류대로 맞추기
+            </button>
+            <button
+              onClick={() => setDocDiff(null)}
+              className="rounded-lg border border-amber-300 px-3 py-1.5 text-[11px] font-semibold text-amber-800"
+            >
+              지금 값 그대로 두기
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 분류 탭 */}
       <div className="mb-3 flex flex-wrap gap-1.5">
         {LABOR_TABS.map((t) => {
@@ -991,6 +1058,21 @@ export default function LaborRoster() {
                             uploading={uploading === `${r.id}-specialHealthCert`}
                             inputId={`lw-special-${r.id}`}
                             onFile={(file) => void attachFile(r, 'specialHealthCert', file)}
+                          />
+                        </div>
+                        {/*
+                          검진일자 — 확인서를 붙이면 서류에서 읽어 채운다.
+                          예전에는 값은 저장되는데 화면에 칸이 없어, 제대로 읽혔는지
+                          사람이 확인할 길이 없었다.
+                        */}
+                        <div className="mt-2 flex items-center gap-1.5">
+                          <span className="w-12 shrink-0 text-[11px] text-slate-500">검진일</span>
+                          <input
+                            type="date"
+                            aria-label={`${r.name || '이 인원'} 특수검진일자`}
+                            value={r.specialHealthDate ?? ''}
+                            onChange={(e) => setRow(r.id, { specialHealthDate: e.target.value })}
+                            className={`${CELL} w-[9rem] bg-white`}
                           />
                         </div>
                         <div className="mt-2 border-t border-slate-100 pt-2">

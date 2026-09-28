@@ -63,30 +63,66 @@ export interface ReadFields {
   hazards?: string | null;
 }
 
+/** 서류 값이 지금 기록과 다를 때 — 사람이 보고 고를 수 있게 한 줄로 만든다 */
+export interface DocDiff {
+  /** 어느 칸인지 (생년월일·검진일자·벤젠 …) */
+  label: string;
+  /** 지금 기록에 있는 값 */
+  mine: string;
+  /** 서류에 적힌 값 */
+  doc: string;
+  /** [서류대로 맞추기]를 누르면 적용할 내용 */
+  patch: Partial<LaborWorker>;
+}
+
+export interface DocReadResult {
+  /** 비어 있던 칸에 곧바로 채운 내용 */
+  patch: Partial<LaborWorker>;
+  /** 무엇을 채웠는지 (사람에게 보여 줄 말) */
+  filled: string[];
+  /** 서류에는 있는데 지금 값과 다른 것 — 함부로 덮지 않고 알려만 준다 */
+  differs: DocDiff[];
+  /** 서류에서 읽어 낸 내용 요약 — 아무것도 안 채워도 무엇을 읽었는지는 보여 준다 */
+  read: string[];
+}
+
 /**
  * 서류에서 읽은 값으로 **비어 있는 칸만** 채운다.
  *
  * 사람이 이미 적어 둔 값은 절대 건드리지 않는다 — 판독은 어디까지나 보조 수단이라
  * 잘못 읽었을 때 기존 기록을 망가뜨리면 안 된다.
- * 무엇을 채웠는지(filled)를 함께 돌려주어 화면에서 사람에게 알려 준다.
+ *
+ * 다만 **조용히 넘어가지는 않는다.** 서류에 적힌 값이 지금 기록과 다르면 `differs`로
+ * 돌려주어 화면에서 나란히 보여 주고, 사람이 [서류대로 맞추기]를 누르면 그때 바꾼다.
+ * (예전에는 다른 값을 말없이 무시해서, 붙였는데 왜 그대로냐는 말이 나왔다)
  */
 export function autoFillFromDoc(
   cur: LaborWorker,
   f: ReadFields | null,
   field: CertField,
   opts: { formatPhone: (s: string) => string; fallbackChemDate: string; nameTaken?: (name: string) => boolean },
-): { patch: Partial<LaborWorker>; filled: string[] } {
+): DocReadResult {
   const patch: Partial<LaborWorker> = {};
   const filled: string[] = [];
+  const differs: DocDiff[] = [];
+  const read: string[] = [];
 
-  if (f?.birth && !cur.birth) {
-    patch.birth = f.birth;
-    filled.push(`생년월일 ${f.birth}`);
-  }
-  if (f?.phone && !cur.phone?.trim()) {
-    patch.phone = opts.formatPhone(f.phone);
-    filled.push(`휴대폰 ${patch.phone}`);
-  }
+  /** 빈 칸이면 채우고, 값이 있는데 다르면 알려만 준다 */
+  const take = (label: string, mine: string | undefined, doc: string | undefined, make: (v: string) => Partial<LaborWorker>) => {
+    if (!doc) return;
+    read.push(`${label} ${doc}`);
+    const now = (mine ?? '').trim();
+    if (!now) {
+      Object.assign(patch, make(doc));
+      filled.push(`${label} ${doc}`);
+      return;
+    }
+    if (now !== doc) differs.push({ label, mine: now, doc, patch: make(doc) });
+  };
+
+  take('생년월일', cur.birth, f?.birth ?? undefined, (v) => ({ birth: v }));
+  take('휴대폰', cur.phone, f?.phone ? opts.formatPhone(f.phone) : undefined, (v) => ({ phone: v }));
+
   // 이름 없이 첨부부터 한 경우에만 채운다 (이미 있는 사람과 겹치면 넣지 않는다)
   if (f?.personName && !cur.name.trim() && !opts.nameTaken?.(f.personName)) {
     patch.name = f.personName;
@@ -95,31 +131,65 @@ export function autoFillFromDoc(
 
   if (field === 'chemCert' || field === 'chemCertCompletion') {
     // 이수년도 — 서류에서 읽은 이수일자를 쓰고, 못 읽으면 파일명의 연도로 대신한다
-    if (!cur.chemDate) {
-      patch.chemDate = f?.issuedAt ?? opts.fallbackChemDate;
-      if (f?.issuedAt) filled.push(`이수일자 ${f.issuedAt}`);
+    if (f?.issuedAt) {
+      take('이수일자', cur.chemDate, f.issuedAt, (v) => ({ chemDate: v }));
+    } else if (!cur.chemDate) {
+      patch.chemDate = opts.fallbackChemDate;
     }
   }
+
   if (field === 'specialHealthCert' && f?.issuedAt) {
-    if (!cur.specialHealthDate) {
-      patch.specialHealthDate = f.issuedAt;
-      filled.push(`특수검진일 ${f.issuedAt}`);
-    }
-    // 유해인자별 갱신 — 확인서에 적힌 물질만 날짜를 바꾼다 (벤젠 재검이면 벤젠만).
-    // 유해인자를 못 읽었으면 연간 검진으로 보고 세 물질을 모두 잡는다.
-    const read = watchedHazardsIn(f.hazards);
-    const names = read.length > 0 ? read : [...WATCHED_HAZARDS];
-    const next = applyHazardCheck(cur.hazards, names, f.issuedAt);
-    if (JSON.stringify(next) !== JSON.stringify(cur.hazards ?? [])) {
-      patch.hazards = next;
-      filled.push(`${names.join('·')} ${f.issuedAt}${read.length > 0 ? '' : ' (유해인자를 못 읽어 3종 모두 적용)'}`);
+    take('검진일자', cur.specialHealthDate, f.issuedAt, (v) => ({ specialHealthDate: v }));
+
+    /*
+     * 유해인자별 갱신 — 확인서에 적힌 물질만 날짜를 잡는다 (벤젠 재검이면 벤젠만).
+     * 유해인자를 못 읽었으면 연간 검진으로 보고 세 물질을 모두 잡는다.
+     */
+    const readHaz = watchedHazardsIn(f.hazards);
+    const names = readHaz.length > 0 ? readHaz : [...WATCHED_HAZARDS];
+    read.push(`유해인자 ${names.join('·')}${readHaz.length > 0 ? '' : ' (못 읽어 3종으로 봄)'}`);
+
+    const byName = new Map((cur.hazards ?? []).map((h) => [h.name, h.checkedAt]));
+    for (const name of names) {
+      const mine = byName.get(name);
+      if (!mine) {
+        // 이 물질 기록이 아직 없다 — 그대로 넣는다
+        const next = applyHazardCheck(patch.hazards ?? cur.hazards, [name], f.issuedAt);
+        patch.hazards = next;
+        filled.push(`${name} ${f.issuedAt}`);
+      } else if (mine !== f.issuedAt) {
+        differs.push({
+          label: name,
+          mine,
+          doc: f.issuedAt,
+          patch: { hazards: applyHazardCheckForce(cur.hazards, [name], f.issuedAt) },
+        });
+      }
     }
   }
-  if (field === 'generalHealthCert' && f?.issuedAt && !cur.generalHealthDate) {
-    patch.generalHealthDate = f.issuedAt;
-    filled.push(`일반검진일 ${f.issuedAt}`);
+
+  if (field === 'generalHealthCert' && f?.issuedAt) {
+    take('일반검진일', cur.generalHealthDate, f.issuedAt, (v) => ({ generalHealthDate: v }));
   }
-  return { patch, filled };
+
+  return { patch, filled, differs, read };
+}
+
+/**
+ * 물질 날짜를 **서류대로 맞춘다** — 앞뒤를 따지지 않는다.
+ *
+ * 평소(`applyHazardCheck`)는 날짜를 앞으로만 민다. 예전 서류를 뒤늦게 붙여도 최신
+ * 기록이 밀리지 않게 하려는 것이다. 하지만 사람이 [서류대로 맞추기]를 눌렀다면
+ * 그 서류가 맞다는 뜻이므로, 지금 값이 더 나중이어도 서류 날짜로 되돌린다.
+ */
+export function applyHazardCheckForce(
+  cur: HazardWatch[] | undefined,
+  names: string[],
+  checkedAt: string,
+): HazardWatch[] {
+  const out = (cur ?? []).filter((h) => !names.includes(h.name));
+  for (const name of names) out.push({ name, checkedAt });
+  return out;
 }
 
 /**
