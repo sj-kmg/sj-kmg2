@@ -6,7 +6,8 @@
  * [기존 인력 데이터 불러오기]로 그 메뉴들에 이미 입력된 인력 항목을 이름 기준으로
  * 병합해 최초 1회 가져올 수 있다 (덮어쓰지 않고 채워져 있지 않은 값만 채운다).
  */
-import { WATCHED_HAZARDS, applyHazardCheck, watchedHazardsIn, type HazardWatch } from './hazardWatch';
+import { WATCHED_HAZARDS, applyHazardCheck, hazardStatuses, watchedHazardsIn, type HazardWatch } from './hazardWatch';
+import { daysUntil } from './education';
 import { changedFields, shouldApply } from './docBatch';
 import { LABOR_CATEGORIES } from './workforce';
 
@@ -61,6 +62,119 @@ export interface ReadFields {
   issuedAt?: string | null;
   /** 「유해인자」 칸 원문 — 어떤 물질을 검진했는지 판단해 갱신주기를 잡는다 */
   hazards?: string | null;
+}
+
+/**
+ * 유해화학물질 안전교육 유효기간 (년).
+ * 이수한 해로부터 이만큼 되는 해의 **12월 31일까지** 쓸 수 있다.
+ * 예) 2024년 이수 → 2026년까지 유효, 2027년이 되면 갱신해야 한다.
+ */
+export const CHEM_VALID_YEARS = 2;
+/** 일반검진 유효기간 (개월) */
+export const GENERAL_VALID_MONTHS = 12;
+
+/** 이름 옆 표시 상태 — 없음·유효·기간 지남 */
+export type ChipState = 'none' | 'ok' | 'expired';
+
+export interface WorkerChip {
+  label: string;
+  state: ChipState;
+  /** 왜 그 색인지 — 표시 위에 올리면 보인다 */
+  hint: string;
+}
+
+/**
+ * 이름 옆에 붙는 네 가지 표시를 만든다.
+ *
+ * 값이 없으면 회색, 기간이 남아 있으면 초록, **기간이 지났으면 빨강**이다.
+ * 기간을 따지는 기준은 항목마다 다르다.
+ *   · 특수검진     — 붙인 확인서에 적힌 물질 중 **하나라도** 갱신일이 지나면 빨강
+ *                    (벤젠 6개월 · 톨루엔/크실렌 1년, 물질마다 주기가 다르다)
+ *   · 유해화학물질 — 이수한 해를 포함해 2년. 24년 이수면 26년까지 쓰고 27년부터 빨강
+ *   · YNCC        — 교육기간 종료일이 지나면 빨강
+ *   · 일반검진     — 검진일로부터 1년이 지나면 빨강
+ *
+ * `today`가 없으면(화면이 뜨기 전) 기간을 따지지 않는다 — 서버에서 그린 화면과
+ * 어긋나면 글자가 깜빡이기 때문이다.
+ */
+export function workerChips(r: LaborWorker, today: Date | null): WorkerChip[] {
+  const chips: WorkerChip[] = [];
+
+  // ── 특수검진 — 물질별 갱신일 가운데 가장 급한 것으로 판단한다
+  if (!r.specialHealthCert && !(r.hazards ?? []).length) {
+    chips.push({ label: '특수검진', state: 'none', hint: '확인서가 없습니다' });
+  } else {
+    const st = hazardStatuses(r.hazards, today);
+    const 지난것 = st.filter((h) => h.days < 0);
+    if (지난것.length > 0) {
+      chips.push({
+        label: '특수검진',
+        state: 'expired',
+        hint: `갱신 필요 — ${지난것.map((h) => `${h.name} ${h.renewAt}`).join(' · ')}`,
+      });
+    } else {
+      const 다음 = st[0];
+      chips.push({
+        label: '특수검진',
+        state: 'ok',
+        hint: 다음 ? `다음 검진 ${다음.name} ${다음.renewAt}` : '확인서 있음',
+      });
+    }
+  }
+
+  // ── 유해화학물질 — 이수한 해를 포함해 2년
+  const chemYear = Number((r.chemDate ?? '').slice(0, 4));
+  if (!r.chemCert && !r.chemCertCompletion && !chemYear) {
+    chips.push({ label: '유해화학물질', state: 'none', hint: '이수증이 없습니다' });
+  } else if (!chemYear || !today) {
+    chips.push({ label: '유해화학물질', state: 'ok', hint: '이수년도가 없어 기간을 따지지 않습니다' });
+  } else {
+    const 마지막해 = chemYear + CHEM_VALID_YEARS;
+    const 지남 = today.getFullYear() > 마지막해;
+    chips.push({
+      label: '유해화학물질',
+      state: 지남 ? 'expired' : 'ok',
+      hint: `${chemYear}년 이수 — ${마지막해}년까지 유효`,
+    });
+  }
+
+  // ── YNCC — 교육기간 종료일
+  if (!r.ynccStart && !r.ynccEnd) {
+    chips.push({ label: 'YNCC', state: 'none', hint: '교육기간이 없습니다' });
+  } else if (!r.ynccEnd) {
+    chips.push({ label: 'YNCC', state: 'ok', hint: '종료일이 비어 있습니다' });
+  } else {
+    const 지남 = !!today && daysUntil(r.ynccEnd, today) < 0;
+    chips.push({ label: 'YNCC', state: 지남 ? 'expired' : 'ok', hint: `교육기간 종료 ${r.ynccEnd}` });
+  }
+
+  // ── 일반검진 — 검진일로부터 1년
+  if (!r.generalHealthDate) {
+    chips.push({ label: '일반검진', state: 'none', hint: '검진일자가 없습니다' });
+  } else {
+    const 갱신일 = addMonthsTo(r.generalHealthDate, GENERAL_VALID_MONTHS);
+    const 지남 = !!today && !!갱신일 && daysUntil(갱신일, today) < 0;
+    chips.push({
+      label: '일반검진',
+      state: 지남 ? 'expired' : 'ok',
+      hint: `${r.generalHealthDate} 검진 — ${갱신일}까지 유효`,
+    });
+  }
+
+  return chips;
+}
+
+/** 개월 수를 더한 날짜 — 말일 처리 포함 (하루 전으로 당기지 않는다) */
+function addMonthsTo(date: string, months: number): string {
+  const d = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return '';
+  const day = d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + months);
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, last));
+  const p = (n: number) => (n < 10 ? `0${n}` : String(n));
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 /** 서류 값이 지금 기록과 다를 때 — 사람이 보고 고를 수 있게 한 줄로 만든다 */

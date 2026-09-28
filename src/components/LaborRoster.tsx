@@ -9,6 +9,8 @@ import {
   autoFillFromDoc,
   blankWorker,
   specialHealthPatch,
+  workerChips,
+  type ChipState,
   type DocDiff,
   type LaborWorker,
   type SpecialHealthEntry,
@@ -397,6 +399,18 @@ function HazardChips({
     </div>
   );
 }
+
+/**
+ * 이름 옆 표시의 색.
+ * 회색은 아직 넣지 않은 것, 초록은 기간이 남은 것, **빨강은 기간이 지나 갱신해야 하는 것**.
+ */
+const CHIP_STYLE: Record<ChipState, string> = {
+  none: 'bg-slate-100 text-slate-400',
+  ok: 'bg-emerald-50 text-emerald-700',
+  expired: 'bg-red-100 text-red-700 ring-1 ring-red-300',
+};
+
+const CHIP_MARK: Record<ChipState, string> = { none: '·', ok: '✓', expired: '!' };
 
 /** 값이 비어 있을 때만 채운다 — 이미 입력된 값은 덮어쓰지 않는다 */
 function fillBlank<T extends object>(base: T, patch: Partial<T>): { next: T; changed: boolean } {
@@ -999,12 +1013,7 @@ export default function LaborRoster() {
         <div className="space-y-3">
           {shown.map((r) => {
             const isOpen = open === r.id;
-            const statusChips = [
-              { label: '특수검진', ok: !!r.specialHealthCert },
-              { label: '유해화학물질', ok: !!r.chemCert },
-              { label: 'YNCC', ok: !!r.ynccStart || !!r.ynccEnd },
-              { label: '일반검진', ok: !!r.generalHealthDate },
-            ];
+            const statusChips = workerChips(r, today);
             return (
               <article key={r.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                 <button
@@ -1017,11 +1026,10 @@ export default function LaborRoster() {
                     {statusChips.map((c) => (
                       <span
                         key={c.label}
-                        className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                          c.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'
-                        }`}
+                        title={c.hint}
+                        className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${CHIP_STYLE[c.state]}`}
                       >
-                        {c.ok ? '✓' : '·'} {c.label}
+                        {CHIP_MARK[c.state]} {c.label}
                       </span>
                     ))}
                   </span>
