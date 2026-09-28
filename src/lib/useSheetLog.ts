@@ -92,7 +92,18 @@ export function useSheetLog<T extends { id: string }>(type: LogType, localKey: s
    * 있어서 마지막 관문을 하나 더 둔다.
    */
   const sortRows = useCallback((list: T[]) => {
-    const clean = list.filter((r) => !String(r?.id ?? '').startsWith('__'));
+    /*
+     * 같은 id가 두 번 들어오면 화면에 카드가 둘 생기고, 펼침 상태는 id로 판단하므로
+     * 하나를 눌렀는데 둘이 같이 펼쳐진다 (인력관리에서 실제로 났다).
+     * 목록을 만드는 길목이 여기 하나뿐이라, 겹치는 id는 먼저 온 것만 남긴다.
+     */
+    const seen = new Set<string>();
+    const clean = list.filter((r) => {
+      const id = String(r?.id ?? '');
+      if (id.startsWith('__') || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
     const cmp = sortRef.current;
     if (!cmp) return clean;
     // 비교 도중 잘못된 값이 하나 있어도 화면 전체가 죽지 않게 한다

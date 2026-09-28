@@ -30,6 +30,30 @@ import {
  */
 let lastAlertAt = 0;
 
+/**
+ * 서버가 받아 주지 않은 기록을 남긴다 — 무엇이 걸렸는지 알아야 고칠 수 있다.
+ *
+ * 화면에 뜨는 "저장 형식이 올바르지 않습니다 (400)"만으로는 어느 기록인지 알 수 없어
+ * 원인을 찾지 못했다. 저장소 이름·id·칸 목록을 남겨 두면 바로 짚을 수 있다.
+ * (값 자체는 남기지 않는다 — 개인정보가 섞일 수 있다)
+ */
+function recordBadEntry(type: string, entry: unknown): void {
+  const e = (entry ?? {}) as Record<string, unknown>;
+  const line = {
+    at: new Date().toISOString(),
+    where: `save:${type}`,
+    message: `거부된 기록 id=${JSON.stringify(e.id)} · 칸=${Object.keys(e).join(',')}`,
+    stack: '',
+  };
+  try {
+    const key = 'sj-screen-errors';
+    const prev = JSON.parse(localStorage.getItem(key) ?? '[]') as unknown[];
+    localStorage.setItem(key, JSON.stringify([...prev, line].slice(-20)));
+  } catch {
+    // 저장소를 못 쓰면 기록은 포기한다
+  }
+}
+
 function alertOnce(message: string): void {
   const now = Date.now();
   if (now - lastAlertAt < 10000) return;
@@ -215,10 +239,23 @@ export function useSyncedLog<T extends { id: string }>(type: LogType, localKey: 
     async (incoming: T): Promise<boolean> => {
       // 내용만 고쳐 저장하는 경우에도 첨부파일이 사라지지 않게 이어받는다
       const entry = keepAttachments(incoming, entriesRef.current.find((e) => e.id === incoming.id));
+
+      /*
+       * 서버는 id가 영문·숫자·`_`·`-` 64자 이내일 때만 받는다. 그 규칙을 못 지키는
+       * 기록을 보내면 400으로 거부당하고, 사람에게는 "저장 형식이 올바르지 않다"는
+       * 알림만 뜬다 — 어느 기록인지 알 수 없어 원인을 찾을 수 없었다.
+       * 그래서 보내기 전에 걸러 내고, 무엇이 걸렸는지 기록으로 남긴다.
+       */
+      if (!/^[A-Za-z0-9_-]{1,64}$/.test(String(entry?.id ?? ''))) {
+        recordBadEntry(type, entry);
+        return false;
+      }
+
       if (mode === 'server') {
         try {
           await saveEntryRemote(type, entry);
         } catch (e) {
+          if (e instanceof SyncError && e.status === 400) recordBadEntry(type, entry);
           /*
            * 저장은 자동저장으로 배경에서 돈다. 여기서 암호 창을 띄우면 화면이 멈춰 서고,
            * 여러 건이 겹치면 앱이 통째로 죽는다. 그래서 저장 중에는 묻지 않는다 —

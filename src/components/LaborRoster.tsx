@@ -429,6 +429,8 @@ export default function LaborRoster() {
 
   const { role } = useRole();
   const [tab, setTab] = useState<string>(LABOR_CATEGORIES[0]);
+  /** 이름으로 찾기 — 비어 있으면 평소대로 분류 탭을 따른다 */
+  const [nameQuery, setNameQuery] = useState('');
   const [open, setOpen] = useState<string | null>(null);
   const [uploading, setUploading] = useState<string | null>(null);
   const [migrating, setMigrating] = useState(false);
@@ -466,8 +468,21 @@ export default function LaborRoster() {
     }
   }, [rows, mode, setRow]);
 
+  /*
+   * 이름으로 찾기 — 78명을 훑지 않고 바로 그 사람만 본다.
+   * 검색 중에는 분류 탭을 넘어 **전체에서** 찾는다. 어느 인력사 소속인지
+   * 기억해야만 찾을 수 있다면 찾기의 뜻이 없다.
+   */
+  const q = nameQuery.replace(/\s/g, '');
+  const searching = q.length > 0;
   const shown = sortCtl.apply(
-    rows.filter((r) => (tab === UNASSIGNED ? !r.category : r.category === tab)),
+    rows.filter((r) =>
+      searching
+        ? r.name.replace(/\s/g, '').includes(q)
+        : tab === UNASSIGNED
+          ? !r.category
+          : r.category === tab,
+    ),
     { name: (r) => r.name, chem: (r) => r.chemDate ?? '' },
   );
 
@@ -919,8 +934,38 @@ export default function LaborRoster() {
         </div>
       )}
 
-      {/* 분류 탭 */}
-      <div className="mb-3 flex flex-wrap gap-1.5">
+      {/* 이름으로 찾기 — 분류를 몰라도 바로 그 사람만 본다 */}
+      <div className="mb-3 flex items-center gap-2">
+        <div className="relative flex-1 sm:max-w-xs">
+          <span aria-hidden className="absolute top-1/2 left-2.5 -translate-y-1/2 text-xs text-slate-400">
+            🔍
+          </span>
+          <input
+            type="search"
+            value={nameQuery}
+            onChange={(e) => setNameQuery(e.target.value)}
+            placeholder="이름으로 찾기"
+            aria-label="인력 이름으로 찾기"
+            className="w-full rounded-lg border border-slate-300 bg-white py-1.5 pr-3 pl-7 text-xs text-slate-800 focus:border-[#1f3864] focus:outline-none"
+          />
+        </div>
+        {searching && (
+          <>
+            <span className="text-xs whitespace-nowrap text-slate-500">
+              전체에서 <b className="text-[#1f3864]">{shown.length}</b>명
+            </span>
+            <button
+              onClick={() => setNameQuery('')}
+              className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium whitespace-nowrap text-slate-600 hover:border-[#1f3864]"
+            >
+              찾기 끄기
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* 분류 탭 — 찾는 중에는 전체에서 찾으므로 흐리게 둔다 */}
+      <div className={`mb-3 flex flex-wrap gap-1.5 ${searching ? 'opacity-40' : ''}`}>
         {LABOR_TABS.map((t) => {
           const count = rows.filter((r) => (t === UNASSIGNED ? !r.category : r.category === t)).length;
           const active = tab === t;
@@ -946,7 +991,9 @@ export default function LaborRoster() {
         <div className="rounded-xl border-2 border-dashed border-slate-200 py-14 text-center text-sm text-slate-400">
           {mode === 'loading'
             ? '기록을 불러오는 중…'
-            : `${tab}에 등록된 인원이 없습니다. [＋ 인원 추가]로 등록하거나 [기존 인력 데이터 불러오기]를 눌러 보세요.`}
+            : searching
+              ? `"${nameQuery}"와 맞는 인원이 없습니다.`
+              : `${tab}에 등록된 인원이 없습니다. [＋ 인원 추가]로 등록하거나 [기존 인력 데이터 불러오기]를 눌러 보세요.`}
         </div>
       ) : (
         <div className="space-y-3">

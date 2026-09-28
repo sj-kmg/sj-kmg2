@@ -130,11 +130,18 @@ export function autoFillFromDoc(
   }
 
   if (field === 'chemCert' || field === 'chemCertCompletion') {
-    // 이수년도 — 서류에서 읽은 이수일자를 쓰고, 못 읽으면 파일명의 연도로 대신한다
-    if (f?.issuedAt) {
-      take('이수일자', cur.chemDate, f.issuedAt, (v) => ({ chemDate: v }));
-    } else if (!cur.chemDate) {
-      patch.chemDate = opts.fallbackChemDate;
+    /*
+     * 유해화학물질은 **이수년도만** 본다 (화면에도 연도 한 칸뿐이다).
+     * 그래서 날짜가 하루이틀 다르다고 알릴 필요가 없다 — 연도가 같으면 같은 것으로 본다.
+     * 비어 있을 때만 채우고, 값이 있으면 건드리지도 묻지도 않는다.
+     */
+    const docDate = f?.issuedAt || (opts.fallbackChemDate.startsWith('0000') ? '' : opts.fallbackChemDate);
+    if (docDate) {
+      read.push(`이수년도 ${docDate.slice(0, 4)}`);
+      if (!cur.chemDate) {
+        patch.chemDate = docDate;
+        filled.push(`이수년도 ${docDate.slice(0, 4)}`);
+      }
     }
   }
 
