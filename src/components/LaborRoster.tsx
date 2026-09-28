@@ -1060,21 +1060,6 @@ export default function LaborRoster() {
                             onFile={(file) => void attachFile(r, 'specialHealthCert', file)}
                           />
                         </div>
-                        {/*
-                          검진일자 — 확인서를 붙이면 서류에서 읽어 채운다.
-                          예전에는 값은 저장되는데 화면에 칸이 없어, 제대로 읽혔는지
-                          사람이 확인할 길이 없었다.
-                        */}
-                        <div className="mt-2 flex items-center gap-1.5">
-                          <span className="w-12 shrink-0 text-[11px] text-slate-500">검진일</span>
-                          <input
-                            type="date"
-                            aria-label={`${r.name || '이 인원'} 특수검진일자`}
-                            value={r.specialHealthDate ?? ''}
-                            onChange={(e) => setRow(r.id, { specialHealthDate: e.target.value })}
-                            className={`${CELL} w-[9rem] bg-white`}
-                          />
-                        </div>
                         <div className="mt-2 border-t border-slate-100 pt-2">
                           <p className="mb-1 text-[10px] font-semibold text-slate-500">
                             유해인자 갱신

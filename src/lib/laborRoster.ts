@@ -139,31 +139,35 @@ export function autoFillFromDoc(
   }
 
   if (field === 'specialHealthCert' && f?.issuedAt) {
-    take('검진일자', cur.specialHealthDate, f.issuedAt, (v) => ({ specialHealthDate: v }));
+    // 검진일자는 서류를 그대로 따라간다 (화면에는 안 보여 주고 목록·내보내기에만 쓴다)
+    if ((cur.specialHealthDate ?? '') !== f.issuedAt) patch.specialHealthDate = f.issuedAt;
 
     /*
-     * 유해인자별 갱신 — 확인서에 적힌 물질만 날짜를 잡는다 (벤젠 재검이면 벤젠만).
-     * 유해인자를 못 읽었으면 연간 검진으로 보고 세 물질을 모두 잡는다.
+     * 유해인자 — **붙인 확인서가 그 사람의 특수검진 기록 그 자체**다.
+     * 그래서 화면은 서류와 똑같아야 한다.
+     *   · 서류에 적힌 물질 → 그 검진일자로 적는다 (지금 값이 더 나중이어도 서류대로)
+     *   · 서류에 없는 물질 → 날짜를 지운다 (그 검진에서 받지 않았다는 뜻)
+     * 예: 벤젠·아세톤·소음만 적힌 확인서라면 벤젠만 그 날짜로 남고 톨루엔·크실렌은 빈다.
+     *
+     * 유해인자를 아예 못 읽었을 때는 손대지 않는다 — 못 읽은 것을 "없다"로 보고
+     * 지워 버리면 멀쩡한 기록이 날아간다.
      */
     const readHaz = watchedHazardsIn(f.hazards);
-    const names = readHaz.length > 0 ? readHaz : [...WATCHED_HAZARDS];
-    read.push(`유해인자 ${names.join('·')}${readHaz.length > 0 ? '' : ' (못 읽어 3종으로 봄)'}`);
-
-    const byName = new Map((cur.hazards ?? []).map((h) => [h.name, h.checkedAt]));
-    for (const name of names) {
-      const mine = byName.get(name);
-      if (!mine) {
-        // 이 물질 기록이 아직 없다 — 그대로 넣는다
-        const next = applyHazardCheck(patch.hazards ?? cur.hazards, [name], f.issuedAt);
+    if (readHaz.length === 0) {
+      read.push('유해인자 (못 읽음 — 기존 값을 그대로 둡니다)');
+    } else {
+      read.push(`유해인자 ${readHaz.join('·')}`);
+      const next: HazardWatch[] = readHaz.map((name) => ({ name, checkedAt: f.issuedAt as string }));
+      const key = (list: HazardWatch[]) =>
+        JSON.stringify([...list].sort((a, b) => a.name.localeCompare(b.name)).map((h) => `${h.name}:${h.checkedAt}`));
+      if (key(next) !== key(cur.hazards ?? [])) {
         patch.hazards = next;
-        filled.push(`${name} ${f.issuedAt}`);
-      } else if (mine !== f.issuedAt) {
-        differs.push({
-          label: name,
-          mine,
-          doc: f.issuedAt,
-          patch: { hazards: applyHazardCheckForce(cur.hazards, [name], f.issuedAt) },
-        });
+        const gone = WATCHED_HAZARDS.filter(
+          (h) => !readHaz.includes(h) && (cur.hazards ?? []).some((x) => x.name === h),
+        );
+        filled.push(
+          `${readHaz.join('·')} ${f.issuedAt}` + (gone.length > 0 ? ` · ${gone.join('·')} 지움 (서류에 없음)` : ''),
+        );
       }
     }
   }
@@ -173,23 +177,6 @@ export function autoFillFromDoc(
   }
 
   return { patch, filled, differs, read };
-}
-
-/**
- * 물질 날짜를 **서류대로 맞춘다** — 앞뒤를 따지지 않는다.
- *
- * 평소(`applyHazardCheck`)는 날짜를 앞으로만 민다. 예전 서류를 뒤늦게 붙여도 최신
- * 기록이 밀리지 않게 하려는 것이다. 하지만 사람이 [서류대로 맞추기]를 눌렀다면
- * 그 서류가 맞다는 뜻이므로, 지금 값이 더 나중이어도 서류 날짜로 되돌린다.
- */
-export function applyHazardCheckForce(
-  cur: HazardWatch[] | undefined,
-  names: string[],
-  checkedAt: string,
-): HazardWatch[] {
-  const out = (cur ?? []).filter((h) => !names.includes(h.name));
-  for (const name of names) out.push({ name, checkedAt });
-  return out;
 }
 
 /**
