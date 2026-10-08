@@ -75,6 +75,8 @@ const DEFAULT_WORKERS: {
   { name: '임복수', category: '공영인력', birth: '1974-06-15', chemDate: '2025-02-14', chemCert: '/certs/labor-roster/공영인력/임복수_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/임복수_수료증.pdf', specialHealthDate: '2026-04-11', specialHealthCert: '/certs/labor-roster/공영인력/임복수_특검확인서.pdf' },
   { name: '조운용', category: '공영인력', birth: '1964-01-02', chemDate: '2024-03-21', chemCert: '/certs/labor-roster/공영인력/조운용_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/조운용_수료증.pdf', specialHealthDate: '2026-01-16', specialHealthCert: '/certs/labor-roster/공영인력/조운용_특검확인서.pdf' },
   { name: '배영일', category: '공영인력', birth: '1963-11-27', chemDate: '2024-02-13', chemCert: '/certs/labor-roster/공영인력/배영일_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/배영일_수료증.pdf', specialHealthDate: '2026-01-16', specialHealthCert: '/certs/labor-roster/공영인력/배영일_특검확인서.pdf' },
+  { name: '이정식', category: '공영인력', birth: '1959-08-22', chemDate: '2024-01-19', chemCert: '/certs/labor-roster/공영인력/이정식_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/이정식_수료증.pdf' },
+  { name: '정명섭', category: '공영인력', birth: '1968-07-20', chemDate: '2025-02-06', chemCert: '/certs/labor-roster/공영인력/정명섭_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/정명섭_수료증.pdf' },
   { name: '이승훈', category: '공영인력', birth: '1976-01-05', chemDate: '2025-01-18', chemCert: '/certs/labor-roster/공영인력/이승훈_이수증.pdf', chemCertCompletion: '/certs/labor-roster/공영인력/이승훈_수료증.pdf', specialHealthDate: '2026-07-28', specialHealthCert: '/certs/labor-roster/공영인력/이승훈_특검확인서.pdf' },
   { name: '김우영', category: '당근인력', birth: '1972-01-19', phone: '010-8244-4302', chemDate: '2026-01-28', chemCert: '/certs/labor-roster/당근인력/김우영_이수증.pdf', chemCertCompletion: '/certs/labor-roster/당근인력/김우영_수료증.pdf' },
   { name: '김효종', category: '당근인력', birth: '1975-10-30', phone: '010-8531-5641', chemDate: '2026-02-19', chemCert: '/certs/labor-roster/당근인력/김효종_이수증.pdf', chemCertCompletion: '/certs/labor-roster/당근인력/김효종_수료증.pdf' },
@@ -308,6 +310,44 @@ const SPECIAL_HEALTH_DOCS: SpecialHealthEntry[] = [
     ],
   },
 ];
+
+/**
+ * 새로 올라온 유해화학물질 교육 서류 (공영인력).
+ *
+ * 대장 시드는 이미 한 번 깔린 뒤라 거기에만 적어 두면 지금 쓰는 화면에는 반영되지 않는다.
+ * 그래서 서류가 새로 들어오면 여기에 적는다.
+ *
+ * 이수년도는 **이수증(집체교육)** 날짜를 쓴다 — 수료증은 온라인 과정이라 며칠 앞선다.
+ */
+const CHEM_DOCS: {
+  name: string;
+  birth: string;
+  category: string;
+  chemDate: string;
+  cert: string;
+  completion: string;
+}[] = [
+  {
+    name: '이정식',
+    birth: '1959-08-22',
+    category: '공영인력',
+    chemDate: '2024-01-19',
+    cert: '/certs/labor-roster/공영인력/이정식_이수증.pdf',
+    completion: '/certs/labor-roster/공영인력/이정식_수료증.pdf',
+  },
+  {
+    // 명부에 없던 인원 — 서류에 적힌 대로 새로 등록한다
+    name: '정명섭',
+    birth: '1968-07-20',
+    category: '공영인력',
+    chemDate: '2025-02-06',
+    cert: '/certs/labor-roster/공영인력/정명섭_이수증.pdf',
+    completion: '/certs/labor-roster/공영인력/정명섭_수료증.pdf',
+  },
+];
+
+/** 유해화학물질 묶음 표식 */
+const CHEM_DOCS_BATCH = '2026-10-08-labor-chem';
 
 /** 위 묶음을 반영했다는 표식 — 한 번만 돈다 (지운 인원이 되살아나지 않게) */
 const SPECIAL_HEALTH_BATCH = '2026-09-10-labor-special';
@@ -691,6 +731,59 @@ export default function LaborRoster() {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, role]);
+
+  /*
+   * 유해화학물질 서류 반영 — 특검과 같은 방식이다.
+   * 표식을 서버에 남겨 한 번만 돌고, 그 뒤에 사람이 지운 내용은 되살아나지 않는다.
+   * 이미 이수년도가 적혀 있으면 건드리지 않는다 (서류와 다르다고 묻지도 않는다 —
+   * 화면에는 연도 한 칸뿐이라 날짜 차이를 따질 이유가 없다).
+   */
+  const chemRef = useRef(false);
+  useEffect(() => {
+    if (chemRef.current || mode === 'loading' || role === 'viewer') return;
+    if (batchDone(CHEM_DOCS_BATCH)) {
+      chemRef.current = true;
+      return;
+    }
+    chemRef.current = true;
+
+    const timer = setTimeout(() => {
+      const done: string[] = [];
+      for (const doc of CHEM_DOCS) {
+        const cur = findByName(doc.name);
+        if (!cur) {
+          addRow({
+            id: nameId('LW', doc.name),
+            category: doc.category,
+            name: doc.name,
+            birth: doc.birth,
+            chemDate: doc.chemDate,
+            chemCert: doc.cert,
+            chemCertCompletion: doc.completion,
+            updatedAt: '',
+          });
+          done.push(`${doc.name} 신규 등록 (${doc.chemDate.slice(0, 4)}년 이수)`);
+          continue;
+        }
+        // 이미 있는 사람 — 비어 있는 칸만 채운다
+        const patch: Partial<LaborWorker> = {};
+        if (!cur.birth) patch.birth = doc.birth;
+        if (!cur.chemDate) patch.chemDate = doc.chemDate;
+        if (!cur.chemCert) patch.chemCert = doc.cert;
+        if (!cur.chemCertCompletion) patch.chemCertCompletion = doc.completion;
+        if (Object.keys(patch).length > 0) {
+          setRow(cur.id, patch);
+          done.push(`${doc.name} ${doc.chemDate.slice(0, 4)}년 이수`);
+        }
+      }
+      void markBatchDone(CHEM_DOCS_BATCH);
+      if (done.length > 0) setAutoNote(`📄 유해화학물질 서류를 반영했습니다 — ${done.join(' · ')}`);
+    }, 0);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, role]);
+
 
   const add = () => {
     seq.current += 1;
