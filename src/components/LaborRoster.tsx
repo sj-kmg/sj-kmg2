@@ -32,6 +32,7 @@ import { CHEM_WORKERS_KEY, YNCC_WORKERS_KEY, type EduSheetWorker } from '@/lib/y
 import { LABOR_CATEGORIES, laborColor } from '@/lib/workforce';
 import { useSortable } from '@/lib/useSortable';
 import SheetExport from './SheetExport';
+import { recordScreenError } from './ScreenGuard';
 import type { ExportSpec } from '@/lib/sheetExport';
 import { CELL, SortButton } from './SheetUI';
 
@@ -348,6 +349,33 @@ const CHEM_DOCS: {
 
 /** 유해화학물질 묶음 표식 */
 const CHEM_DOCS_BATCH = '2026-10-08-labor-chem';
+
+const SPECIAL_HEALTH_DOCS_2: SpecialHealthEntry[] = [
+  {
+    /*
+     * 확인서 두 장이 한 파일에 들어 있다 (여천전남병원).
+     *   1쪽 2026-04-07 — 벤젠·톨루엔·크실렌
+     *   2쪽 2026-10-17 — 벤젠·콜타르 (벤젠 재검)
+     * 그래서 벤젠만 10-17이고 톨루엔·크실렌은 04-07 그대로다.
+     */
+    name: '박성호',
+    category: '개미인력',
+    birth: '1975-09-24',
+    phone: '010-5708-8127',
+    rebuildHazards: true,
+    docs: [
+      {
+        checkedAt: '2026-04-07',
+        hazards: ['벤젠', '톨루엔', '크실렌'],
+        cert: '/certs/labor-roster/개미인력/박성호_특검확인서.pdf',
+      },
+      { checkedAt: '2026-10-17', hazards: ['벤젠'] },
+    ],
+  },
+];
+
+/** 위 묶음을 반영했다는 표식 */
+const SPECIAL_HEALTH_BATCH_2 = '2026-10-19-labor-special';
 
 /** 위 묶음을 반영했다는 표식 — 한 번만 돈다 (지운 인원이 되살아나지 않게) */
 const SPECIAL_HEALTH_BATCH = '2026-09-10-labor-special';
@@ -785,6 +813,53 @@ export default function LaborRoster() {
   }, [mode, role]);
 
 
+  /* 새 특검확인서 묶음 — 앞의 것과 같은 방식이다 (표식으로 한 번만 돈다) */
+  const docs2Ref = useRef(false);
+  useEffect(() => {
+    if (docs2Ref.current || mode === 'loading' || role === 'viewer') return;
+    if (batchDone(SPECIAL_HEALTH_BATCH_2)) {
+      docs2Ref.current = true;
+      return;
+    }
+    docs2Ref.current = true;
+
+    const timer = setTimeout(() => {
+      const done: string[] = [];
+      for (const entry of SPECIAL_HEALTH_DOCS_2) {
+        const cur = findByName(entry.name);
+        if (!cur) {
+          const last = entry.docs[entry.docs.length - 1];
+          let hz = applyHazardCheck([], entry.docs[0].hazards, entry.docs[0].checkedAt);
+          for (const d of entry.docs.slice(1)) hz = applyHazardCheck(hz, d.hazards, d.checkedAt);
+          addRow({
+            id: nameId('LW', entry.name),
+            category: entry.category ?? '',
+            name: entry.name,
+            birth: entry.birth,
+            phone: entry.phone,
+            specialHealthDate: last.checkedAt,
+            specialHealthCert: entry.docs.find((d) => d.cert)?.cert,
+            hazards: hz,
+            updatedAt: '',
+          });
+          done.push(`${entry.name} 신규 등록`);
+          continue;
+        }
+        const patch = specialHealthPatch(cur, entry);
+        if (patch) {
+          setRow(cur.id, patch);
+          done.push(`${entry.name} ${patch.specialHealthDate ?? '유해인자'}`);
+        }
+      }
+      void markBatchDone(SPECIAL_HEALTH_BATCH_2);
+      if (done.length > 0) setAutoNote(`📄 새 특검확인서를 반영했습니다 — ${done.join(' · ')}`);
+    }, 0);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, role]);
+
+
   const add = () => {
     seq.current += 1;
     const id = `LW-${Date.now()}-${seq.current}`;
@@ -847,11 +922,35 @@ export default function LaborRoster() {
         alert(`첨부한 서류의 이름은 "${f.personName}"입니다.\n지금 기록은 "${cur.name}"이니 확인해 주세요.`);
       }
     } catch (e) {
-      if (e instanceof SyncError && (e.status === 503 || e.status === 401)) {
-        alert('첨부파일 업로드는 배포된 사이트에서 동기화 암호를 입력한 뒤 사용할 수 있습니다.');
-      } else {
-        alert('업로드에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      /*
+       * 왜 실패했는지 말해 준다. 예전에는 무슨 일이든 "업로드에 실패했습니다"
+       * 한 줄이라, 파일이 큰 건지 암호가 풀린 건지 신호가 끊긴 건지 알 수 없었고
+       * 서버 기록에도 남지 않아 원인을 찾을 수 없었다.
+       */
+      const mb = (file.size / 1_000_000).toFixed(1);
+      let msg = `업로드에 실패했습니다. 잠시 후 다시 시도해 주세요.
+(${file.name} · ${mb}MB)`;
+      if (e instanceof SyncError) {
+        if (e.status === 401 || e.status === 503) {
+          msg = '첨부파일 업로드는 배포된 사이트에서 동기화 암호를 입력한 뒤 사용할 수 있습니다.';
+        } else if (e.status === 413) {
+          msg = `파일이 너무 큽니다 (${mb}MB). 8MB 이하로 줄여 주세요.`;
+        } else if (e.status === 400) {
+          msg = `서버가 이 파일을 읽지 못했습니다 (${file.name}).
+PDF·JPG·PNG 인지 확인해 주세요.`;
+        } else if (e.status === 403) {
+          msg = '이 계정은 첨부 권한이 없습니다.';
+        } else {
+          msg = `업로드에 실패했습니다 (${e.status}).
+(${file.name} · ${mb}MB)`;
+        }
       }
+      recordScreenError(
+        'labor-roster:attach',
+        `${field} · ${file.name} · ${file.size}B · type=${file.type || '(없음)'} · ` +
+          (e instanceof SyncError ? `status=${e.status}` : String((e as Error)?.message ?? e).slice(0, 120)),
+      );
+      alert(msg);
     } finally {
       setUploading(null);
     }
@@ -1231,18 +1330,13 @@ export default function LaborRoster() {
                             이수년도
                           </label>
                           <div className="w-16">
-                            <input
+                            <ChemYearInput
                               id={`lw-chemyear-${r.id}`}
-                              inputMode="numeric"
-                              maxLength={4}
-                              placeholder="0000"
-                              value={r.chemDate ? r.chemDate.slice(0, 4) : ''}
-                              onChange={(e) => {
-                                const y = e.target.value.replace(/\D/g, '').slice(0, 4);
+                              date={r.chemDate}
+                              onYear={(y) =>
                                 // 연도만 바꾸고 월·일은 원래 값을 유지한다
-                                setRow(r.id, { chemDate: y ? `${y}${(r.chemDate ?? '').slice(4) || '-01-01'}` : '' });
-                              }}
-                              className={`${CELL} bg-white text-center`}
+                                setRow(r.id, { chemDate: y ? `${y}${(r.chemDate ?? '').slice(4) || '-01-01'}` : '' })
+                              }
                             />
                           </div>
                         </div>
@@ -1319,6 +1413,47 @@ export default function LaborRoster() {
 }
 
 /** 첨부 파일 보기·첨부·교체 버튼 한 줄 */
+/**
+ * 이수년도 입력칸.
+ *
+ * 숫자를 한 자씩 치는 동안에는 아직 연도가 아니다. 예전에는 한 글자만 쳐도 바로
+ * `2-01-01` 같은 날짜로 저장해 버려서, 칸에 `2-01`이 뜨고 유효기간 계산도 틀어졌다.
+ * 그래서 **네 자리가 다 찼을 때만** 저장하고, 치는 중에는 화면에만 들고 있는다.
+ */
+function ChemYearInput({ id, date, onYear }: { id: string; date?: string; onYear: (y: string) => void }) {
+  const saved = date ? date.slice(0, 4) : '';
+  const [draft, setDraft] = useState<string | null>(null);
+  const shown = draft ?? saved;
+
+  const commit = (text: string) => {
+    const y = text.replace(/\D/g, '').slice(0, 4);
+    if (y.length === 4 || y.length === 0) {
+      onYear(y);
+      setDraft(null);
+      return true;
+    }
+    return false;
+  };
+
+  return (
+    <input
+      id={id}
+      inputMode="numeric"
+      maxLength={4}
+      placeholder="0000"
+      value={shown}
+      onChange={(e) => {
+        const y = e.target.value.replace(/\D/g, '').slice(0, 4);
+        setDraft(y);
+        commit(y);
+      }}
+      // 네 자리를 못 채우고 칸을 떠나면 원래 값으로 되돌린다
+      onBlur={() => setDraft(null)}
+      className={`${CELL} bg-white text-center`}
+    />
+  );
+}
+
 function AttachButtons({
   url,
   uploading,

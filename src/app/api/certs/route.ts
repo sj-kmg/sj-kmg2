@@ -14,6 +14,22 @@ const TYPES: Record<string, string> = {
   'image/webp': 'webp',
 };
 
+/**
+ * 파일 앞머리를 보고 종류를 알아낸다 — 브라우저가 알려 주는 종류보다 믿을 만하다.
+ * 아는 형식이 아니면 null (그때만 거부한다).
+ */
+function sniffType(b: Buffer): { ext: string; mime: string } | null {
+  if (b.length < 12) return null;
+  const head = b.subarray(0, 4).toString('latin1');
+  if (head === '%PDF') return { ext: 'pdf', mime: 'application/pdf' };
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return { ext: 'jpg', mime: 'image/jpeg' };
+  if (head === '\x89PNG') return { ext: 'png', mime: 'image/png' };
+  if (head === 'RIFF' && b.subarray(8, 12).toString('latin1') === 'WEBP') {
+    return { ext: 'webp', mime: 'image/webp' };
+  }
+  return null;
+}
+
 export async function POST(req: Request) {
   if (!firebaseReady()) {
     return NextResponse.json({ error: 'storage_not_configured' }, { status: 503 });
@@ -42,18 +58,32 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: 'bad_json' }, { status: 400 });
   }
-  const m = dataUrl.match(/^data:([\w/+-]+);base64,([A-Za-z0-9+/=]+)$/);
-  const ext = m ? TYPES[m[1]] : undefined;
-  if (!m || !ext) {
+  const m = dataUrl.match(/^data:([\w/+.-]*);base64,([A-Za-z0-9+/=\s]+)$/);
+  if (!m) {
     return NextResponse.json({ error: 'bad_file' }, { status: 400 });
   }
   const buffer = Buffer.from(m[2], 'base64');
+
+  /*
+   * 종류는 **내용으로** 판단한다.
+   *
+   * 브라우저가 알려 주는 종류(MIME)를 믿을 수 없다. 스캐너나 메일에서 내려받은
+   * 파일은 종류가 비어 있거나 `application/octet-stream`으로 오는 일이 흔하고,
+   * 그러면 멀쩡한 PDF인데도 거부당해 "업로드에 실패했습니다"만 뜬다.
+   * 그래서 앞머리 몇 바이트를 보고 정한다 — 이쪽이 더 정확하기도 하다.
+   */
+  const sniffed = sniffType(buffer);
+  const ext = sniffed?.ext ?? TYPES[m[1]];
+  const mime = sniffed?.mime ?? m[1];
+  if (!ext) {
+    return NextResponse.json({ error: 'bad_file' }, { status: 400 });
+  }
   if (buffer.byteLength > 8_000_000) {
     return NextResponse.json({ error: 'too_large' }, { status: 413 });
   }
   try {
     const path = `certs/${Date.now()}-${name}.${ext}`;
-    const url = await saveFile(path, buffer, m[1]);
+    const url = await saveFile(path, buffer, mime);
 
     /*
      * PDF는 올리는 즉시 사진 판을 함께 만들어 둔다.
